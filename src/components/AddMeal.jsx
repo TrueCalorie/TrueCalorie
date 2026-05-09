@@ -91,4 +91,75 @@ export default function AddMeal({ onLog }) {
                   {c}
                 </button>
               ))}
-            </d
+            </div>
+          )}
+          <div className="menu-items">
+            {!activeRest ? (
+              <div className="empty">
+                <i className="ti ti-building-store" />
+                <p>Select a restaurant on the left to browse its menu</p>
+              </div>
+            ) : menuItems.map(item => {
+              const key = `${activeRest}||${item.n}`
+              const inOrder = order.some(o => o.key === key)
+              return (
+                <div
+                  key={item.n}
+                  className={`menu-item ${inOrder ? 'sel' : ''}`}
+                  onClick={() => addItem(item)}
+                >
+                  <div className="mi-em">{item.em}</div>
+                  <div className="mi-info">
+                    <div className="mi-name">{item.n}</div>
+                    <div className="mi-desc">{item.d}</div>
+                  </div>
+                  <div className="mi-cal">{item.cal}</div>
+                  <i className={`ti ${inOrder ? 'ti-check' : 'ti-plus'} mi-icon`} />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="order-drawer">
+        <div className="drawer-toggle" onClick={() => setDrawerOpen(o => !o)}>
+          <div className="drawer-left">
+            <i className="ti ti-shopping-cart" style={{ fontSize: 18, color: 'var(--muted)' }} />
+            <div className="drawer-label">Order</div>
+            <div className="cart-badge">{totalItems}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="drawer-cals">{Math.round(totalCal).toLocaleString()} cal</div>
+            <i className="ti ti-chevron-down" style={{ fontSize: 16, color: 'var(--muted)', transform: drawerOpen ? 'rotate(180deg)' : '', transition: 'transform .25s' }} />
+          </div>
+        </div>
+
+        <div className={`drawer-body ${drawerOpen ? 'open' : 'closed'}`}>
+          <div className="order-list">
+            {order.length === 0 ? (
+              <div style={{ padding: 14, textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>No items added yet</div>
+            ) : order.map(o => (
+              <div className="order-item" key={o.key}>
+                <div className="oi-em">{o.em}</div>
+                <div className="oi-name">{o.name}</div>
+                <div className="oi-cal">{Math.round(o.cal * o.qty)}</div>
+                <div className="qty-ctrl">
+                  <button className="qty-btn" onClick={() => changeQty(o.key, -1)}>−</button>
+                  <span className="qty-num">{o.qty}</span>
+                  <button className="qty-btn" onClick={() => changeQty(o.key, 1)}>+</button>
+                </div>
+                <button className="oi-del" onClick={() => removeItem(o.key)}>
+                  <i className="ti ti-x" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button className="log-all-btn" disabled={order.length === 0} onClick={logAll}>
+            Log meal to today →
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
