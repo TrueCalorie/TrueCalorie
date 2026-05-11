@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import Auth from './Auth'
 import Onboarding from './Onboarding'
+import Settings from './Settings'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -12,6 +13,7 @@ function App() {
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [mealTime, setMealTime] = useState('Lunch')
+  const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -96,8 +98,8 @@ function App() {
   const totalFat = meals.reduce((sum, m) => sum + Number(m.fat), 0)
 
   const calorieGoal = settings?.calorie_goal || 2000
-  const ringPercent = Math.min(totalCalories / calorieGoal, 1)
   const circumference = 2 * Math.PI * 54
+  const ringPercent = Math.min(totalCalories / calorieGoal, 1)
   const offset = circumference * (1 - ringPercent)
 
   const groupedMeals = ['Breakfast', 'Lunch', 'Snack', 'Dinner'].reduce((acc, time) => {
@@ -113,17 +115,22 @@ function App() {
   )
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: 24, fontFamily: 'sans-serif' }}>
+    <div style={{ position: 'relative', maxWidth: 480, margin: '0 auto', padding: 24, fontFamily: 'sans-serif' }}>
 
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>
           Hey, {settings.display_name} 👋
         </h1>
-        <button onClick={() => supabase.auth.signOut()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 13 }}>
-          sign out
+        <button
+          onClick={() => setShowSettings(true)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 13 }}
+        >
+          settings
         </button>
       </div>
 
+      {/* Calorie Ring */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
         <div style={{ position: 'relative', width: 140, height: 140 }}>
           <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: 'rotate(-90deg)' }}>
@@ -141,9 +148,9 @@ function App() {
         </div>
         <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
           {[
-            { label: 'protein', val: Math.round(totalProtein), goal: settings.protein_goal },
-            { label: 'carbs', val: Math.round(totalCarbs), goal: settings.carbs_goal },
-            { label: 'fat', val: Math.round(totalFat), goal: settings.fat_goal },
+            { label: 'protein', val: Math.round(totalProtein) },
+            { label: 'carbs', val: Math.round(totalCarbs) },
+            { label: 'fat', val: Math.round(totalFat) },
           ].map(m => (
             <div key={m.label} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 14, fontWeight: 500 }}>{m.val}g</div>
@@ -153,6 +160,7 @@ function App() {
         </div>
       </div>
 
+      {/* Meal Time Selector + Search */}
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
           {['Breakfast', 'Lunch', 'Snack', 'Dinner'].map(t => (
@@ -179,6 +187,7 @@ function App() {
         </div>
       </div>
 
+      {/* Search Results */}
       {results.length > 0 && (
         <div style={{ border: '1px solid #eee', borderRadius: 10, marginBottom: 20, overflow: 'hidden' }}>
           {results.map((item, i) => (
@@ -196,6 +205,7 @@ function App() {
         </div>
       )}
 
+      {/* Meal Log */}
       {Object.keys(groupedMeals).length === 0 ? (
         <p style={{ color: '#ccc', textAlign: 'center', marginTop: 40, fontSize: 14 }}>no meals logged today</p>
       ) : (
@@ -222,6 +232,19 @@ function App() {
           </div>
         ))
       )}
+
+      {/* Settings Overlay */}
+      {showSettings && (
+        <div style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 10, overflowY: 'auto' }}>
+          <Settings
+            session={session}
+            settings={settings}
+            onUpdate={fetchSettings}
+            onClose={() => setShowSettings(false)}
+          />
+        </div>
+      )}
+
     </div>
   )
 }
