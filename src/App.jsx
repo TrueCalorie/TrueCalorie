@@ -3,6 +3,9 @@ import { supabase } from './supabase'
 import Auth from './Auth'
 import Onboarding from './Onboarding'
 import Settings from './Settings'
+import History from './History'
+import AchievementToast from './AchievementToast'
+import { ACHIEVEMENTS, checkAchievements } from './achievements'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -14,6 +17,9 @@ function App() {
   const [searching, setSearching] = useState(false)
   const [mealTime, setMealTime] = useState('Lunch')
   const [showSettings, setShowSettings] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [toastQueue, setToastQueue] = useState([])
+  const [currentToast, setCurrentToast] = useState(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -33,6 +39,13 @@ function App() {
     }
   }, [session])
 
+  useEffect(() => {
+    if (!currentToast && toastQueue.length > 0) {
+      setCurrentToast(toastQueue[0])
+      setToastQueue(q => q.slice(1))
+    }
+  }, [toastQueue, currentToast])
+
   const fetchSettings = async () => {
     const { data } = await supabase
       .from('user_settings')
@@ -50,6 +63,45 @@ function App() {
       .gte('logged_at', today)
       .order('logged_at', { ascending: false })
     if (data) setMeals(data)
+  }
+
+  const checkAndAwardAchievements = async () => {
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const { data: logs } = await supabase
+      .from('meal_logs')
+      .select('logged_at, calories')
+      .eq('user_id', session.user.id)
+      .gte('logged_at', thirtyDaysAgo.toISOString())
+
+    const { data: earned } = await supabase
+      .from('achievements')
+      .select('key')
+      .eq('user_id', session.user.id)
+
+    if (!logs || !earned) return
+
+    const grouped = {}
+    logs.forEach(m => {
+      const date = m.logged_at.split('T')[0]
+      if (!grouped[date]) grouped[date] = 0
+      grouped[date] += Number(m.calories)
+    })
+
+    const history = Object.entries(grouped).map(([date, calories]) => ({
+      date, calories, logged: true
+    }))
+
+    const newKeys = checkAchievements(history, settings?.calorie_goal || 2000, earned)
+
+    if (newKeys.length > 0) {
+      await supabase.from('achievements').insert(
+        newKeys.map(key => ({ user_id: session.user.id, key }))
+      )
+      const newToasts = newKeys.map(key => ACHIEVEMENTS.find(a => a.key === key)).filter(Boolean)
+      setToastQueue(q => [...q, ...newToasts])
+    }
   }
 
   const searchFood = async () => {
@@ -84,7 +136,8 @@ function App() {
     await supabase.from('meal_logs').insert(entry)
     setResults([])
     setSearch('')
-    fetchMeals()
+    await fetchMeals()
+    checkAndAwardAchievements()
   }
 
   const deleteItem = async (id) => {
@@ -117,17 +170,26 @@ function App() {
   return (
     <div style={{ position: 'relative', maxWidth: 480, margin: '0 auto', padding: 24, fontFamily: 'sans-serif' }}>
 
+      {currentToast && (
+        <AchievementToast
+          achievement={currentToast}
+          onDone={() => setCurrentToast(null)}
+        />
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>
           Hey, {settings.display_name} 👋
         </h1>
-        <button
-          onClick={() => setShowSettings(true)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 13 }}
-        >
-          settings
-        </button>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <button onClick={() => setShowHistory(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 13 }}>
+            history
+          </button>
+          <button onClick={() => setShowSettings(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa', fontSize: 13 }}>
+            settings
+          </button>
+        </div>
       </div>
 
       {/* Calorie Ring */}
@@ -241,6 +303,17 @@ function App() {
             settings={settings}
             onUpdate={fetchSettings}
             onClose={() => setShowSettings(false)}
+          />
+        </div>
+      )}
+
+      {/* History Overlay */}
+      {showHistory && (
+        <div style={{ position: 'fixed', inset: 0, background: '#fff', zIndex: 10, overflowY: 'auto' }}>
+          <History
+            session={session}
+            settings={settings}
+            onClose={() => setShowHistory(false)}
           />
         </div>
       )}
