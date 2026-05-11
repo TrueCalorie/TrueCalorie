@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
 export default function Settings({ session, settings, onUpdate, onClose }) {
@@ -14,8 +14,20 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [currentTheme, setCurrentTheme] = useState(localStorage.getItem('theme') || 'system')
 
   const update = (key, value) => setForm(f => ({ ...f, [key]: value }))
+
+  const setTheme = (t) => {
+    setCurrentTheme(t)
+    if (t === 'system') {
+      document.documentElement.removeAttribute('data-theme')
+      localStorage.removeItem('theme')
+    } else {
+      document.documentElement.setAttribute('data-theme', t)
+      localStorage.setItem('theme', t)
+    }
+  }
 
   const save = async () => {
     setSaving(true)
@@ -47,11 +59,13 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
     outline: 'none',
     boxSizing: 'border-box',
     fontFamily: 'sans-serif',
+    background: 'var(--surface)',
+    color: 'var(--text)',
   }
 
   const labelStyle = {
     fontSize: 12,
-    color: '#aaa',
+    color: 'var(--muted)',
     letterSpacing: '0.04em',
     marginBottom: 6,
     display: 'block',
@@ -64,19 +78,32 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
   const sectionHeading = {
     fontSize: 13,
     fontWeight: 600,
-    color: '#111',
+    color: 'var(--text)',
     marginBottom: 14,
     paddingBottom: 8,
-    borderBottom: '1px solid #f0f0f0',
+    borderBottom: '1px solid var(--border)',
   }
 
   const optionRow = (selected) => ({
     flex: 1,
     padding: '10px 8px',
     borderRadius: 8,
-    border: selected ? '1.5px solid #111' : '1px solid #ddd',
-    background: selected ? '#111' : 'none',
-    color: selected ? '#fff' : '#888',
+    border: selected ? '1.5px solid var(--text)' : '1px solid var(--border)',
+    background: selected ? 'var(--text)' : 'none',
+    color: selected ? 'var(--bg)' : 'var(--muted)',
+    cursor: 'pointer',
+    fontSize: 12,
+    fontFamily: 'sans-serif',
+    textAlign: 'center',
+  })
+
+  const themeBtn = (t) => ({
+    flex: 1,
+    padding: '10px 8px',
+    borderRadius: 8,
+    border: currentTheme === t ? '1.5px solid var(--text)' : '1px solid var(--border)',
+    background: currentTheme === t ? 'var(--text)' : 'none',
+    color: currentTheme === t ? 'var(--bg)' : 'var(--muted)',
     cursor: 'pointer',
     fontSize: 12,
     fontFamily: 'sans-serif',
@@ -84,11 +111,11 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
   })
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 24px 80px', fontFamily: 'sans-serif' }}>
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 24px 80px', fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#aaa', marginRight: 12, padding: 0 }}>←</button>
-        <h1 style={{ fontSize: 20, fontWeight: 600 }}>Settings</h1>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', marginRight: 12, padding: 0 }}>←</button>
+        <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>Settings</h1>
       </div>
 
       <div style={sectionStyle}>
@@ -156,18 +183,30 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
       </div>
 
       <div style={sectionStyle}>
+        <div style={sectionHeading}>APPEARANCE</div>
+        <label style={labelStyle}>THEME</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {['system', 'light', 'dark'].map(t => (
+            <button key={t} style={themeBtn(t)} onClick={() => setTheme(t)}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
         <div style={sectionHeading}>ACCOUNT</div>
-        <p style={{ fontSize: 13, color: '#aaa', marginBottom: 4 }}>Signed in as</p>
-        <p style={{ fontSize: 14, color: '#111', marginBottom: 16 }}>{session.user.email}</p>
+        <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 4 }}>Signed in as</p>
+        <p style={{ fontSize: 14, color: 'var(--text)', marginBottom: 16 }}>{session.user.email}</p>
         <button
           onClick={() => supabase.auth.signOut()}
           style={{
             background: 'none',
-            border: '1px solid #eee',
+            border: '1px solid var(--border)',
             borderRadius: 8,
             padding: '10px 16px',
             fontSize: 13,
-            color: '#aaa',
+            color: 'var(--muted)',
             cursor: 'pointer',
             fontFamily: 'sans-serif',
             width: '100%',
@@ -186,8 +225,8 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
           fontSize: 16,
           borderRadius: 10,
           border: 'none',
-          background: saved ? '#22c55e' : '#111',
-          color: '#fff',
+          background: saved ? '#22c55e' : 'var(--text)',
+          color: saved ? '#fff' : 'var(--bg)',
           cursor: 'pointer',
           transition: 'background 0.3s',
         }}

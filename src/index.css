@@ -16,6 +16,56 @@
   --success-border: #9FE1CB;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --text: #f0f0f0;
+    --muted: #666666;
+    --border: rgba(255,255,255,0.08);
+    --accent: #1D9E75;
+    --accent-light: #0d2e22;
+    --danger: #E24B4A;
+    --info-bg: #0d1f35;
+    --info-txt: #5ba3e8;
+    --success-bg: #0d2e22;
+    --success-border: #1a5c3a;
+  }
+}
+
+[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface2: #1a1a1a;
+  --text: #f0f0f0;
+  --muted: #666666;
+  --border: rgba(255,255,255,0.08);
+  --accent: #1D9E75;
+  --accent-light: #0d2e22;
+  --danger: #E24B4A;
+  --info-bg: #0d1f35;
+  --info-txt: #5ba3e8;
+  --success-bg: #0d2e22;
+  --success-border: #1a5c3a;
+}
+
+[data-theme="light"] {
+  --bg: #FAF8F4;
+  --surface: #FFFFFF;
+  --surface2: #F4F2EE;
+  --text: #1A1A18;
+  --muted: #888780;
+  --border: rgba(0,0,0,0.09);
+  --accent: #1D9E75;
+  --accent-light: #E1F5EE;
+  --danger: #E24B4A;
+  --info-bg: #EBF4FF;
+  --info-txt: #185FA5;
+  --success-bg: #E1F5EE;
+  --success-border: #9FE1CB;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
@@ -23,6 +73,7 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
+  transition: background 0.3s, color 0.3s;
 }
 
 #root {
@@ -58,7 +109,7 @@ body {
 .mc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
 .mc-lbl { font-size: 10px; color: var(--muted); margin-bottom: 3px; font-weight: 500; }
 .mc-val { font-size: 17px; font-weight: 600; }
-.mc-bar { height: 3px; background: #eee; border-radius: 2px; margin-top: 5px; overflow: hidden; }
+.mc-bar { height: 3px; background: var(--surface2); border-radius: 2px; margin-top: 5px; overflow: hidden; }
 .mc-fill { height: 3px; border-radius: 2px; transition: width .4s; }
 
 .add-btn-strip { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1.5px dashed var(--border); border-radius: 14px; padding: 11px 14px; cursor: pointer; margin-bottom: 16px; font-size: 13px; font-weight: 500; color: var(--muted); transition: all .15s; width: 100%; font-family: inherit; }
@@ -104,7 +155,7 @@ body {
 .cat-row { display: flex; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; background: var(--surface); }
 .cat-row::-webkit-scrollbar { display: none; }
 .cat-pill { padding: 5px 11px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); white-space: nowrap; color: var(--muted); background: transparent; transition: all .15s; font-family: inherit; }
-.cat-pill.active { background: var(--text); color: #fff; border-color: var(--text); }
+.cat-pill.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 
 .menu-items { flex: 1; overflow-y: auto; padding: 6px; }
 .menu-item { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 12px; cursor: pointer; border: 1px solid transparent; margin-bottom: 4px; transition: background .1s; }
@@ -140,7 +191,7 @@ body {
 .qty-num { font-size: 11px; font-weight: 600; min-width: 16px; text-align: center; }
 .oi-del { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; padding: 2px; flex-shrink: 0; }
 .oi-del:hover { color: var(--danger); }
-.log-all-btn { display: block; width: calc(100% - 24px); margin: 8px 12px 10px; padding: 12px; border-radius: 12px; border: none; background: var(--text); color: #fff; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+.log-all-btn { display: block; width: calc(100% - 24px); margin: 8px 12px 10px; padding: 12px; border-radius: 12px; border: none; background: var(--text); color: var(--bg); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
 .log-all-btn:hover { opacity: .85; }
 .log-all-btn:disabled { opacity: .3; cursor: default; }
 
@@ -160,3 +211,14 @@ body {
 /* TOAST */
 .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--text); color: var(--bg); padding: 9px 20px; border-radius: 24px; font-size: 13px; font-weight: 600; opacity: 0; transition: all .3s; pointer-events: none; white-space: nowrap; z-index: 100; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Remove number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
