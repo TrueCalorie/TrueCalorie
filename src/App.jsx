@@ -20,6 +20,8 @@ function App() {
   const [showHistory, setShowHistory] = useState(false)
   const [toastQueue, setToastQueue] = useState([])
   const [currentToast, setCurrentToast] = useState(null)
+  const [resultPage, setResultPage] = useState(0)
+  const RESULTS_PER_PAGE = 5
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -97,21 +99,92 @@ function App() {
     }
   }
 
+  const scoreResult = (item, query) => {
+    let score = 0
+    const name = (item.food_name || '').toLowerCase()
+    const brand = (item.brand_name || '').toLowerCase()
+    const q = query.toLowerCase()
+
+    // Exact name match
+    if (name === q) score += 100
+    // Starts with query
+    if (name.startsWith(q)) score += 50
+    // Contains query
+    if (name.includes(q)) score += 25
+    // Brand contains query
+    if (brand.includes(q)) score += 10
+    // Has complete nutrition data
+    if (item.nf_calories > 0) score += 20
+    if (item.nf_protein > 0) score += 5
+    if (item.nf_total_carbohydrate > 0) score += 5
+    if (item.nf_total_fat > 0) score += 5
+    // Prefer shorter names (more specific)
+    score -= name.length * 0.1
+
+    return score
+  }
+
   const searchFood = async () => {
     if (!search.trim()) return
     setSearching(true)
-    const res = await fetch(
-      `https://trackapi.nutritionix.com/v2/search/instant?query=${search}`,
-      {
-        headers: {
-          'x-app-id': import.meta.env.VITE_NUTRITIONIX_APP_ID,
-          'x-app-key': import.meta.env.VITE_NUTRITIONIX_APP_KEY,
-        }
+    setResultPage(0)
+
+    const allResults = []
+
+    // Open Food Facts
+    try {
+      const offRes = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(search)}&search_simple=1&action=process&json=1&page_size=30&fields=product_name,brands,nutriments,countries_tags`
+      )
+      const offData = await offRes.json()
+      if (offData.products) {
+        const groceryItems = offData.products
+          .filter(p => p.product_name && p.nutriments?.['energy-kcal_serving'])
+          .map(p => ({
+            food_name: p.product_name,
+            brand_name: p.brands || null,
+            nf_calories: Math.round(p.nutriments['energy-kcal_serving'] || 0),
+            nf_protein: Math.round(p.nutriments['proteins_serving'] || 0),
+            nf_total_carbohydrate: Math.round(p.nutriments['carbohydrates_serving'] || 0),
+            nf_total_fat: Math.round(p.nutriments['fat_serving'] || 0),
+            countries: p.countries_tags || [],
+            source: 'off',
+          }))
+          // Boost US products
+          .map(p => ({ ...p, _usBoost: p.countries.includes('en:united-states') ? 30 : 0 }))
+        allResults.push(...groceryItems)
       }
-    )
-    const data = await res.json()
-    const items = [...(data.branded || []), ...(data.common || [])].slice(0, 10)
-    setResults(items)
+    } catch (e) {
+      console.error('Open Food Facts error:', e)
+    }
+
+    // Nutritionix
+    if (import.meta.env.VITE_NUTRITIONIX_APP_ID && import.meta.env.VITE_NUTRITIONIX_APP_KEY) {
+      try {
+        const nxRes = await fetch(
+          `https://trackapi.nutritionix.com/v2/search/instant?query=${encodeURIComponent(search)}`,
+          {
+            headers: {
+              'x-app-id': import.meta.env.VITE_NUTRITIONIX_APP_ID,
+              'x-app-key': import.meta.env.VITE_NUTRITIONIX_APP_KEY,
+            }
+          }
+        )
+        const nxData = await nxRes.json()
+        const restaurantItems = [...(nxData.branded || []), ...(nxData.common || [])]
+          .map(p => ({ ...p, source: 'nx', _usBoost: 30 }))
+        allResults.push(...restaurantItems)
+      } catch (e) {
+        console.error('Nutritionix error:', e)
+      }
+    }
+
+    // Sort by relevance score
+    const sorted = allResults
+      .map(item => ({ ...item, _score: scoreResult(item, search) + (item._usBoost || 0) }))
+      .sort((a, b) => b._score - a._score)
+
+    setResults(sorted)
     setSearching(false)
   }
 
@@ -129,6 +202,7 @@ function App() {
     await supabase.from('meal_logs').insert(entry)
     setResults([])
     setSearch('')
+    setResultPage(0)
     await fetchMeals()
     checkAndAwardAchievements()
   }
@@ -153,6 +227,9 @@ function App() {
     if (group.length > 0) acc[time] = group
     return acc
   }, {})
+
+  const pagedResults = results.slice(resultPage * RESULTS_PER_PAGE, (resultPage + 1) * RESULTS_PER_PAGE)
+  const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE)
 
   if (loading) return <p style={{ padding: 24, color: 'var(--text)' }}>Loading...</p>
   if (!session) return <Auth />
@@ -240,27 +317,85 @@ function App() {
           <button onClick={searchFood} style={{
             padding: '10px 18px', borderRadius: 10, border: 'none',
             background: 'var(--text)', color: 'var(--bg)', fontSize: 14, cursor: 'pointer',
+            minWidth: 72, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            {searching ? '...' : 'search'}
+            {searching ? (
+              <span style={{
+                display: 'inline-block',
+                width: 16, height: 16,
+                border: '2px solid var(--bg)',
+                borderTopColor: 'transparent',
+                borderRadius: '50%',
+                animation: 'spin 0.7s linear infinite',
+              }} />
+            ) : 'search'}
           </button>
         </div>
       </div>
 
+      {/* Spinner keyframe */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
       {/* Search Results */}
       {results.length > 0 && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 10, marginBottom: 20, overflow: 'hidden', background: 'var(--surface)' }}>
-          {results.map((item, i) => (
-            <div key={i} onClick={() => logItem(item)} style={{
-              padding: '10px 14px', borderBottom: '1px solid var(--border)',
-              cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-            }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{item.food_name}</div>
-                {item.brand_name && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.brand_name}</div>}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
+            {pagedResults.map((item, i) => (
+              <div key={i} onClick={() => logItem(item)} style={{
+                padding: '10px 14px', borderBottom: '1px solid var(--border)',
+                cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                transition: 'background 0.15s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.food_name}</div>
+                  {item.brand_name && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.brand_name}</div>}
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', flexShrink: 0 }}>{Math.round(item.nf_calories || 0)} cal</div>
               </div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{Math.round(item.nf_calories || 0)} cal</div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+              <button
+                onClick={() => setResultPage(p => Math.max(0, p - 1))}
+                disabled={resultPage === 0}
+                style={{
+                  padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'none', color: resultPage === 0 ? 'var(--border)' : 'var(--text)',
+                  cursor: resultPage === 0 ? 'default' : 'pointer', fontSize: 13,
+                }}
+              >←</button>
+
+              {Array.from({ length: totalPages }, (_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setResultPage(i)}
+                  style={{
+                    width: 32, height: 32, borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: resultPage === i ? 'var(--text)' : 'none',
+                    color: resultPage === i ? 'var(--bg)' : 'var(--muted)',
+                    cursor: 'pointer', fontSize: 13, fontWeight: resultPage === i ? 600 : 400,
+                  }}
+                >{i + 1}</button>
+              ))}
+
+              <button
+                onClick={() => setResultPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={resultPage === totalPages - 1}
+                style={{
+                  padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                  background: 'none', color: resultPage === totalPages - 1 ? 'var(--border)' : 'var(--text)',
+                  cursor: resultPage === totalPages - 1 ? 'default' : 'pointer', fontSize: 13,
+                }}
+              >→</button>
             </div>
-          ))}
+          )}
         </div>
       )}
 
