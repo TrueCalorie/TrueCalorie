@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from './supabase'
 
 export default function Settings({ session, settings, onUpdate, onClose }) {
@@ -158,7 +158,23 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
       <div style={sectionStyle}>
         <div style={sectionHeading}>ACCOUNT</div>
         <p style={{ fontSize: 13, color: '#aaa', marginBottom: 4 }}>Signed in as</p>
-        <p style={{ fontSize: 14, color: '#111' }}>{session.user.email}</p>
+        <p style={{ fontSize: 14, color: '#111', marginBottom: 16 }}>{session.user.email}</p>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          style={{
+            background: 'none',
+            border: '1px solid #eee',
+            borderRadius: 8,
+            padding: '10px 16px',
+            fontSize: 13,
+            color: '#aaa',
+            cursor: 'pointer',
+            fontFamily: 'sans-serif',
+            width: '100%',
+          }}
+        >
+          Sign out
+        </button>
       </div>
 
       <button
