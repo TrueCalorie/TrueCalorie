@@ -14,14 +14,12 @@ export default function History({ session, settings, onClose }) {
   const fetchHistory = async () => {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
     const { data } = await supabase
       .from('meal_logs')
       .select('*')
       .eq('user_id', session.user.id)
       .gte('logged_at', thirtyDaysAgo.toISOString())
       .order('logged_at', { ascending: false })
-
     if (data) {
       const grouped = {}
       data.forEach(meal => {
@@ -29,7 +27,6 @@ export default function History({ session, settings, onClose }) {
         if (!grouped[date]) grouped[date] = []
         grouped[date].push(meal)
       })
-
       const days = Object.entries(grouped).map(([date, meals]) => ({
         date,
         logged: true,
@@ -39,7 +36,6 @@ export default function History({ session, settings, onClose }) {
         fat: meals.reduce((s, m) => s + Number(m.fat), 0),
         meals,
       })).sort((a, b) => new Date(b.date) - new Date(a.date))
-
       setHistory(days)
     }
     setLoading(false)
@@ -63,7 +59,6 @@ export default function History({ session, settings, onClose }) {
     const today = new Date()
     const yesterday = new Date()
     yesterday.setDate(today.getDate() - 1)
-
     if (dateStr === today.toISOString().split('T')[0]) return 'Today'
     if (dateStr === yesterday.toISOString().split('T')[0]) return 'Yesterday'
     return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
@@ -105,18 +100,18 @@ export default function History({ session, settings, onClose }) {
     : 0
 
   if (loading) return (
-    <div style={{ padding: 24, fontFamily: 'sans-serif', textAlign: 'center', color: '#aaa', marginTop: 80 }}>
+    <div style={{ padding: 24, fontFamily: 'sans-serif', textAlign: 'center', color: 'var(--muted)', marginTop: 80 }}>
       Loading...
     </div>
   )
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 24px 80px', fontFamily: 'sans-serif' }}>
+    <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 24px 80px', fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: '#aaa', marginRight: 12, padding: 0 }}>←</button>
-        <h1 style={{ fontSize: 20, fontWeight: 600 }}>History</h1>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--muted)', marginRight: 12, padding: 0 }}>←</button>
+        <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>History</h1>
       </div>
 
       {/* Stats Row */}
@@ -127,18 +122,18 @@ export default function History({ session, settings, onClose }) {
           { label: 'avg calories', val: avgCalories },
         ].map(s => (
           <div key={s.label} style={{
-            flex: 1, background: '#f7f7f7', borderRadius: 12,
+            flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12,
             padding: '14px 10px', textAlign: 'center'
           }}>
-            <div style={{ fontSize: 22, fontWeight: 600 }}>{s.val}</div>
-            <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>{s.val}</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Achievements */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 11, color: '#aaa', letterSpacing: '0.05em', marginBottom: 12 }}>ACHIEVEMENTS</div>
+        <div style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '0.05em', marginBottom: 12 }}>ACHIEVEMENTS</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {ACHIEVEMENT_DEFS.map(a => {
             const earned = earnedKeys.has(a.key)
@@ -146,15 +141,15 @@ export default function History({ session, settings, onClose }) {
               <div key={a.key} style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '8px 12px', borderRadius: 10,
-                border: '1px solid #eee',
-                background: earned ? '#f7f7f7' : 'none',
+                border: '1px solid var(--border)',
+                background: earned ? 'var(--surface)' : 'none',
                 opacity: earned ? 1 : 0.35,
                 flex: '1 1 calc(50% - 4px)',
               }}>
                 <span style={{ fontSize: 20 }}>{a.icon}</span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{a.label}</div>
-                  <div style={{ fontSize: 11, color: '#aaa' }}>{a.desc}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{a.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{a.desc}</div>
                 </div>
               </div>
             )
@@ -163,34 +158,36 @@ export default function History({ session, settings, onClose }) {
       </div>
 
       {/* Day by Day */}
-      <div style={{ fontSize: 11, color: '#aaa', letterSpacing: '0.05em', marginBottom: 12 }}>PAST 30 DAYS</div>
+      <div style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '0.05em', marginBottom: 12 }}>PAST 30 DAYS</div>
       {history.length === 0 ? (
-        <p style={{ color: '#ccc', textAlign: 'center', marginTop: 40, fontSize: 14 }}>no history yet — start logging!</p>
+        <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: 40, fontSize: 14 }}>no history yet — start logging!</p>
       ) : (
         history.map(day => (
           <div key={day.date} style={{
             marginBottom: 16, padding: 16,
-            background: '#f7f7f7', borderRadius: 12,
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
             borderLeft: hitGoal(day.calories) ? '3px solid #22c55e' : '3px solid transparent',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>{formatDate(day.date)}</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{formatDate(day.date)}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {hitGoal(day.calories) && (
                   <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 500 }}>✓ goal hit</span>
                 )}
-                <span style={{ fontSize: 15, fontWeight: 600 }}>{Math.round(day.calories)} cal</span>
+                <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{Math.round(day.calories)} cal</span>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 16 }}>
               {[
-                { label: 'protein', val: Math.round(day.protein), goal: proteinGoal },
-                { label: 'carbs', val: Math.round(day.carbs), goal: carbsGoal },
-                { label: 'fat', val: Math.round(day.fat), goal: fatGoal },
+                { label: 'protein', val: Math.round(day.protein) },
+                { label: 'carbs', val: Math.round(day.carbs) },
+                { label: 'fat', val: Math.round(day.fat) },
               ].map(m => (
                 <div key={m.label}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{m.val}g</div>
-                  <div style={{ fontSize: 11, color: '#aaa' }}>{m.label}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{m.val}g</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{m.label}</div>
                 </div>
               ))}
             </div>
