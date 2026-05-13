@@ -18,34 +18,24 @@ function calculateGoals({ age, sex, height_cm, weight_kg, activity_level, goal }
   const bmr = sex === 'male'
     ? 10 * weight_kg + 6.25 * height_cm - 5 * age + 5
     : 10 * weight_kg + 6.25 * height_cm - 5 * age - 161
-
   const multipliers = { sedentary: 1.2, light: 1.375, moderate: 1.55, very: 1.725 }
   const tdee = bmr * (multipliers[activity_level] || 1.2)
-
   const calorie_goal = Math.round(
     goal === 'lose' ? tdee - 500 :
-    goal === 'gain' ? tdee + 300 :
-    tdee
+    goal === 'gain' ? tdee + 300 : tdee
   )
-
   const protein_goal = Math.round(weight_kg * 2)
   const fat_goal = Math.round((calorie_goal * 0.25) / 9)
   const carbs_goal = Math.round((calorie_goal - protein_goal * 4 - fat_goal * 9) / 4)
-
   return { calorie_goal, protein_goal, fat_goal, carbs_goal }
 }
 
 export default function Onboarding({ session, onComplete }) {
   const [step, setStep] = useState(0)
   const [data, setData] = useState({
-    display_name: '',
-    age: '',
-    sex: '',
-    height_ft: '',
-    height_in: '',
-    weight_lbs: '',
-    activity_level: '',
-    goal: '',
+    display_name: '', age: '', sex: '',
+    height_ft: '', height_in: '', weight_lbs: '',
+    activity_level: '', goal: '',
   })
   const [calculated, setCalculated] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -58,12 +48,9 @@ export default function Onboarding({ session, onComplete }) {
       const height_cm = (parseInt(data.height_ft) * 12 + parseInt(data.height_in)) * 2.54
       const weight_kg = parseFloat(data.weight_lbs) * 0.453592
       const goals = calculateGoals({
-        age: parseInt(data.age),
-        sex: data.sex,
-        height_cm,
-        weight_kg,
-        activity_level: data.activity_level,
-        goal: data.goal,
+        age: parseInt(data.age), sex: data.sex,
+        height_cm, weight_kg,
+        activity_level: data.activity_level, goal: data.goal,
       })
       setCalculated(goals)
     }
@@ -75,7 +62,6 @@ export default function Onboarding({ session, onComplete }) {
     setError('')
     const height_cm = (parseInt(data.height_ft) * 12 + parseInt(data.height_in)) * 2.54
     const weight_kg = parseFloat(data.weight_lbs) * 0.453592
-
     const { error } = await supabase
       .from('user_settings')
       .update({
@@ -93,37 +79,42 @@ export default function Onboarding({ session, onComplete }) {
         onboarding_complete: true,
       })
       .eq('user_id', session.user.id)
-
     if (error) {
       console.error(error)
       setError('Something went wrong. Please try again.')
       setSaving(false)
       return
     }
-
     setSaving(false)
     onComplete()
   }
 
-  const container = {
+  const c = {
     maxWidth: 480,
     margin: '0 auto',
     padding: '60px 24px 24px',
     fontFamily: 'sans-serif',
     minHeight: '100vh',
+    background: 'var(--bg)',
   }
 
   const heading = {
     fontSize: 26,
     fontWeight: 600,
     marginBottom: 8,
-    color: '#111',
+    color: 'var(--text)',
   }
 
   const sub = {
     fontSize: 15,
-    color: '#888',
+    color: 'var(--muted)',
     marginBottom: 32,
+  }
+
+  const counter = {
+    fontSize: 13,
+    color: 'var(--muted)',
+    marginBottom: 24,
   }
 
   const inputStyle = {
@@ -131,10 +122,14 @@ export default function Onboarding({ session, onComplete }) {
     padding: '12px 14px',
     fontSize: 16,
     borderRadius: 10,
-    border: '1px solid #ddd',
+    border: '1px solid var(--border)',
     outline: 'none',
     boxSizing: 'border-box',
     marginBottom: 12,
+    background: 'var(--surface)',
+    color: 'var(--text)',
+    fontFamily: 'sans-serif',
+    WebkitTextFillColor: 'var(--text)',
   }
 
   const btn = (disabled) => ({
@@ -143,26 +138,40 @@ export default function Onboarding({ session, onComplete }) {
     fontSize: 16,
     borderRadius: 10,
     border: 'none',
-    background: disabled ? '#eee' : '#111',
-    color: disabled ? '#aaa' : '#fff',
+    background: disabled ? 'var(--surface2)' : 'var(--text)',
+    color: disabled ? 'var(--muted)' : 'var(--bg)',
     cursor: disabled ? 'default' : 'pointer',
     marginTop: 8,
+    fontFamily: 'sans-serif',
   })
 
   const option = (selected) => ({
     width: '100%',
     padding: '14px 16px',
     borderRadius: 10,
-    border: selected ? '2px solid #111' : '1px solid #ddd',
-    background: selected ? '#f5f5f5' : '#fff',
+    border: selected ? '2px solid var(--text)' : '1px solid var(--border)',
+    background: selected ? 'var(--text)' : 'var(--surface)',
     cursor: 'pointer',
     textAlign: 'left',
     marginBottom: 10,
     display: 'block',
   })
 
+  const optionLabel = (selected) => ({
+    fontWeight: 500,
+    fontSize: 15,
+    color: selected ? 'var(--bg)' : 'var(--text)',
+  })
+
+  const optionDesc = (selected) => ({
+    fontSize: 13,
+    color: selected ? 'var(--bg)' : 'var(--muted)',
+    marginTop: 2,
+    opacity: selected ? 0.8 : 1,
+  })
+
   if (step === 0) return (
-    <div style={container}>
+    <div style={c}>
       <div style={{ fontSize: 32, marginBottom: 16 }}>👋</div>
       <div style={heading}>Welcome to TrueCalorie</div>
       <div style={sub}>Answer a few quick questions and we'll set everything up for you. Takes about 60 seconds.</div>
@@ -171,8 +180,8 @@ export default function Onboarding({ session, onComplete }) {
   )
 
   if (step === 1) return (
-    <div style={container}>
-      <div style={sub}>1 of 6</div>
+    <div style={c}>
+      <div style={counter}>1 of 6</div>
       <div style={heading}>What's your name?</div>
       <input
         style={inputStyle}
@@ -186,8 +195,8 @@ export default function Onboarding({ session, onComplete }) {
   )
 
   if (step === 2) return (
-    <div style={container}>
-      <div style={sub}>2 of 6</div>
+    <div style={c}>
+      <div style={counter}>2 of 6</div>
       <div style={heading}>How old are you?</div>
       <input
         style={inputStyle}
@@ -202,13 +211,13 @@ export default function Onboarding({ session, onComplete }) {
   )
 
   if (step === 3) return (
-    <div style={container}>
-      <div style={sub}>3 of 6</div>
+    <div style={c}>
+      <div style={counter}>3 of 6</div>
       <div style={heading}>Biological sex?</div>
       <div style={{ ...sub, marginBottom: 16 }}>Used for calorie calculations</div>
       {['male', 'female'].map(s => (
         <button key={s} style={option(data.sex === s)} onClick={() => update('sex', s)}>
-          <div style={{ fontWeight: 500, fontSize: 15 }}>{s.charAt(0).toUpperCase() + s.slice(1)}</div>
+          <div style={optionLabel(data.sex === s)}>{s.charAt(0).toUpperCase() + s.slice(1)}</div>
         </button>
       ))}
       <button style={btn(!data.sex)} disabled={!data.sex} onClick={next}>Continue</button>
@@ -216,8 +225,8 @@ export default function Onboarding({ session, onComplete }) {
   )
 
   if (step === 4) return (
-    <div style={container}>
-      <div style={sub}>4 of 6</div>
+    <div style={c}>
+      <div style={counter}>4 of 6</div>
       <div style={heading}>Height and weight?</div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <input
@@ -251,13 +260,13 @@ export default function Onboarding({ session, onComplete }) {
   )
 
   if (step === 5) return (
-    <div style={container}>
-      <div style={sub}>5 of 6</div>
+    <div style={c}>
+      <div style={counter}>5 of 6</div>
       <div style={heading}>How active are you?</div>
       {ACTIVITY_LEVELS.map(a => (
         <button key={a.key} style={option(data.activity_level === a.key)} onClick={() => update('activity_level', a.key)}>
-          <div style={{ fontWeight: 500, fontSize: 15 }}>{a.label}</div>
-          <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>{a.desc}</div>
+          <div style={optionLabel(data.activity_level === a.key)}>{a.label}</div>
+          <div style={optionDesc(data.activity_level === a.key)}>{a.desc}</div>
         </button>
       ))}
       <button style={btn(!data.activity_level)} disabled={!data.activity_level} onClick={next}>Continue</button>
@@ -265,13 +274,13 @@ export default function Onboarding({ session, onComplete }) {
   )
 
   if (step === 6) return (
-    <div style={container}>
-      <div style={sub}>6 of 6</div>
+    <div style={c}>
+      <div style={counter}>6 of 6</div>
       <div style={heading}>What's your goal?</div>
       {GOALS.map(g => (
         <button key={g.key} style={option(data.goal === g.key)} onClick={() => update('goal', g.key)}>
-          <div style={{ fontWeight: 500, fontSize: 15 }}>{g.label}</div>
-          <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>{g.desc}</div>
+          <div style={optionLabel(data.goal === g.key)}>{g.label}</div>
+          <div style={optionDesc(data.goal === g.key)}>{g.desc}</div>
         </button>
       ))}
       <button style={btn(!data.goal)} disabled={!data.goal} onClick={next}>Continue</button>
@@ -279,15 +288,21 @@ export default function Onboarding({ session, onComplete }) {
   )
 
   if (step === 7 && calculated) return (
-    <div style={container}>
+    <div style={c}>
       <div style={{ fontSize: 32, marginBottom: 16 }}>🎯</div>
       <div style={heading}>Here's your plan, {data.display_name}</div>
       <div style={sub}>Based on your info we've calculated your daily targets. You can adjust these anytime in settings.</div>
 
-      <div style={{ background: '#f5f5f5', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+      <div style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 24,
+      }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
-          <div style={{ fontSize: 42, fontWeight: 700 }}>{calculated.calorie_goal}</div>
-          <div style={{ fontSize: 14, color: '#888' }}>calories per day</div>
+          <div style={{ fontSize: 42, fontWeight: 700, color: 'var(--text)' }}>{calculated.calorie_goal}</div>
+          <div style={{ fontSize: 14, color: 'var(--muted)' }}>calories per day</div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-around' }}>
           {[
@@ -296,14 +311,14 @@ export default function Onboarding({ session, onComplete }) {
             { label: 'Fat', val: calculated.fat_goal },
           ].map(m => (
             <div key={m.label} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 600 }}>{m.val}g</div>
-              <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{m.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>{m.val}g</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{m.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {error && <p style={{ color: 'red', marginBottom: 12, fontSize: 14 }}>{error}</p>}
+      {error && <p style={{ color: '#ef4444', marginBottom: 12, fontSize: 14 }}>{error}</p>}
 
       <button style={btn(saving)} onClick={save} disabled={saving}>
         {saving ? 'Saving...' : 'Start tracking'}
