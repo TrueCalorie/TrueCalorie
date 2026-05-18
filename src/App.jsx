@@ -6,6 +6,7 @@ import Settings from './Settings'
 import History from './History'
 import Founders from './Founders'
 import AchievementToast from './AchievementToast'
+import RestaurantSearch from './components/RestaurantSearch'
 import { ACHIEVEMENTS, checkAchievements } from './achievements'
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [mealTime, setMealTime] = useState('Lunch')
+  const [activeTab, setActiveTab] = useState('grocery') // 'grocery' | 'restaurant'
   const [showSettings, setShowSettings] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showFounders, setShowFounders] = useState(false)
@@ -30,7 +32,6 @@ function App() {
     if (window.location.pathname === '/founders') {
       setShowFounders(true)
     }
-    // Listen for browser back/forward navigation
     const handlePop = () => {
       setShowFounders(window.location.pathname === '/founders')
     }
@@ -120,25 +121,21 @@ function App() {
     const brand = (item.brand_name || '').toLowerCase()
     const q = query.toLowerCase()
 
-    // Exact name match
     if (name === q) score += 100
-    // Starts with query
     if (name.startsWith(q)) score += 50
-    // Contains query
     if (name.includes(q)) score += 25
-    // Brand contains query
     if (brand.includes(q)) score += 10
-    // Has complete nutrition data
     if (item.nf_calories > 0) score += 20
     if (item.nf_protein > 0) score += 5
     if (item.nf_total_carbohydrate > 0) score += 5
     if (item.nf_total_fat > 0) score += 5
-    // Prefer shorter names (more specific)
     score -= name.length * 0.1
 
     return score
   }
 
+  // Grocery-only search (Open Food Facts).
+  // Restaurant search lives in its own component on the restaurant tab.
   const searchFood = async () => {
     if (!search.trim()) return
     setSearching(true)
@@ -146,7 +143,6 @@ function App() {
 
     const allResults = []
 
-    // Open Food Facts
     try {
       const offRes = await fetch(
         `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(search)}&search_simple=1&action=process&json=1&page_size=30&fields=product_name,brands,nutriments,countries_tags`
@@ -165,7 +161,6 @@ function App() {
             countries: p.countries_tags || [],
             source: 'off',
           }))
-          // Boost US products
           .map(p => ({ ...p, _usBoost: p.countries.includes('en:united-states') ? 30 : 0 }))
         allResults.push(...groceryItems)
       }
@@ -173,28 +168,6 @@ function App() {
       console.error('Open Food Facts error:', e)
     }
 
-    // Nutritionix
-    if (import.meta.env.VITE_NUTRITIONIX_APP_ID && import.meta.env.VITE_NUTRITIONIX_APP_KEY) {
-      try {
-        const nxRes = await fetch(
-          `https://trackapi.nutritionix.com/v2/search/instant?query=${encodeURIComponent(search)}`,
-          {
-            headers: {
-              'x-app-id': import.meta.env.VITE_NUTRITIONIX_APP_ID,
-              'x-app-key': import.meta.env.VITE_NUTRITIONIX_APP_KEY,
-            }
-          }
-        )
-        const nxData = await nxRes.json()
-        const restaurantItems = [...(nxData.branded || []), ...(nxData.common || [])]
-          .map(p => ({ ...p, source: 'nx', _usBoost: 30 }))
-        allResults.push(...restaurantItems)
-      } catch (e) {
-        console.error('Nutritionix error:', e)
-      }
-    }
-
-    // Sort by relevance score
     const sorted = allResults
       .map(item => ({ ...item, _score: scoreResult(item, search) + (item._usBoost || 0) }))
       .sort((a, b) => b._score - a._score)
@@ -212,7 +185,7 @@ function App() {
       protein: item.nf_protein || 0,
       carbs: item.nf_total_carbohydrate || 0,
       fat: item.nf_total_fat || 0,
-      meal_time: mealTime,
+      meal_time: item.meal_time || mealTime,
     }
     await supabase.from('meal_logs').insert(entry)
     setResults([])
@@ -246,7 +219,6 @@ function App() {
   const pagedResults = results.slice(resultPage * RESULTS_PER_PAGE, (resultPage + 1) * RESULTS_PER_PAGE)
   const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE)
 
-  // Founders page route — accessible to everyone, no auth required
   if (showFounders) {
     return <Founders onBack={() => {
       setShowFounders(false)
@@ -312,114 +284,161 @@ function App() {
         </div>
       </div>
 
-      {/* Meal Time Selector + Search */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-          {['Breakfast', 'Lunch', 'Snack', 'Dinner'].map(t => (
-            <button key={t} onClick={() => setMealTime(t)} style={{
-              fontSize: 12, padding: '5px 12px', borderRadius: 20,
-              border: mealTime === t ? '1.5px solid var(--text)' : '1px solid var(--border)',
-              background: mealTime === t ? 'var(--text)' : 'none',
-              color: mealTime === t ? 'var(--bg)' : 'var(--muted)',
-              cursor: 'pointer',
-            }}>{t.toLowerCase()}</button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && searchFood()}
-            placeholder="search any food or restaurant..."
-            style={{
-              flex: 1, padding: '10px 14px', borderRadius: 10,
-              border: '1px solid var(--border)', fontSize: 14, outline: 'none',
-              background: 'var(--surface)', color: 'var(--text)',
-            }}
-          />
-          <button onClick={searchFood} style={{
-            padding: '10px 18px', borderRadius: 10, border: 'none',
-            background: 'var(--text)', color: 'var(--bg)', fontSize: 14, cursor: 'pointer',
-            minWidth: 72, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {searching ? (
-              <span style={{
-                display: 'inline-block',
-                width: 16, height: 16,
-                border: '2px solid var(--bg)',
-                borderTopColor: 'transparent',
-                borderRadius: '50%',
-                animation: 'spin 0.7s linear infinite',
-              }} />
-            ) : 'search'}
-          </button>
-        </div>
+      {/* Tab Switcher */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <button
+          onClick={() => setActiveTab('grocery')}
+          style={{
+            flex: 1, padding: '10px 14px', borderRadius: 10,
+            border: activeTab === 'grocery' ? '1.5px solid var(--text)' : '1px solid var(--border)',
+            background: activeTab === 'grocery' ? 'var(--text)' : 'none',
+            color: activeTab === 'grocery' ? 'var(--bg)' : 'var(--muted)',
+            fontSize: 13, fontWeight: 500, cursor: 'pointer',
+          }}
+        >
+          grocery
+        </button>
+        <button
+          onClick={() => setActiveTab('restaurant')}
+          style={{
+            flex: 1, padding: '10px 14px', borderRadius: 10,
+            border: activeTab === 'restaurant' ? '1.5px solid var(--text)' : '1px solid var(--border)',
+            background: activeTab === 'restaurant' ? 'var(--text)' : 'none',
+            color: activeTab === 'restaurant' ? 'var(--bg)' : 'var(--muted)',
+            fontSize: 13, fontWeight: 500, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          restaurant
+          <span style={{
+            fontSize: 9, padding: '1px 5px', borderRadius: 3,
+            background: activeTab === 'restaurant' ? 'var(--bg)' : 'var(--text)',
+            color: activeTab === 'restaurant' ? 'var(--text)' : 'var(--bg)',
+            fontWeight: 600, letterSpacing: 0.3,
+          }}>PRO</span>
+        </button>
       </div>
 
-      {/* Spinner keyframe */}
+      {/* Meal Time Selector — shared across tabs */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {['Breakfast', 'Lunch', 'Snack', 'Dinner'].map(t => (
+          <button key={t} onClick={() => setMealTime(t)} style={{
+            fontSize: 12, padding: '5px 12px', borderRadius: 20,
+            border: mealTime === t ? '1.5px solid var(--text)' : '1px solid var(--border)',
+            background: mealTime === t ? 'var(--text)' : 'none',
+            color: mealTime === t ? 'var(--bg)' : 'var(--muted)',
+            cursor: 'pointer',
+          }}>{t.toLowerCase()}</button>
+        ))}
+      </div>
+
+      {/* Spinner keyframe — used by grocery search and elsewhere */}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      {/* Search Results */}
-      {results.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
-            {pagedResults.map((item, i) => (
-              <div key={i} onClick={() => logItem(item)} style={{
-                padding: '10px 14px', borderBottom: '1px solid var(--border)',
-                cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                transition: 'background 0.15s',
-              }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.food_name}</div>
-                  {item.brand_name && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.brand_name}</div>}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', flexShrink: 0 }}>{Math.round(item.nf_calories || 0)} cal</div>
-              </div>
-            ))}
+      {/* Tab Content */}
+      {activeTab === 'restaurant' ? (
+        <RestaurantSearch
+          session={session}
+          mealTime={mealTime}
+          onLog={logItem}
+        />
+      ) : (
+        <>
+          {/* Grocery Search Bar */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && searchFood()}
+                placeholder="search any food..."
+                style={{
+                  flex: 1, padding: '10px 14px', borderRadius: 10,
+                  border: '1px solid var(--border)', fontSize: 14, outline: 'none',
+                  background: 'var(--surface)', color: 'var(--text)',
+                }}
+              />
+              <button onClick={searchFood} style={{
+                padding: '10px 18px', borderRadius: 10, border: 'none',
+                background: 'var(--text)', color: 'var(--bg)', fontSize: 14, cursor: 'pointer',
+                minWidth: 72, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {searching ? (
+                  <span style={{
+                    display: 'inline-block',
+                    width: 16, height: 16,
+                    border: '2px solid var(--bg)',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 0.7s linear infinite',
+                  }} />
+                ) : 'search'}
+              </button>
+            </div>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10 }}>
-              <button
-                onClick={() => setResultPage(p => Math.max(0, p - 1))}
-                disabled={resultPage === 0}
-                style={{
-                  padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                  background: 'none', color: resultPage === 0 ? 'var(--border)' : 'var(--text)',
-                  cursor: resultPage === 0 ? 'default' : 'pointer', fontSize: 13,
-                }}
-              >←</button>
-
-              {Array.from({ length: totalPages }, (_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setResultPage(i)}
-                  style={{
-                    width: 32, height: 32, borderRadius: 8,
-                    border: '1px solid var(--border)',
-                    background: resultPage === i ? 'var(--text)' : 'none',
-                    color: resultPage === i ? 'var(--bg)' : 'var(--muted)',
-                    cursor: 'pointer', fontSize: 13, fontWeight: resultPage === i ? 600 : 400,
+          {/* Grocery Search Results */}
+          {results.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
+                {pagedResults.map((item, i) => (
+                  <div key={i} onClick={() => logItem(item)} style={{
+                    padding: '10px 14px', borderBottom: '1px solid var(--border)',
+                    cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    transition: 'background 0.15s',
                   }}
-                >{i + 1}</button>
-              ))}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.food_name}</div>
+                      {item.brand_name && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.brand_name}</div>}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', flexShrink: 0 }}>{Math.round(item.nf_calories || 0)} cal</div>
+                  </div>
+                ))}
+              </div>
 
-              <button
-                onClick={() => setResultPage(p => Math.min(totalPages - 1, p + 1))}
-                disabled={resultPage === totalPages - 1}
-                style={{
-                  padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                  background: 'none', color: resultPage === totalPages - 1 ? 'var(--border)' : 'var(--text)',
-                  cursor: resultPage === totalPages - 1 ? 'default' : 'pointer', fontSize: 13,
-                }}
-              >→</button>
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+                  <button
+                    onClick={() => setResultPage(p => Math.max(0, p - 1))}
+                    disabled={resultPage === 0}
+                    style={{
+                      padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                      background: 'none', color: resultPage === 0 ? 'var(--border)' : 'var(--text)',
+                      cursor: resultPage === 0 ? 'default' : 'pointer', fontSize: 13,
+                    }}
+                  >←</button>
+
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setResultPage(i)}
+                      style={{
+                        width: 32, height: 32, borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        background: resultPage === i ? 'var(--text)' : 'none',
+                        color: resultPage === i ? 'var(--bg)' : 'var(--muted)',
+                        cursor: 'pointer', fontSize: 13, fontWeight: resultPage === i ? 600 : 400,
+                      }}
+                    >{i + 1}</button>
+                  ))}
+
+                  <button
+                    onClick={() => setResultPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={resultPage === totalPages - 1}
+                    style={{
+                      padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                      background: 'none', color: resultPage === totalPages - 1 ? 'var(--border)' : 'var(--text)',
+                      cursor: resultPage === totalPages - 1 ? 'default' : 'pointer', fontSize: 13,
+                    }}
+                  >→</button>
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Meal Log */}
