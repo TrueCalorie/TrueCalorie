@@ -4,6 +4,7 @@ import Auth from './Auth'
 import Onboarding from './Onboarding'
 import Settings from './Settings'
 import History from './History'
+import Founders from './Founders'
 import AchievementToast from './AchievementToast'
 import { ACHIEVEMENTS, checkAchievements } from './achievements'
 
@@ -18,10 +19,24 @@ function App() {
   const [mealTime, setMealTime] = useState('Lunch')
   const [showSettings, setShowSettings] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showFounders, setShowFounders] = useState(false)
   const [toastQueue, setToastQueue] = useState([])
   const [currentToast, setCurrentToast] = useState(null)
   const [resultPage, setResultPage] = useState(0)
   const RESULTS_PER_PAGE = 5
+
+  // Check URL for /founders route on mount
+  useEffect(() => {
+    if (window.location.pathname === '/founders') {
+      setShowFounders(true)
+    }
+    // Listen for browser back/forward navigation
+    const handlePop = () => {
+      setShowFounders(window.location.pathname === '/founders')
+    }
+    window.addEventListener('popstate', handlePop)
+    return () => window.removeEventListener('popstate', handlePop)
+  }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -230,6 +245,14 @@ function App() {
 
   const pagedResults = results.slice(resultPage * RESULTS_PER_PAGE, (resultPage + 1) * RESULTS_PER_PAGE)
   const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE)
+
+  // Founders page route — accessible to everyone, no auth required
+  if (showFounders) {
+    return <Founders onBack={() => {
+      setShowFounders(false)
+      window.history.pushState({}, '', '/')
+    }} />
+  }
 
   if (loading) return <p style={{ padding: 24, color: 'var(--text)' }}>Loading...</p>
   if (!session) return <Auth />

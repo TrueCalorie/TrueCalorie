@@ -15,6 +15,11 @@ export default function Landing({ onGetStarted }) {
     })
   }, [])
 
+  const goToFounders = () => {
+    window.history.pushState({}, '', '/founders')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -237,6 +242,61 @@ export default function Landing({ onGetStarted }) {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Founders banner */}
+      <div className="fade-up" style={{
+        maxWidth: 760,
+        margin: '0 auto 60px',
+        padding: '0 32px',
+      }}>
+        <div
+          onClick={goToFounders}
+          style={{
+            padding: '20px 28px',
+            border: '1px solid #1a5c3a',
+            borderRadius: 14,
+            background: 'linear-gradient(135deg, #0d2e22 0%, #0a1f17 100%)',
+            cursor: 'pointer',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 16,
+            flexWrap: 'wrap',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = '#1D9E75' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = '#1a5c3a' }}
+        >
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{
+              fontSize: 10,
+              letterSpacing: '0.15em',
+              color: '#1D9E75',
+              fontFamily: 'sans-serif',
+              marginBottom: 8,
+              textTransform: 'uppercase',
+              fontWeight: 600,
+            }}>
+              Founders' Membership · Now open
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
+              Lock in Pro for $79/year — for life.
+            </div>
+            <div style={{ fontSize: 13, color: '#888', fontFamily: 'sans-serif' }}>
+              Limited to 100 founders. Public price will be $119/year.
+            </div>
+          </div>
+          <div style={{
+            fontSize: 13,
+            color: '#fff',
+            fontFamily: 'sans-serif',
+            fontWeight: 500,
+            whiteSpace: 'nowrap',
+          }}>
+            Learn more →
+          </div>
         </div>
       </div>
 
