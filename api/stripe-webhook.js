@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 // ──────────────────────────────────────────────────────────────────
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-10-28.acacia',
+  apiVersion: '2026-04-22.dahlia',
 })
 
 // IMPORTANT: This uses the SERVICE ROLE key, not the anon key.

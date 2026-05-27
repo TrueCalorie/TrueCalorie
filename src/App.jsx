@@ -5,6 +5,8 @@ import Onboarding from './Onboarding'
 import Settings from './Settings'
 import History from './History'
 import Founders from './Founders'
+import Privacy from './Privacy'
+import Terms from './Terms'
 import AchievementToast from './AchievementToast'
 import RestaurantSearch from './components/RestaurantSearch'
 import { ACHIEVEMENTS, checkAchievements } from './achievements'
@@ -22,21 +24,24 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showFounders, setShowFounders] = useState(false)
+  const [showPrivacy, setShowPrivacy] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
   const [toastQueue, setToastQueue] = useState([])
   const [currentToast, setCurrentToast] = useState(null)
   const [resultPage, setResultPage] = useState(0)
   const RESULTS_PER_PAGE = 5
 
-  // Check URL for /founders route on mount
+  // Handle URL-based routing for public pages
   useEffect(() => {
-    if (window.location.pathname === '/founders') {
-      setShowFounders(true)
+    const setRouteFromPath = () => {
+      const path = window.location.pathname
+      setShowFounders(path === '/founders')
+      setShowPrivacy(path === '/privacy')
+      setShowTerms(path === '/terms')
     }
-    const handlePop = () => {
-      setShowFounders(window.location.pathname === '/founders')
-    }
-    window.addEventListener('popstate', handlePop)
-    return () => window.removeEventListener('popstate', handlePop)
+    setRouteFromPath()
+    window.addEventListener('popstate', setRouteFromPath)
+    return () => window.removeEventListener('popstate', setRouteFromPath)
   }, [])
 
   useEffect(() => {
@@ -219,12 +224,32 @@ function App() {
   const pagedResults = results.slice(resultPage * RESULTS_PER_PAGE, (resultPage + 1) * RESULTS_PER_PAGE)
   const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE)
 
-  if (showFounders) {
-    return <Founders onBack={() => {
-      setShowFounders(false)
-      window.history.pushState({}, '', '/')
-    }} />
+  // ─────────────────────────────────────────────────────
+  // Public routes (no auth required) — checked before auth
+  // ─────────────────────────────────────────────────────
+
+  const goHome = () => {
+    setShowFounders(false)
+    setShowPrivacy(false)
+    setShowTerms(false)
+    window.history.pushState({}, '', '/')
   }
+
+  if (showPrivacy) {
+    return <Privacy onBack={goHome} />
+  }
+
+  if (showTerms) {
+    return <Terms onBack={goHome} />
+  }
+
+  if (showFounders) {
+    return <Founders onBack={goHome} />
+  }
+
+  // ─────────────────────────────────────────────────────
+  // Authenticated routes
+  // ─────────────────────────────────────────────────────
 
   if (loading) return <p style={{ padding: 24, color: 'var(--text)' }}>Loading...</p>
   if (!session) return <Auth />

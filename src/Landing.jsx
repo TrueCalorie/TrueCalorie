@@ -15,10 +15,14 @@ export default function Landing({ onGetStarted }) {
     })
   }, [])
 
-  const goToFounders = () => {
-    window.history.pushState({}, '', '/founders')
+  const navigateTo = (path) => {
+    window.history.pushState({}, '', path)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }
+
+  const goToFounders = () => navigateTo('/founders')
+  const goToPrivacy = () => navigateTo('/privacy')
+  const goToTerms = () => navigateTo('/terms')
 
   return (
     <div style={{
@@ -335,30 +339,64 @@ export default function Landing({ onGetStarted }) {
       </div>
 
       {/* Footer */}
-      <div style={{
+      <footer style={{
         borderTop: '1px solid #1a1a1a',
         padding: '24px 32px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        fontFamily: 'sans-serif',
+        flexWrap: 'wrap',
+        gap: 12,
       }}>
-        <span style={{ fontSize: 13, color: '#333', fontFamily: 'sans-serif' }}>
-          © 2026 TrueCalorie
+        <span style={{ fontSize: 13, color: '#333' }}>
+          © 2026 TrueCalorie LLC
         </span>
-        <button
-          onClick={onGetStarted}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#333',
-            fontSize: 13,
-            cursor: 'pointer',
-            fontFamily: 'sans-serif',
-          }}
-        >
-          Get started →
-        </button>
-      </div>
+        <div style={{ display: 'flex', gap: 18, fontSize: 12, alignItems: 'center' }}>
+          <button
+            onClick={goToPrivacy}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#666',
+              fontSize: 12,
+              cursor: 'pointer',
+              fontFamily: 'sans-serif',
+              padding: 0,
+            }}
+          >
+            Privacy Policy
+          </button>
+          <button
+            onClick={goToTerms}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#666',
+              fontSize: 12,
+              cursor: 'pointer',
+              fontFamily: 'sans-serif',
+              padding: 0,
+            }}
+          >
+            Terms of Service
+          </button>
+          <button
+            onClick={onGetStarted}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#333',
+              fontSize: 13,
+              cursor: 'pointer',
+              fontFamily: 'sans-serif',
+              padding: 0,
+            }}
+          >
+            Get started →
+          </button>
+        </div>
+      </footer>
 
     </div>
   )
