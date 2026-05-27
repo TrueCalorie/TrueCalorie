@@ -10,6 +10,7 @@ import Terms from './Terms'
 import AchievementToast from './AchievementToast'
 import RestaurantSearch from './components/RestaurantSearch'
 import { ACHIEVEMENTS, checkAchievements } from './achievements'
+import FoodDetailModal from './components/FoodDetailModal'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -29,6 +30,7 @@ function App() {
   const [toastQueue, setToastQueue] = useState([])
   const [currentToast, setCurrentToast] = useState(null)
   const [resultPage, setResultPage] = useState(0)
+  const [selectedItem, setSelectedItem] = useState(null)
   const RESULTS_PER_PAGE = 5
 
   // Handle URL-based routing for public pages
@@ -181,16 +183,16 @@ function App() {
     setSearching(false)
   }
 
-  const logItem = async (item) => {
+  const logItem = async (item, servings = 1) => {
     const entry = {
       user_id: session.user.id,
       name: item.food_name,
       restaurant: item.brand_name || null,
-      calories: item.nf_calories || 0,
-      protein: item.nf_protein || 0,
-      carbs: item.nf_total_carbohydrate || 0,
-      fat: item.nf_total_fat || 0,
-      meal_time: item.meal_time || mealTime,
+      calories: (item.nf_calories || 0) * servings,
+      protein:  (item.nf_protein || 0) * servings,
+      carbs:    (item.nf_total_carbohydrate || 0) * servings,
+      fat:      (item.nf_total_fat || 0) * servings,
+      meal_time: mealTime,
     }
     await supabase.from('meal_logs').insert(entry)
     setResults([])
@@ -407,7 +409,7 @@ function App() {
             <div style={{ marginBottom: 20 }}>
               <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
                 {pagedResults.map((item, i) => (
-                  <div key={i} onClick={() => logItem(item)} style={{
+                  <div key={i} onClick={() => setSelectedItem(item)} style={{
                     padding: '10px 14px', borderBottom: '1px solid var(--border)',
                     cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     transition: 'background 0.15s',
@@ -508,6 +510,14 @@ function App() {
         </div>
       )}
 
+      {selectedItem && (
+        <FoodDetailModal
+          item={selectedItem}
+          mealTime={mealTime}
+          onClose={() => setSelectedItem(null)}
+          onLog={logItem}
+        />
+      )}
     </div>
   )
 }
