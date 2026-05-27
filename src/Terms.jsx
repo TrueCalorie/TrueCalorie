@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 
 export default function Terms({ onBack }) {
   useEffect(() => {
+    window.scrollTo(0, 0)
     const els = document.querySelectorAll('.fade-up')
     els.forEach((el, i) => {
       el.style.opacity = 0

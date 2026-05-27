@@ -13,6 +13,7 @@ export default function Founders({ onBack }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    window.scrollTo(0, 0)
     // Fade-up animation matching Landing.jsx pattern
     const els = document.querySelectorAll('.fade-up')
     els.forEach((el, i) => {

@@ -16,6 +16,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState(null)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [meals, setMeals] = useState([])
   const [search, setSearch] = useState('')
   const [results, setResults] = useState([])
@@ -78,6 +79,7 @@ function App() {
       .eq('user_id', session.user.id)
       .single()
     if (data) setSettings(data)
+    setSettingsLoaded(true)
   }
 
   const fetchMeals = async () => {
@@ -253,11 +255,16 @@ function App() {
   // Authenticated routes
   // ─────────────────────────────────────────────────────
 
-  if (loading) return <p style={{ padding: 24, color: 'var(--text)' }}>Loading...</p>
+  // Wait for both auth AND settings to resolve before deciding what to render.
+  // Without the settingsLoaded gate, there's a render between session-resolved
+  // and settings-fetched where the Onboarding screen briefly flashes.
+  if (loading || (session && !settingsLoaded)) return <p style={{ padding: 24, color: 'var(--text)' }}>Loading...</p>
   if (!session) return <Auth />
   if (!settings || !settings.onboarding_complete) return (
     <Onboarding session={session} onComplete={fetchSettings} />
   )
+
+  const isFounder = settings.pro_source === 'founder'
 
   return (
     <div style={{ position: 'relative', maxWidth: 480, margin: '0 auto', padding: 24, fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh' }}>
@@ -268,9 +275,27 @@ function App() {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>
-          Hey, {settings.display_name}
-        </h1>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>
+            Hey, {settings.display_name}
+          </h1>
+          {isFounder && (
+            <div style={{
+              display: 'inline-block',
+              marginTop: 6,
+              padding: '2px 8px',
+              borderRadius: 4,
+              background: '#0a0a0a',
+              border: '1px solid #1D9E75',
+              color: '#1D9E75',
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: '0.12em',
+            }}>
+              FOUNDER
+            </div>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: 16 }}>
           <button onClick={() => setShowHistory(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>
             history
