@@ -3,8 +3,8 @@ import { searchRestaurants, NUTRITIONIX_HAS_REAL_KEYS } from '../services/nutrit
 import { usePro } from '../hooks/usePro'
 import UpgradeModal from './UpgradeModal'
 
-export default function RestaurantSearch({ session, mealTime, onLog }) {
-  const { isPro, loading: proLoading } = usePro()
+export default function RestaurantSearch({ onSelect }) {
+  const { isPro } = usePro()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -18,16 +18,13 @@ export default function RestaurantSearch({ session, mealTime, onLog }) {
     setSearching(false)
   }
 
-  const handleResultClick = async (item) => {
+  const handleResultClick = (item) => {
     if (!isPro) {
       setModalOpen(true)
       return
     }
-    // Pro user — log it
-    await onLog({
-      ...item,
-      meal_time: mealTime,
-    })
+    // Pro user — hand off to App's detail modal
+    onSelect(item)
   }
 
   return (
@@ -143,7 +140,7 @@ function RestaurantResultRow({ item, isPro, onClick }) {
         display: 'flex', gap: 10, fontSize: 11, color: 'var(--muted)',
         flexShrink: 0, filter: isPro ? 'none' : 'blur(5px)',
         userSelect: isPro ? 'auto' : 'none',
-        pointerEvents: 'none', // already non-interactive
+        pointerEvents: 'none',
       }}>
         <span>P {Math.round(item.nf_protein)}</span>
         <span>C {Math.round(item.nf_total_carbohydrate)}</span>

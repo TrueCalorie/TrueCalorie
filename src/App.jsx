@@ -269,7 +269,7 @@ function App() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>
-          Hey, {settings.display_name} 👋
+          Hey, {settings.display_name}
         </h1>
         <div style={{ display: 'flex', gap: 16 }}>
           <button onClick={() => setShowHistory(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>
@@ -364,11 +364,7 @@ function App() {
 
       {/* Tab Content */}
       {activeTab === 'restaurant' ? (
-        <RestaurantSearch
-          session={session}
-          mealTime={mealTime}
-          onLog={logItem}
-        />
+        <RestaurantSearch onSelect={setSelectedItem} />
       ) : (
         <>
           {/* Grocery Search Bar */}
