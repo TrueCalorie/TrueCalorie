@@ -11,6 +11,7 @@ import AchievementToast from './AchievementToast'
 import RestaurantSearch from './components/RestaurantSearch'
 import { ACHIEVEMENTS, checkAchievements } from './achievements'
 import FoodDetailModal from './components/FoodDetailModal'
+import LoadingScreen from './components/LoadingScreen'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -291,7 +292,7 @@ function App() {
   // Wait for both auth AND settings to resolve before deciding what to render.
   // Without the settingsLoaded gate, there's a render between session-resolved
   // and settings-fetched where the Onboarding screen briefly flashes.
-  if (loading || (session && !settingsLoaded)) return <p style={{ padding: 24, color: 'var(--text)' }}>Loading...</p>
+  if (loading || (session && !settingsLoaded)) return <LoadingScreen />
   if (!session) return <Auth />
   if (!settings || !settings.onboarding_complete) return (
     <Onboarding session={session} onComplete={fetchSettings} />

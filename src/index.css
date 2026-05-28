@@ -14,6 +14,7 @@
   --info-txt: #185FA5;
   --success-bg: #E1F5EE;
   --success-border: #9FE1CB;
+  --logo-filter: none;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +49,13 @@
   --info-txt: #5ba3e8;
   --success-bg: #0d2e22;
   --success-border: #1a5c3a;
+  --logo-filter: invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --logo-filter: invert(1);
+  }
 }
 
 [data-theme="light"] {
