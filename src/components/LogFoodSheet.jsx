@@ -236,7 +236,7 @@ export default function LogFoodSheet({ open, onClose, onSelect }) {
           {/* ── Mode Picker ── */}
           {!mode && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              <ModeTile icon="⬛" label="Scan Barcode" onClick={() => setMode('barcode')} />
+              <ModeTile icon="📷" label="Scan Barcode" onClick={() => setMode('barcode')} />
               <ModeTile icon="🔍" label="Grocery Search" onClick={() => setMode('grocery')} />
               <ModeTile icon="🍽️" label="Restaurant" badge="PRO" onClick={() => setMode('restaurant')} />
               <ModeTile icon="🎙️" label="Voice Log" badge="SOON" disabled />

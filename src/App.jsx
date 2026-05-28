@@ -30,7 +30,6 @@ function App() {
   const [selectedItem, setSelectedItem] = useState(null)
   const [selectedMealTime, setSelectedMealTime] = useState('Lunch')
 
-  // Handle URL-based routing for public pages
   useEffect(() => {
     const setRouteFromPath = () => {
       const path = window.location.pathname
@@ -142,7 +141,6 @@ function App() {
     fetchMeals()
   }
 
-  // Called from LogFoodSheet when user taps a result — opens FoodDetailModal
   const handleFoodSelect = (item, mealTime) => {
     setSelectedMealTime(mealTime)
     setSelectedItem(item)
@@ -154,7 +152,7 @@ function App() {
   const totalCarbs    = meals.reduce((sum, m) => sum + Number(m.carbs), 0)
   const totalFat      = meals.reduce((sum, m) => sum + Number(m.fat), 0)
 
-  const calorieGoal  = settings?.calorie_goal || 2000
+  const calorieGoal   = settings?.calorie_goal || 2000
   const circumference = 2 * Math.PI * 54
   const ringPercent   = Math.min(totalCalories / calorieGoal, 1)
   const offset        = circumference * (1 - ringPercent)
@@ -165,9 +163,6 @@ function App() {
     return acc
   }, {})
 
-  // ─────────────────────────────────────────────────────
-  // Public routes (no auth required)
-  // ─────────────────────────────────────────────────────
   const goHome = () => {
     setShowFounders(false)
     setShowPrivacy(false)
@@ -188,16 +183,24 @@ function App() {
   const isFounder = settings.pro_source === 'founder'
 
   return (
-    <div style={{ position: 'relative', maxWidth: 480, margin: '0 auto', padding: 24, fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh' }}>
+    <div style={{
+      position: 'relative',
+      maxWidth: 480,
+      margin: '0 auto',
+      padding: '24px 24px 48px', // extra bottom padding so last meal item isn't flush
+      fontFamily: 'sans-serif',
+      background: 'var(--bg)',
+      minHeight: '100vh',
+    }}>
 
       {currentToast && (
         <AchievementToast achievement={currentToast} onDone={() => setCurrentToast(null)} />
       )}
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>
+          <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
             Hey, {settings.display_name}
           </h1>
           {isFounder && (
@@ -227,42 +230,48 @@ function App() {
         </div>
       </div>
 
-      {/* Calorie Ring */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
-        <div style={{ position: 'relative', width: 140, height: 140 }}>
-          <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx="70" cy="70" r="54" fill="none" stroke="var(--border)" strokeWidth="10" />
-            <circle cx="70" cy="70" r="54" fill="none" stroke="var(--text)" strokeWidth="10"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
+      {/* ── Calorie Ring ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 40 }}>
+        <div style={{ position: 'relative', width: 160, height: 160 }}>
+          <svg width="160" height="160" viewBox="0 0 160 160" style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx="80" cy="80" r="62" fill="none" stroke="var(--border)" strokeWidth="11" />
+            <circle cx="80" cy="80" r="62" fill="none" stroke="var(--text)" strokeWidth="11"
+              strokeDasharray={2 * Math.PI * 62}
+              strokeDashoffset={2 * Math.PI * 62 * (1 - ringPercent)}
               strokeLinecap="round"
             />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 600, color: 'var(--text)' }}>{Math.round(totalCalories)}</span>
-            <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>of {calorieGoal} cal</span>
+            <span style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)', lineHeight: 1 }}>{Math.round(totalCalories)}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>of {calorieGoal} cal</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
+
+        {/* Macro pills */}
+        <div style={{ display: 'flex', gap: 0, marginTop: 24, background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)' }}>
           {[
-            { label: 'protein', val: Math.round(totalProtein) },
-            { label: 'carbs',   val: Math.round(totalCarbs) },
-            { label: 'fat',     val: Math.round(totalFat) },
-          ].map(m => (
-            <div key={m.label} style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{m.val}g</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{m.label}</div>
+            { label: 'protein', val: Math.round(totalProtein), goal: settings?.protein_goal },
+            { label: 'carbs',   val: Math.round(totalCarbs),   goal: settings?.carb_goal },
+            { label: 'fat',     val: Math.round(totalFat),     goal: settings?.fat_goal },
+          ].map((m, i) => (
+            <div key={m.label} style={{
+              textAlign: 'center',
+              padding: '12px 28px',
+              borderRight: i < 2 ? '1px solid var(--border)' : 'none',
+            }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{m.val}g</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{m.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Log Food Button */}
+      {/* ── Log Food Button ── */}
       <button
         onClick={() => setShowLogFood(true)}
         style={{
           width: '100%',
-          padding: '14px 0',
+          padding: '15px 0',
           borderRadius: 14,
           border: 'none',
           background: 'var(--text)',
@@ -270,34 +279,62 @@ function App() {
           fontSize: 15,
           fontWeight: 600,
           cursor: 'pointer',
-          marginBottom: 28,
           letterSpacing: '0.01em',
+          marginBottom: 36,
         }}
       >
         + Log Food
       </button>
 
-      {/* Meal Log */}
+      {/* ── Today's Meals ── */}
       {Object.keys(groupedMeals).length === 0 ? (
-        <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: 40, fontSize: 14 }}>no meals logged today</p>
+        <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: 48, fontSize: 14 }}>
+          no meals logged today
+        </p>
       ) : (
         Object.entries(groupedMeals).map(([time, items]) => (
-          <div key={time} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '0.05em', marginBottom: 8 }}>
+          <div key={time} style={{ marginBottom: 28 }}>
+            {/* Meal group header */}
+            <div style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: 'var(--muted)',
+              letterSpacing: '0.08em',
+              marginBottom: 4,
+              paddingBottom: 6,
+              borderBottom: '1px solid var(--border)',
+            }}>
               {time.toUpperCase()}
             </div>
+
             {items.map(meal => (
               <div key={meal.id} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '10px 0', borderBottom: '1px solid var(--border)'
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '12px 0',
+                borderBottom: '1px solid var(--border)',
               }}>
-                <div>
-                  <div style={{ fontSize: 14, color: 'var(--text)' }}>{meal.name}</div>
-                  {meal.restaurant && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{meal.restaurant}</div>}
+                <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                  <div style={{ fontSize: 14, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {meal.name}
+                  </div>
+                  {meal.restaurant && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                      {meal.restaurant}
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{Math.round(meal.calories)} cal</span>
-                  <button onClick={() => deleteItem(meal.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, lineHeight: 1 }}>×</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
+                    {Math.round(meal.calories)} cal
+                  </span>
+                  <button
+                    onClick={() => deleteItem(meal.id)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
             ))}
@@ -305,28 +342,25 @@ function App() {
         ))
       )}
 
-      {/* Settings Overlay */}
+      {/* ── Overlays ── */}
       {showSettings && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 10, overflowY: 'auto' }}>
           <Settings session={session} settings={settings} onUpdate={fetchSettings} onClose={() => setShowSettings(false)} />
         </div>
       )}
 
-      {/* History Overlay */}
       {showHistory && (
         <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 10, overflowY: 'auto' }}>
           <History session={session} settings={settings} onClose={() => setShowHistory(false)} />
         </div>
       )}
 
-      {/* Log Food Sheet */}
       <LogFoodSheet
         open={showLogFood}
         onClose={() => setShowLogFood(false)}
         onSelect={handleFoodSelect}
       />
 
-      {/* Food Detail Modal — opened after selecting from LogFoodSheet */}
       {selectedItem && (
         <FoodDetailModal
           item={selectedItem}
