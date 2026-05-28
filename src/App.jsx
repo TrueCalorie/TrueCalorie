@@ -12,6 +12,7 @@ import RestaurantSearch from './components/RestaurantSearch'
 import { ACHIEVEMENTS, checkAchievements } from './achievements'
 import FoodDetailModal from './components/FoodDetailModal'
 import LoadingScreen from './components/LoadingScreen'
+import { searchUSDA } from './services/usda'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -135,16 +136,28 @@ function App() {
     if (name.startsWith(q)) score += 50
     if (name.includes(q)) score += 25
     if (brand.includes(q)) score += 10
+
+    // All query words present in name — handles USDA's comma-separated naming
+    // ("Chicken, broilers or fryers, breast, meat only, raw" matches "chicken breast")
+    const queryWords = q.split(/\s+/).filter(w => w.length > 1)
+    if (queryWords.length > 1 && queryWords.every(w => name.includes(w))) {
+      score += 30
+    }
+
     if (item.nf_calories > 0) score += 20
     if (item.nf_protein > 0) score += 5
     if (item.nf_total_carbohydrate > 0) score += 5
     if (item.nf_total_fat > 0) score += 5
+
+    // Boost dietitian-verified USDA Foundation/SR Legacy data
+    if (item.verified) score += 20
+
     score -= name.length * 0.1
-    
-    // Penalize non-English names — they're usually mistagged products
+
+    // Penalize non-ASCII names (likely mistagged international products)
     const nonAsciiCount = (item.food_name || '').match(/[^\x00-\x7F]/g)?.length || 0
     score -= nonAsciiCount * 5
-    
+
     return score
   }
 
@@ -183,35 +196,44 @@ function App() {
           nf_total_carbohydrate: Math.round(p.nutriments['carbohydrates_serving'] || 0),
           nf_total_fat: Math.round(p.nutriments['fat_serving'] || 0),
           countries: p.countries_tags || [],
+          verified: false,
           source: 'off',
         }))
     }
 
-    // Wide net, no server-side country filter (their tag filter is too slow)
-    const url =
-      `https://world.openfoodfacts.org/cgi/search.pl` +
-      `?search_terms=${encodeURIComponent(search)}` +
-      `&search_simple=1&action=process&json=1&page_size=100` +
-      `&fields=product_name,brands,nutriments,countries_tags`
+    const fetchOFF = async () => {
+      const url =
+        `https://world.openfoodfacts.org/cgi/search.pl` +
+        `?search_terms=${encodeURIComponent(search)}` +
+        `&search_simple=1&action=process&json=1&page_size=100` +
+        `&fields=product_name,brands,nutriments,countries_tags`
 
-    let allItems = []
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const data = await fetchWithTimeout(url)
-        allItems = mapOFF(data)
-        break
-      } catch (e) {
-        console.warn(`OFF attempt ${attempt + 1} failed:`, e)
-        if (attempt === 0) await new Promise(r => setTimeout(r, 400))
+      let items = []
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const data = await fetchWithTimeout(url)
+          items = mapOFF(data)
+          break
+        } catch (e) {
+          console.warn(`OFF attempt ${attempt + 1} failed:`, e)
+          if (attempt === 0) await new Promise(r => setTimeout(r, 400))
+        }
       }
+      return items
     }
 
-    // Filter US-only client-side. If we don't have at least 5 US results,
-    // fall back to all results so niche queries aren't stranded empty.
-    const usItems = allItems.filter(p => p.countries.includes('en:united-states'))
-    const pool = usItems.length >= 5 ? usItems : allItems
+    // Run both data sources in parallel
+    const [offItems, usdaItems] = await Promise.all([
+      fetchOFF(),
+      searchUSDA(search),
+    ])
 
-    const sorted = pool
+    // Filter OFF to US-only when we have enough; fall back to all otherwise.
+    // USDA results are already US by definition.
+    const usOffItems = offItems.filter(p => p.countries?.includes('en:united-states'))
+    const offPool = usOffItems.length >= 5 ? usOffItems : offItems
+
+    const sorted = [...offPool, ...usdaItems]
       .map(item => ({ ...item, _score: scoreResult(item, search) }))
       .sort((a, b) => b._score - a._score)
 
@@ -473,10 +495,28 @@ function App() {
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
                     <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.food_name}</div>
-                      {item.brand_name && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.brand_name}</div>}
+                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.food_name}
+                      </div>
+                      {(item.brand_name || item.verified) && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                          {item.brand_name && <span>{item.brand_name}</span>}
+                          {item.verified && (
+                            <span style={{
+                              fontSize: 9,
+                              color: '#1D9E75',
+                              fontWeight: 700,
+                              letterSpacing: '0.08em',
+                            }}>
+                              VERIFIED
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', flexShrink: 0 }}>{Math.round(item.nf_calories || 0)} cal</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', flexShrink: 0 }}>
+                      {Math.round(item.nf_calories || 0)} cal
+                    </div>
                   </div>
                 ))}
               </div>
