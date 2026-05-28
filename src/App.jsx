@@ -8,11 +8,10 @@ import Founders from './Founders'
 import Privacy from './Privacy'
 import Terms from './Terms'
 import AchievementToast from './AchievementToast'
-import RestaurantSearch from './components/RestaurantSearch'
 import { ACHIEVEMENTS, checkAchievements } from './achievements'
 import FoodDetailModal from './components/FoodDetailModal'
+import LogFoodSheet from './components/LogFoodSheet'
 import LoadingScreen from './components/LoadingScreen'
-import { searchUSDA } from './services/usda'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -20,21 +19,16 @@ function App() {
   const [settings, setSettings] = useState(null)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [meals, setMeals] = useState([])
-  const [search, setSearch] = useState('')
-  const [results, setResults] = useState([])
-  const [searching, setSearching] = useState(false)
-  const [mealTime, setMealTime] = useState('Lunch')
-  const [activeTab, setActiveTab] = useState('grocery') // 'grocery' | 'restaurant'
   const [showSettings, setShowSettings] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showFounders, setShowFounders] = useState(false)
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
+  const [showLogFood, setShowLogFood] = useState(false)
   const [toastQueue, setToastQueue] = useState([])
   const [currentToast, setCurrentToast] = useState(null)
-  const [resultPage, setResultPage] = useState(0)
   const [selectedItem, setSelectedItem] = useState(null)
-  const RESULTS_PER_PAGE = 5
+  const [selectedMealTime, setSelectedMealTime] = useState('Lunch')
 
   // Handle URL-based routing for public pages
   useEffect(() => {
@@ -126,122 +120,7 @@ function App() {
     }
   }
 
-  const scoreResult = (item, query) => {
-    let score = 0
-    const name = (item.food_name || '').toLowerCase()
-    const brand = (item.brand_name || '').toLowerCase()
-    const q = query.toLowerCase()
-
-    if (name === q) score += 100
-    if (name.startsWith(q)) score += 50
-    if (name.includes(q)) score += 25
-    if (brand.includes(q)) score += 10
-
-    // All query words present in name — handles USDA's comma-separated naming
-    // ("Chicken, broilers or fryers, breast, meat only, raw" matches "chicken breast")
-    const queryWords = q.split(/\s+/).filter(w => w.length > 1)
-    if (queryWords.length > 1 && queryWords.every(w => name.includes(w))) {
-      score += 30
-    }
-
-    if (item.nf_calories > 0) score += 20
-    if (item.nf_protein > 0) score += 5
-    if (item.nf_total_carbohydrate > 0) score += 5
-    if (item.nf_total_fat > 0) score += 5
-
-    // Boost dietitian-verified USDA Foundation/SR Legacy data
-    if (item.verified) score += 20
-
-    score -= name.length * 0.1
-
-    // Penalize non-ASCII names (likely mistagged international products)
-    const nonAsciiCount = (item.food_name || '').match(/[^\x00-\x7F]/g)?.length || 0
-    score -= nonAsciiCount * 5
-
-    return score
-  }
-
-  // Grocery-only search (Open Food Facts).
-  // Restaurant search lives in its own component on the restaurant tab.
-  const searchFood = async () => {
-    if (!search.trim()) return
-    setSearching(true)
-    setResultPage(0)
-
-    const TIMEOUT_MS = 8000
-
-    const fetchWithTimeout = async (url) => {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
-      try {
-        const res = await fetch(url, { signal: controller.signal })
-        clearTimeout(timeoutId)
-        if (!res.ok) throw new Error(`OFF returned ${res.status}`)
-        return res.json()
-      } catch (e) {
-        clearTimeout(timeoutId)
-        throw e
-      }
-    }
-
-    const mapOFF = (data) => {
-      if (!data?.products) return []
-      return data.products
-        .filter(p => p.product_name && p.nutriments?.['energy-kcal_serving'])
-        .map(p => ({
-          food_name: p.product_name,
-          brand_name: p.brands || null,
-          nf_calories: Math.round(p.nutriments['energy-kcal_serving'] || 0),
-          nf_protein: Math.round(p.nutriments['proteins_serving'] || 0),
-          nf_total_carbohydrate: Math.round(p.nutriments['carbohydrates_serving'] || 0),
-          nf_total_fat: Math.round(p.nutriments['fat_serving'] || 0),
-          countries: p.countries_tags || [],
-          verified: false,
-          source: 'off',
-        }))
-    }
-
-    const fetchOFF = async () => {
-      const url =
-        `https://world.openfoodfacts.org/cgi/search.pl` +
-        `?search_terms=${encodeURIComponent(search)}` +
-        `&search_simple=1&action=process&json=1&page_size=100` +
-        `&fields=product_name,brands,nutriments,countries_tags`
-
-      let items = []
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const data = await fetchWithTimeout(url)
-          items = mapOFF(data)
-          break
-        } catch (e) {
-          console.warn(`OFF attempt ${attempt + 1} failed:`, e)
-          if (attempt === 0) await new Promise(r => setTimeout(r, 400))
-        }
-      }
-      return items
-    }
-
-    // Run both data sources in parallel
-    const [offItems, usdaItems] = await Promise.all([
-      fetchOFF(),
-      searchUSDA(search),
-    ])
-
-    // Filter OFF to US-only when we have enough; fall back to all otherwise.
-    // USDA results are already US by definition.
-    const usOffItems = offItems.filter(p => p.countries?.includes('en:united-states'))
-    const offPool = usOffItems.length >= 5 ? usOffItems : offItems
-
-    const sorted = [...offPool, ...usdaItems]
-      .map(item => ({ ...item, _score: scoreResult(item, search) }))
-      .sort((a, b) => b._score - a._score)
-
-    setResults(sorted)
-    setSearching(false)
-  }
-
-  const logItem = async (item, servings = 1) => {
+  const logItem = async (item, servings = 1, mealTime = selectedMealTime) => {
     const entry = {
       user_id: session.user.id,
       name: item.food_name,
@@ -253,9 +132,7 @@ function App() {
       meal_time: mealTime,
     }
     await supabase.from('meal_logs').insert(entry)
-    setResults([])
-    setSearch('')
-    setResultPage(0)
+    setSelectedItem(null)
     await fetchMeals()
     checkAndAwardAchievements()
   }
@@ -265,15 +142,22 @@ function App() {
     fetchMeals()
   }
 
-  const totalCalories = meals.reduce((sum, m) => sum + Number(m.calories), 0)
-  const totalProtein = meals.reduce((sum, m) => sum + Number(m.protein), 0)
-  const totalCarbs = meals.reduce((sum, m) => sum + Number(m.carbs), 0)
-  const totalFat = meals.reduce((sum, m) => sum + Number(m.fat), 0)
+  // Called from LogFoodSheet when user taps a result — opens FoodDetailModal
+  const handleFoodSelect = (item, mealTime) => {
+    setSelectedMealTime(mealTime)
+    setSelectedItem(item)
+    setShowLogFood(false)
+  }
 
-  const calorieGoal = settings?.calorie_goal || 2000
+  const totalCalories = meals.reduce((sum, m) => sum + Number(m.calories), 0)
+  const totalProtein  = meals.reduce((sum, m) => sum + Number(m.protein), 0)
+  const totalCarbs    = meals.reduce((sum, m) => sum + Number(m.carbs), 0)
+  const totalFat      = meals.reduce((sum, m) => sum + Number(m.fat), 0)
+
+  const calorieGoal  = settings?.calorie_goal || 2000
   const circumference = 2 * Math.PI * 54
-  const ringPercent = Math.min(totalCalories / calorieGoal, 1)
-  const offset = circumference * (1 - ringPercent)
+  const ringPercent   = Math.min(totalCalories / calorieGoal, 1)
+  const offset        = circumference * (1 - ringPercent)
 
   const groupedMeals = ['Breakfast', 'Lunch', 'Snack', 'Dinner'].reduce((acc, time) => {
     const group = meals.filter(m => m.meal_time === time)
@@ -281,13 +165,9 @@ function App() {
     return acc
   }, {})
 
-  const pagedResults = results.slice(resultPage * RESULTS_PER_PAGE, (resultPage + 1) * RESULTS_PER_PAGE)
-  const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE)
-
   // ─────────────────────────────────────────────────────
-  // Public routes (no auth required) — checked before auth
+  // Public routes (no auth required)
   // ─────────────────────────────────────────────────────
-
   const goHome = () => {
     setShowFounders(false)
     setShowPrivacy(false)
@@ -295,25 +175,10 @@ function App() {
     window.history.pushState({}, '', '/')
   }
 
-  if (showPrivacy) {
-    return <Privacy onBack={goHome} />
-  }
+  if (showPrivacy)  return <Privacy onBack={goHome} />
+  if (showTerms)    return <Terms onBack={goHome} />
+  if (showFounders) return <Founders onBack={goHome} />
 
-  if (showTerms) {
-    return <Terms onBack={goHome} />
-  }
-
-  if (showFounders) {
-    return <Founders onBack={goHome} />
-  }
-
-  // ─────────────────────────────────────────────────────
-  // Authenticated routes
-  // ─────────────────────────────────────────────────────
-
-  // Wait for both auth AND settings to resolve before deciding what to render.
-  // Without the settingsLoaded gate, there's a render between session-resolved
-  // and settings-fetched where the Onboarding screen briefly flashes.
   if (loading || (session && !settingsLoaded)) return <LoadingScreen />
   if (!session) return <Auth />
   if (!settings || !settings.onboarding_complete) return (
@@ -363,7 +228,7 @@ function App() {
       </div>
 
       {/* Calorie Ring */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
         <div style={{ position: 'relative', width: 140, height: 140 }}>
           <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: 'rotate(-90deg)' }}>
             <circle cx="70" cy="70" r="54" fill="none" stroke="var(--border)" strokeWidth="10" />
@@ -381,8 +246,8 @@ function App() {
         <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
           {[
             { label: 'protein', val: Math.round(totalProtein) },
-            { label: 'carbs', val: Math.round(totalCarbs) },
-            { label: 'fat', val: Math.round(totalFat) },
+            { label: 'carbs',   val: Math.round(totalCarbs) },
+            { label: 'fat',     val: Math.round(totalFat) },
           ].map(m => (
             <div key={m.label} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{m.val}g</div>
@@ -392,176 +257,25 @@ function App() {
         </div>
       </div>
 
-      {/* Tab Switcher */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button
-          onClick={() => setActiveTab('grocery')}
-          style={{
-            flex: 1, padding: '10px 14px', borderRadius: 10,
-            border: activeTab === 'grocery' ? '1.5px solid var(--text)' : '1px solid var(--border)',
-            background: activeTab === 'grocery' ? 'var(--text)' : 'none',
-            color: activeTab === 'grocery' ? 'var(--bg)' : 'var(--muted)',
-            fontSize: 13, fontWeight: 500, cursor: 'pointer',
-          }}
-        >
-          grocery
-        </button>
-        <button
-          onClick={() => setActiveTab('restaurant')}
-          style={{
-            flex: 1, padding: '10px 14px', borderRadius: 10,
-            border: activeTab === 'restaurant' ? '1.5px solid var(--text)' : '1px solid var(--border)',
-            background: activeTab === 'restaurant' ? 'var(--text)' : 'none',
-            color: activeTab === 'restaurant' ? 'var(--bg)' : 'var(--muted)',
-            fontSize: 13, fontWeight: 500, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          restaurant
-          <span style={{
-            fontSize: 9, padding: '1px 5px', borderRadius: 3,
-            background: activeTab === 'restaurant' ? 'var(--bg)' : 'var(--text)',
-            color: activeTab === 'restaurant' ? 'var(--text)' : 'var(--bg)',
-            fontWeight: 600, letterSpacing: 0.3,
-          }}>PRO</span>
-        </button>
-      </div>
-
-      {/* Meal Time Selector — shared across tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        {['Breakfast', 'Lunch', 'Snack', 'Dinner'].map(t => (
-          <button key={t} onClick={() => setMealTime(t)} style={{
-            fontSize: 12, padding: '5px 12px', borderRadius: 20,
-            border: mealTime === t ? '1.5px solid var(--text)' : '1px solid var(--border)',
-            background: mealTime === t ? 'var(--text)' : 'none',
-            color: mealTime === t ? 'var(--bg)' : 'var(--muted)',
-            cursor: 'pointer',
-          }}>{t.toLowerCase()}</button>
-        ))}
-      </div>
-
-      {/* Spinner keyframe — used by grocery search and elsewhere */}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
-      {/* Tab Content */}
-      {activeTab === 'restaurant' ? (
-        <RestaurantSearch onSelect={setSelectedItem} />
-      ) : (
-        <>
-          {/* Grocery Search Bar */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && searchFood()}
-                placeholder="search any food..."
-                style={{
-                  flex: 1, padding: '10px 14px', borderRadius: 10,
-                  border: '1px solid var(--border)', fontSize: 14, outline: 'none',
-                  background: 'var(--surface)', color: 'var(--text)',
-                }}
-              />
-              <button onClick={searchFood} style={{
-                padding: '10px 18px', borderRadius: 10, border: 'none',
-                background: 'var(--text)', color: 'var(--bg)', fontSize: 14, cursor: 'pointer',
-                minWidth: 72, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {searching ? (
-                  <span style={{
-                    display: 'inline-block',
-                    width: 16, height: 16,
-                    border: '2px solid var(--bg)',
-                    borderTopColor: 'transparent',
-                    borderRadius: '50%',
-                    animation: 'spin 0.7s linear infinite',
-                  }} />
-                ) : 'search'}
-              </button>
-            </div>
-          </div>
-
-          {/* Grocery Search Results */}
-          {results.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
-                {pagedResults.map((item, i) => (
-                  <div key={i} onClick={() => setSelectedItem(item)} style={{
-                    padding: '10px 14px', borderBottom: '1px solid var(--border)',
-                    cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    transition: 'background 0.15s',
-                  }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.food_name}
-                      </div>
-                      {(item.brand_name || item.verified) && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                          {item.brand_name && <span>{item.brand_name}</span>}
-                          {item.verified && (
-                            <span style={{
-                              fontSize: 9,
-                              color: '#1D9E75',
-                              fontWeight: 700,
-                              letterSpacing: '0.08em',
-                            }}>
-                              VERIFIED
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', flexShrink: 0 }}>
-                      {Math.round(item.nf_calories || 0)} cal
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {totalPages > 1 && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10 }}>
-                  <button
-                    onClick={() => setResultPage(p => Math.max(0, p - 1))}
-                    disabled={resultPage === 0}
-                    style={{
-                      padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                      background: 'none', color: resultPage === 0 ? 'var(--border)' : 'var(--text)',
-                      cursor: resultPage === 0 ? 'default' : 'pointer', fontSize: 13,
-                    }}
-                  >←</button>
-
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setResultPage(i)}
-                      style={{
-                        width: 32, height: 32, borderRadius: 8,
-                        border: '1px solid var(--border)',
-                        background: resultPage === i ? 'var(--text)' : 'none',
-                        color: resultPage === i ? 'var(--bg)' : 'var(--muted)',
-                        cursor: 'pointer', fontSize: 13, fontWeight: resultPage === i ? 600 : 400,
-                      }}
-                    >{i + 1}</button>
-                  ))}
-
-                  <button
-                    onClick={() => setResultPage(p => Math.min(totalPages - 1, p + 1))}
-                    disabled={resultPage === totalPages - 1}
-                    style={{
-                      padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                      background: 'none', color: resultPage === totalPages - 1 ? 'var(--border)' : 'var(--text)',
-                      cursor: resultPage === totalPages - 1 ? 'default' : 'pointer', fontSize: 13,
-                    }}
-                  >→</button>
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
+      {/* Log Food Button */}
+      <button
+        onClick={() => setShowLogFood(true)}
+        style={{
+          width: '100%',
+          padding: '14px 0',
+          borderRadius: 14,
+          border: 'none',
+          background: 'var(--text)',
+          color: 'var(--bg)',
+          fontSize: 15,
+          fontWeight: 600,
+          cursor: 'pointer',
+          marginBottom: 28,
+          letterSpacing: '0.01em',
+        }}
+      >
+        + Log Food
+      </button>
 
       {/* Meal Log */}
       {Object.keys(groupedMeals).length === 0 ? (
@@ -605,10 +319,18 @@ function App() {
         </div>
       )}
 
+      {/* Log Food Sheet */}
+      <LogFoodSheet
+        open={showLogFood}
+        onClose={() => setShowLogFood(false)}
+        onSelect={handleFoodSelect}
+      />
+
+      {/* Food Detail Modal — opened after selecting from LogFoodSheet */}
       {selectedItem && (
         <FoodDetailModal
           item={selectedItem}
-          mealTime={mealTime}
+          mealTime={selectedMealTime}
           onClose={() => setSelectedItem(null)}
           onLog={logItem}
         />
