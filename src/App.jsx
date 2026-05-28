@@ -150,18 +150,20 @@ function App() {
     setSearching(true)
     setResultPage(0)
 
-    const fetchOFF = async (usOnly) => {
-      const baseUrl =
-        `https://world.openfoodfacts.org/cgi/search.pl` +
-        `?search_terms=${encodeURIComponent(search)}` +
-        `&search_simple=1&action=process&json=1&page_size=50` +
-        `&fields=product_name,brands,nutriments,countries_tags`
-      const url = usOnly
-        ? `${baseUrl}&tagtype_0=countries&tag_contains_0=contains&tag_0=en:united-states`
-        : baseUrl
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`OFF returned ${res.status}`)
-      return res.json()
+    const TIMEOUT_MS = 8000
+
+    const fetchWithTimeout = async (url) => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+      try {
+        const res = await fetch(url, { signal: controller.signal })
+        clearTimeout(timeoutId)
+        if (!res.ok) throw new Error(`OFF returned ${res.status}`)
+        return res.json()
+      } catch (e) {
+        clearTimeout(timeoutId)
+        throw e
+      }
     }
 
     const mapOFF = (data) => {
@@ -180,30 +182,31 @@ function App() {
         }))
     }
 
-    // Primary: US-only search, with one retry on transient failure
-    let items = []
+    // Wide net, no server-side country filter (their tag filter is too slow)
+    const url =
+      `https://world.openfoodfacts.org/cgi/search.pl` +
+      `?search_terms=${encodeURIComponent(search)}` +
+      `&search_simple=1&action=process&json=1&page_size=100` +
+      `&fields=product_name,brands,nutriments,countries_tags`
+
+    let allItems = []
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const data = await fetchOFF(true)
-        items = mapOFF(data)
+        const data = await fetchWithTimeout(url)
+        allItems = mapOFF(data)
         break
       } catch (e) {
-        console.warn(`OFF US search attempt ${attempt + 1} failed:`, e)
+        console.warn(`OFF attempt ${attempt + 1} failed:`, e)
         if (attempt === 0) await new Promise(r => setTimeout(r, 400))
       }
     }
 
-    // Fallback: if US query returned nothing, search globally so the user isn't stranded
-    if (items.length === 0) {
-      try {
-        const data = await fetchOFF(false)
-        items = mapOFF(data)
-      } catch (e) {
-        console.error('OFF global fallback failed:', e)
-      }
-    }
+    // Filter US-only client-side. If we don't have at least 5 US results,
+    // fall back to all results so niche queries aren't stranded empty.
+    const usItems = allItems.filter(p => p.countries.includes('en:united-states'))
+    const pool = usItems.length >= 5 ? usItems : allItems
 
-    const sorted = items
+    const sorted = pool
       .map(item => ({ ...item, _score: scoreResult(item, search) }))
       .sort((a, b) => b._score - a._score)
 
