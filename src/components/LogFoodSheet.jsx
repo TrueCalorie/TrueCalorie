@@ -129,7 +129,7 @@ const ModeTile = ({ icon, label, badge, disabled, onClick }) => (
 )
 
 // ─── Main component ───────────────────────────────────────────────────────────
-const RESULTS_PER_PAGE = 5
+const RESULTS_PER_PAGE = 8
 const MEAL_TIMES = ['Breakfast', 'Lunch', 'Snack', 'Dinner']
 
 export default function LogFoodSheet({ open, onClose, onSelect }) {
@@ -359,21 +359,27 @@ export default function LogFoodSheet({ open, onClose, onSelect }) {
                   </div>
 
                   {totalPages > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 10 }}>
                       <button
                         onClick={() => setResultPage(p => Math.max(0, p - 1))}
                         disabled={resultPage === 0}
-                        style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: resultPage === 0 ? 'var(--border)' : 'var(--text)', cursor: resultPage === 0 ? 'default' : 'pointer', fontSize: 13 }}
+                        style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: resultPage === 0 ? 'var(--border)' : 'var(--text)', cursor: resultPage === 0 ? 'default' : 'pointer', fontSize: 13 }}
                       >←</button>
-                      {Array.from({ length: totalPages }, (_, i) => (
-                        <button key={i} onClick={() => setResultPage(i)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border)', background: resultPage === i ? 'var(--text)' : 'none', color: resultPage === i ? 'var(--bg)' : 'var(--muted)', cursor: 'pointer', fontSize: 13, fontWeight: resultPage === i ? 600 : 400 }}>{i + 1}</button>
-                      ))}
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                        {resultPage + 1} of {totalPages}
+                      </span>
                       <button
                         onClick={() => setResultPage(p => Math.min(totalPages - 1, p + 1))}
                         disabled={resultPage === totalPages - 1}
-                        style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: resultPage === totalPages - 1 ? 'var(--border)' : 'var(--text)', cursor: resultPage === totalPages - 1 ? 'default' : 'pointer', fontSize: 13 }}
+                        style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: resultPage === totalPages - 1 ? 'var(--border)' : 'var(--text)', cursor: resultPage === totalPages - 1 ? 'default' : 'pointer', fontSize: 13 }}
                       >→</button>
                     </div>
+                  )}
+                  {/* Verified note */}
+                  {results.some(r => r.verified) && (
+                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, marginBottom: 0, lineHeight: 1.5 }}>
+                      <span style={{ color: '#1D9E75', fontWeight: 700 }}>VERIFIED</span> — USDA Foundation or SR Legacy data, validated by registered dietitians.
+                    </p>
                   )}
                 </div>
               )}
