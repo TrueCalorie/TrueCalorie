@@ -10,6 +10,7 @@ import Terms from './Terms'
 import AchievementToast from './AchievementToast'
 import { ACHIEVEMENTS, checkAchievements } from './achievements'
 import FoodDetailModal from './components/FoodDetailModal'
+import MealEditModal from './components/MealEditModal'
 import LogFoodSheet from './components/LogFoodSheet'
 import LoadingScreen from './components/LoadingScreen'
 
@@ -19,6 +20,7 @@ function App() {
   const [settings, setSettings] = useState(null)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [meals, setMeals] = useState([])
+  const [savedFoods, setSavedFoods] = useState([])
   const [showSettings, setShowSettings] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [showFounders, setShowFounders] = useState(false)
@@ -29,6 +31,7 @@ function App() {
   const [currentToast, setCurrentToast] = useState(null)
   const [selectedItem, setSelectedItem] = useState(null)
   const [selectedMealTime, setSelectedMealTime] = useState('Lunch')
+  const [editingMeal, setEditingMeal] = useState(null)
 
   useEffect(() => {
     const setRouteFromPath = () => {
@@ -57,6 +60,7 @@ function App() {
     if (session) {
       fetchSettings()
       fetchMeals()
+      fetchSavedFoods()
     }
   }, [session])
 
@@ -85,6 +89,15 @@ function App() {
       .gte('logged_at', today)
       .order('logged_at', { ascending: false })
     if (data) setMeals(data)
+  }
+
+  const fetchSavedFoods = async () => {
+    const { data } = await supabase
+      .from('saved_foods')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+    if (data) setSavedFoods(data)
   }
 
   const checkAndAwardAchievements = async () => {
@@ -141,6 +154,33 @@ function App() {
     fetchMeals()
   }
 
+  const updateMeal = async (id, fields) => {
+    await supabase.from('meal_logs').update(fields).eq('id', id)
+    fetchMeals()
+  }
+
+  // Toggle save/unsave a food
+  const toggleSaveFood = async (item) => {
+    const existing = savedFoods.find(f => f.food_name === item.food_name && f.brand_name === item.brand_name)
+    if (existing) {
+      await supabase.from('saved_foods').delete().eq('id', existing.id)
+    } else {
+      await supabase.from('saved_foods').insert({
+        user_id: session.user.id,
+        food_name: item.food_name,
+        brand_name: item.brand_name || null,
+        nf_calories: item.nf_calories || 0,
+        nf_protein: item.nf_protein || 0,
+        nf_total_carbohydrate: item.nf_total_carbohydrate || 0,
+        nf_total_fat: item.nf_total_fat || 0,
+      })
+    }
+    fetchSavedFoods()
+  }
+
+  const isFoodSaved = (item) =>
+    savedFoods.some(f => f.food_name === item.food_name && f.brand_name === item.brand_name)
+
   const handleFoodSelect = (item, mealTime) => {
     setSelectedMealTime(mealTime)
     setSelectedItem(item)
@@ -153,7 +193,7 @@ function App() {
   const totalFat      = meals.reduce((sum, m) => sum + Number(m.fat), 0)
 
   const calorieGoal   = settings?.calorie_goal || 2000
-  const circumference = 2 * Math.PI * 54
+  const circumference = 2 * Math.PI * 62
   const ringPercent   = Math.min(totalCalories / calorieGoal, 1)
   const offset        = circumference * (1 - ringPercent)
 
@@ -184,13 +224,9 @@ function App() {
 
   return (
     <div style={{
-      position: 'relative',
-      maxWidth: 480,
-      margin: '0 auto',
-      padding: '24px 24px 48px', // extra bottom padding so last meal item isn't flush
-      fontFamily: 'sans-serif',
-      background: 'var(--bg)',
-      minHeight: '100vh',
+      position: 'relative', maxWidth: 480, margin: '0 auto',
+      padding: '24px 24px 48px',
+      fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh',
     }}>
 
       {currentToast && (
@@ -205,28 +241,15 @@ function App() {
           </h1>
           {isFounder && (
             <div style={{
-              display: 'inline-block',
-              marginTop: 6,
-              padding: '2px 8px',
-              borderRadius: 4,
-              background: '#0a0a0a',
-              border: '1px solid #1D9E75',
-              color: '#1D9E75',
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: '0.12em',
-            }}>
-              FOUNDER
-            </div>
+              display: 'inline-block', marginTop: 6, padding: '2px 8px', borderRadius: 4,
+              background: '#0a0a0a', border: '1px solid #1D9E75',
+              color: '#1D9E75', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em',
+            }}>FOUNDER</div>
           )}
         </div>
         <div style={{ display: 'flex', gap: 16 }}>
-          <button onClick={() => setShowHistory(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>
-            history
-          </button>
-          <button onClick={() => setShowSettings(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>
-            settings
-          </button>
+          <button onClick={() => setShowHistory(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>history</button>
+          <button onClick={() => setShowSettings(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>settings</button>
         </div>
       </div>
 
@@ -236,8 +259,8 @@ function App() {
           <svg width="160" height="160" viewBox="0 0 160 160" style={{ transform: 'rotate(-90deg)' }}>
             <circle cx="80" cy="80" r="62" fill="none" stroke="var(--border)" strokeWidth="11" />
             <circle cx="80" cy="80" r="62" fill="none" stroke="var(--text)" strokeWidth="11"
-              strokeDasharray={2 * Math.PI * 62}
-              strokeDashoffset={2 * Math.PI * 62 * (1 - ringPercent)}
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
               strokeLinecap="round"
             />
           </svg>
@@ -247,18 +270,13 @@ function App() {
           </div>
         </div>
 
-        {/* Macro pills */}
         <div style={{ display: 'flex', gap: 0, marginTop: 24, background: 'var(--surface)', borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)' }}>
           {[
-            { label: 'protein', val: Math.round(totalProtein), goal: settings?.protein_goal },
-            { label: 'carbs',   val: Math.round(totalCarbs),   goal: settings?.carb_goal },
-            { label: 'fat',     val: Math.round(totalFat),     goal: settings?.fat_goal },
+            { label: 'protein', val: Math.round(totalProtein) },
+            { label: 'carbs',   val: Math.round(totalCarbs) },
+            { label: 'fat',     val: Math.round(totalFat) },
           ].map((m, i) => (
-            <div key={m.label} style={{
-              textAlign: 'center',
-              padding: '12px 28px',
-              borderRight: i < 2 ? '1px solid var(--border)' : 'none',
-            }}>
+            <div key={m.label} style={{ textAlign: 'center', padding: '12px 28px', borderRight: i < 2 ? '1px solid var(--border)' : 'none' }}>
               <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{m.val}g</div>
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{m.label}</div>
             </div>
@@ -270,71 +288,53 @@ function App() {
       <button
         onClick={() => setShowLogFood(true)}
         style={{
-          width: '100%',
-          padding: '15px 0',
-          borderRadius: 14,
-          border: 'none',
-          background: 'var(--text)',
-          color: 'var(--bg)',
-          fontSize: 15,
-          fontWeight: 600,
-          cursor: 'pointer',
-          letterSpacing: '0.01em',
-          marginBottom: 36,
+          width: '100%', padding: '15px 0', borderRadius: 14, border: 'none',
+          background: 'var(--text)', color: 'var(--bg)',
+          fontSize: 15, fontWeight: 600, cursor: 'pointer',
+          letterSpacing: '0.01em', marginBottom: 36,
         }}
       >
         + Log Food
       </button>
 
-      {/* ── Today's Meals ── */}
+      {/* ── Meal Log ── */}
       {Object.keys(groupedMeals).length === 0 ? (
-        <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: 48, fontSize: 14 }}>
-          no meals logged today
-        </p>
+        <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: 48, fontSize: 14 }}>no meals logged today</p>
       ) : (
         Object.entries(groupedMeals).map(([time, items]) => (
           <div key={time} style={{ marginBottom: 28 }}>
-            {/* Meal group header */}
             <div style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: 'var(--muted)',
-              letterSpacing: '0.08em',
-              marginBottom: 4,
-              paddingBottom: 6,
-              borderBottom: '1px solid var(--border)',
+              fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+              letterSpacing: '0.08em', marginBottom: 4,
+              paddingBottom: 6, borderBottom: '1px solid var(--border)',
             }}>
               {time.toUpperCase()}
             </div>
-
             {items.map(meal => (
-              <div key={meal.id} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '12px 0',
-                borderBottom: '1px solid var(--border)',
-              }}>
+              <div
+                key={meal.id}
+                onClick={() => setEditingMeal(meal)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '12px 0', borderBottom: '1px solid var(--border)',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
                 <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
                   <div style={{ fontSize: 14, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {meal.name}
                   </div>
                   {meal.restaurant && (
-                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                      {meal.restaurant}
-                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{meal.restaurant}</div>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                   <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
                     {Math.round(meal.calories)} cal
                   </span>
-                  <button
-                    onClick={() => deleteItem(meal.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}
-                  >
-                    ×
-                  </button>
+                  <span style={{ fontSize: 12, color: 'var(--border)' }}>›</span>
                 </div>
               </div>
             ))}
@@ -359,6 +359,7 @@ function App() {
         open={showLogFood}
         onClose={() => setShowLogFood(false)}
         onSelect={handleFoodSelect}
+        savedFoods={savedFoods}
       />
 
       {selectedItem && (
@@ -367,6 +368,18 @@ function App() {
           mealTime={selectedMealTime}
           onClose={() => setSelectedItem(null)}
           onLog={logItem}
+          userId={session.user.id}
+          isSaved={isFoodSaved(selectedItem)}
+          onToggleSave={toggleSaveFood}
+        />
+      )}
+
+      {editingMeal && (
+        <MealEditModal
+          meal={editingMeal}
+          onClose={() => setEditingMeal(null)}
+          onUpdate={updateMeal}
+          onDelete={deleteItem}
         />
       )}
     </div>

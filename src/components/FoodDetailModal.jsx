@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 
-export default function FoodDetailModal({ item, mealTime, onClose, onLog }) {
+export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId, isSaved, onToggleSave }) {
   const [servings, setServings] = useState(1)
+  const [saving, setSaving] = useState(false)
 
-  // Reset to 1 whenever a new item is opened
   useEffect(() => { setServings(1) }, [item])
 
   if (!item) return null
@@ -28,13 +28,20 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog }) {
     onClose()
   }
 
+  const handleStar = async () => {
+    if (!onToggleSave || saving) return
+    setSaving(true)
+    await onToggleSave(item)
+    setSaving(false)
+  }
+
   const labelStyle = { fontSize: 10, color: 'var(--muted)', letterSpacing: '0.06em', marginBottom: 8 }
 
   return (
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, zIndex: 50,
+        position: 'fixed', inset: 0, zIndex: 200,
         background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 20,
@@ -52,6 +59,25 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog }) {
           position: 'relative',
         }}
       >
+        {/* Star — save food */}
+        {onToggleSave && (
+          <button
+            onClick={handleStar}
+            disabled={saving}
+            aria-label={isSaved ? 'Unsave food' : 'Save food'}
+            style={{
+              position: 'absolute', top: 12, left: 12,
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 22, lineHeight: 1, padding: 6,
+              color: isSaved ? '#f5a623' : 'var(--border)',
+              transition: 'color 0.15s',
+            }}
+          >
+            {isSaved ? '★' : '☆'}
+          </button>
+        )}
+
+        {/* Close */}
         <button
           onClick={onClose}
           aria-label="Close"
@@ -63,7 +89,7 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog }) {
         >×</button>
 
         {/* Name + brand */}
-        <div style={{ marginBottom: 18, paddingRight: 24 }}>
+        <div style={{ marginBottom: 18, paddingLeft: onToggleSave ? 28 : 0, paddingRight: 24 }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>
             {item.food_name}
           </div>
@@ -117,10 +143,7 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog }) {
                 opacity: servings <= 0.5 ? 0.4 : 1,
               }}
             >−</button>
-            <div style={{
-              flex: 1, textAlign: 'center',
-              fontSize: 18, fontWeight: 600, color: 'var(--text)',
-            }}>
+            <div style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 600, color: 'var(--text)' }}>
               {servings % 1 === 0 ? servings : servings.toFixed(1)}
             </div>
             <button
