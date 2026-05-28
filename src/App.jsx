@@ -13,6 +13,7 @@ import FoodDetailModal from './components/FoodDetailModal'
 import MealEditModal from './components/MealEditModal'
 import LogFoodSheet from './components/LogFoodSheet'
 import LoadingScreen from './components/LoadingScreen'
+import { usePro } from './hooks/usePro'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -220,6 +221,7 @@ function App() {
     <Onboarding session={session} onComplete={fetchSettings} />
   )
 
+  const { isPro, isTrialing, trialDaysLeft } = usePro()
   const isFounder = settings.pro_source === 'founder'
 
   return (
@@ -239,13 +241,37 @@ function App() {
           <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
             Hey, {settings.display_name}
           </h1>
-          {isFounder && (
-            <div style={{
-              display: 'inline-block', marginTop: 6, padding: '2px 8px', borderRadius: 4,
-              background: '#0a0a0a', border: '1px solid #1D9E75',
-              color: '#1D9E75', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em',
-            }}>FOUNDER</div>
-          )}
+          {/* Badges */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+            {isFounder && (
+              <div style={{
+                display: 'inline-block', padding: '2px 8px', borderRadius: 4,
+                background: '#0a0a0a', border: '1px solid #1D9E75',
+                color: '#1D9E75', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em',
+              }}>FOUNDER</div>
+            )}
+            {isFounder && (
+              <div style={{
+                display: 'inline-block', padding: '2px 8px', borderRadius: 4,
+                background: '#1D9E75', border: '1px solid #1D9E75',
+                color: '#fff', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em',
+              }}>PRO</div>
+            )}
+            {!isFounder && isPro && !isTrialing && (
+              <div style={{
+                display: 'inline-block', padding: '2px 8px', borderRadius: 4,
+                background: '#1D9E75', border: '1px solid #1D9E75',
+                color: '#fff', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em',
+              }}>PRO</div>
+            )}
+            {isTrialing && (
+              <div style={{
+                display: 'inline-block', padding: '2px 8px', borderRadius: 4,
+                background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.5)',
+                color: '#f5a623', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em',
+              }}>TRIAL · {trialDaysLeft}d left</div>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 16 }}>
           <button onClick={() => setShowHistory(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 13 }}>history</button>
