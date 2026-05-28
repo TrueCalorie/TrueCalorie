@@ -1,19 +1,35 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from './supabase'
+import { calculateGoals } from './macros'
 
 export default function Settings({ session, settings, onUpdate, onClose }) {
+  // Convert stored height_cm back into feet + inches for display
+  const heightToFeetInches = (cm) => {
+    if (!cm) return { ft: '', in: '' }
+    const totalInches = cm / 2.54
+    const ft = Math.floor(totalInches / 12)
+    const inches = Math.round(totalInches - ft * 12)
+    return { ft: String(ft), in: String(inches) }
+  }
+  const initialHeight = heightToFeetInches(settings?.height_cm)
+
   const [form, setForm] = useState({
     display_name: settings?.display_name || '',
     calorie_goal: settings?.calorie_goal || 2000,
     protein_goal: settings?.protein_goal || 150,
     carbs_goal: settings?.carbs_goal || 250,
     fat_goal: settings?.fat_goal || 65,
+    age: settings?.age || '',
+    sex: settings?.sex || '',
+    height_ft: initialHeight.ft,
+    height_in: initialHeight.in,
     weight_lbs: settings?.weight_kg ? Math.round(settings.weight_kg * 2.20462) : '',
     activity_level: settings?.activity_level || '',
     goal: settings?.goal || '',
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [recalcFlash, setRecalcFlash] = useState(false)
   const [currentTheme, setCurrentTheme] = useState(localStorage.getItem('theme') || 'system')
 
   const update = (key, value) => setForm(f => ({ ...f, [key]: value }))
@@ -29,6 +45,37 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
     }
   }
 
+  // Can we run a recalc? Need every input the formula touches.
+  const canRecalculate = Boolean(
+    form.age && form.sex &&
+    form.height_ft && form.height_in &&
+    form.weight_lbs &&
+    form.activity_level && form.goal
+  )
+
+  const recalculate = () => {
+    if (!canRecalculate) return
+    const height_cm = (parseInt(form.height_ft) * 12 + parseInt(form.height_in)) * 2.54
+    const weight_kg = parseFloat(form.weight_lbs) * 0.453592
+    const goals = calculateGoals({
+      age: parseInt(form.age),
+      sex: form.sex,
+      height_cm,
+      weight_kg,
+      activity_level: form.activity_level,
+      goal: form.goal,
+    })
+    setForm(f => ({
+      ...f,
+      calorie_goal: goals.calorie_goal,
+      protein_goal: goals.protein_goal,
+      carbs_goal: goals.carbs_goal,
+      fat_goal: goals.fat_goal,
+    }))
+    setRecalcFlash(true)
+    setTimeout(() => setRecalcFlash(false), 1500)
+  }
+
   const save = async () => {
     setSaving(true)
     const updates = {
@@ -39,6 +86,12 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
       fat_goal: parseInt(form.fat_goal),
       activity_level: form.activity_level,
       goal: form.goal,
+    }
+    if (form.age) updates.age = parseInt(form.age)
+    if (form.sex) updates.sex = form.sex
+    if (form.height_ft && form.height_in) {
+      const height_cm = (parseInt(form.height_ft) * 12 + parseInt(form.height_in)) * 2.54
+      updates.height_cm = Math.round(height_cm * 10) / 10
     }
     if (form.weight_lbs) {
       updates.weight_kg = Math.round(parseFloat(form.weight_lbs) * 0.453592 * 10) / 10
@@ -55,7 +108,7 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
     padding: '11px 14px',
     fontSize: 15,
     borderRadius: 10,
-    border: '1px solid #ddd',
+    border: '1px solid var(--border)',
     outline: 'none',
     boxSizing: 'border-box',
     fontFamily: 'sans-serif',
@@ -71,9 +124,7 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
     display: 'block',
   }
 
-  const sectionStyle = {
-    marginBottom: 28,
-  }
+  const sectionStyle = { marginBottom: 28 }
 
   const sectionHeading = {
     fontSize: 13,
@@ -110,6 +161,11 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
     textAlign: 'center',
   })
 
+  // Daily goals input style — flash background briefly after recalc so the user sees what changed
+  const goalInputStyle = recalcFlash
+    ? { ...inputStyle, background: 'rgba(29, 158, 117, 0.12)', transition: 'background 0.4s' }
+    : { ...inputStyle, transition: 'background 0.4s' }
+
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '24px 24px 80px', fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh' }}>
 
@@ -132,43 +188,76 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
       <div style={sectionStyle}>
         <div style={sectionHeading}>DAILY GOALS</div>
         <label style={labelStyle}>CALORIES</label>
-        <input style={{ ...inputStyle, marginBottom: 12 }} type="number" value={form.calorie_goal} onChange={e => update('calorie_goal', e.target.value)} />
+        <input style={{ ...goalInputStyle, marginBottom: 12 }} type="number" value={form.calorie_goal} onChange={e => update('calorie_goal', e.target.value)} />
         <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>PROTEIN (g)</label>
-            <input style={inputStyle} type="number" value={form.protein_goal} onChange={e => update('protein_goal', e.target.value)} />
+            <input style={goalInputStyle} type="number" value={form.protein_goal} onChange={e => update('protein_goal', e.target.value)} />
           </div>
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>CARBS (g)</label>
-            <input style={inputStyle} type="number" value={form.carbs_goal} onChange={e => update('carbs_goal', e.target.value)} />
+            <input style={goalInputStyle} type="number" value={form.carbs_goal} onChange={e => update('carbs_goal', e.target.value)} />
           </div>
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>FAT (g)</label>
-            <input style={inputStyle} type="number" value={form.fat_goal} onChange={e => update('fat_goal', e.target.value)} />
+            <input style={goalInputStyle} type="number" value={form.fat_goal} onChange={e => update('fat_goal', e.target.value)} />
           </div>
         </div>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+          Tweak these manually, or use "Recalculate macros" below to regenerate them from your profile.
+        </p>
       </div>
 
       <div style={sectionStyle}>
         <div style={sectionHeading}>ABOUT YOU</div>
-        <label style={labelStyle}>CURRENT WEIGHT (lbs)</label>
-        <input style={{ ...inputStyle, marginBottom: 12 }} type="number" value={form.weight_lbs} onChange={e => update('weight_lbs', e.target.value)} placeholder="lbs" />
 
-        <label style={labelStyle}>GOAL</label>
+        <label style={labelStyle}>AGE</label>
+        <input
+          style={{ ...inputStyle, marginBottom: 12 }}
+          type="number"
+          value={form.age}
+          onChange={e => update('age', e.target.value)}
+          placeholder="years"
+        />
+
+        <label style={labelStyle}>SEX</label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          {[
-            { key: 'lose', label: 'Lose weight' },
-            { key: 'maintain', label: 'Maintain' },
-            { key: 'gain', label: 'Gain muscle' },
-          ].map(g => (
-            <button key={g.key} style={optionRow(form.goal === g.key)} onClick={() => update('goal', g.key)}>
-              {g.label}
+          {['male', 'female'].map(s => (
+            <button key={s} style={optionRow(form.sex === s)} onClick={() => update('sex', s)}>
+              {s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
         </div>
 
+        <label style={labelStyle}>HEIGHT</label>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <input
+            style={{ ...inputStyle, marginBottom: 0 }}
+            type="number"
+            placeholder="Feet"
+            value={form.height_ft}
+            onChange={e => update('height_ft', e.target.value)}
+          />
+          <input
+            style={{ ...inputStyle, marginBottom: 0 }}
+            type="number"
+            placeholder="Inches"
+            value={form.height_in}
+            onChange={e => update('height_in', e.target.value)}
+          />
+        </div>
+
+        <label style={labelStyle}>CURRENT WEIGHT (lbs)</label>
+        <input
+          style={{ ...inputStyle, marginBottom: 12 }}
+          type="number"
+          value={form.weight_lbs}
+          onChange={e => update('weight_lbs', e.target.value)}
+          placeholder="lbs"
+        />
+
         <label style={labelStyle}>ACTIVITY LEVEL</label>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           {[
             { key: 'sedentary', label: 'Sedentary' },
             { key: 'light', label: 'Light' },
@@ -180,6 +269,44 @@ export default function Settings({ session, settings, onUpdate, onClose }) {
             </button>
           ))}
         </div>
+
+        <label style={labelStyle}>GOAL</label>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {[
+            { key: 'lose', label: 'Lose weight' },
+            { key: 'maintain', label: 'Maintain' },
+            { key: 'gain', label: 'Gain muscle' },
+          ].map(g => (
+            <button key={g.key} style={optionRow(form.goal === g.key)} onClick={() => update('goal', g.key)}>
+              {g.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={recalculate}
+          disabled={!canRecalculate}
+          style={{
+            width: '100%',
+            padding: '11px',
+            borderRadius: 10,
+            border: '1px solid var(--border)',
+            background: 'none',
+            color: canRecalculate ? 'var(--text)' : 'var(--muted)',
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: canRecalculate ? 'pointer' : 'default',
+            opacity: canRecalculate ? 1 : 0.6,
+            fontFamily: 'sans-serif',
+          }}
+        >
+          Recalculate macros
+        </button>
+        {!canRecalculate && (
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, textAlign: 'center' }}>
+            Fill in every field above to recalculate.
+          </p>
+        )}
       </div>
 
       <div style={sectionStyle}>
