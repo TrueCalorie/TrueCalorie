@@ -150,35 +150,61 @@ function App() {
     setSearching(true)
     setResultPage(0)
 
-    const allResults = []
-
-    try {
-      const offRes = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(search)}&search_simple=1&action=process&json=1&page_size=30&fields=product_name,brands,nutriments,countries_tags`
-      )
-      const offData = await offRes.json()
-      if (offData.products) {
-        const groceryItems = offData.products
-          .filter(p => p.product_name && p.nutriments?.['energy-kcal_serving'])
-          .map(p => ({
-            food_name: p.product_name,
-            brand_name: p.brands || null,
-            nf_calories: Math.round(p.nutriments['energy-kcal_serving'] || 0),
-            nf_protein: Math.round(p.nutriments['proteins_serving'] || 0),
-            nf_total_carbohydrate: Math.round(p.nutriments['carbohydrates_serving'] || 0),
-            nf_total_fat: Math.round(p.nutriments['fat_serving'] || 0),
-            countries: p.countries_tags || [],
-            source: 'off',
-          }))
-          .map(p => ({ ...p, _usBoost: p.countries.includes('en:united-states') ? 30 : 0 }))
-        allResults.push(...groceryItems)
-      }
-    } catch (e) {
-      console.error('Open Food Facts error:', e)
+    const fetchOFF = async (usOnly) => {
+      const baseUrl =
+        `https://world.openfoodfacts.org/cgi/search.pl` +
+        `?search_terms=${encodeURIComponent(search)}` +
+        `&search_simple=1&action=process&json=1&page_size=50` +
+        `&fields=product_name,brands,nutriments,countries_tags`
+      const url = usOnly
+        ? `${baseUrl}&tagtype_0=countries&tag_contains_0=contains&tag_0=en:united-states`
+        : baseUrl
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`OFF returned ${res.status}`)
+      return res.json()
     }
 
-    const sorted = allResults
-      .map(item => ({ ...item, _score: scoreResult(item, search) + (item._usBoost || 0) }))
+    const mapOFF = (data) => {
+      if (!data?.products) return []
+      return data.products
+        .filter(p => p.product_name && p.nutriments?.['energy-kcal_serving'])
+        .map(p => ({
+          food_name: p.product_name,
+          brand_name: p.brands || null,
+          nf_calories: Math.round(p.nutriments['energy-kcal_serving'] || 0),
+          nf_protein: Math.round(p.nutriments['proteins_serving'] || 0),
+          nf_total_carbohydrate: Math.round(p.nutriments['carbohydrates_serving'] || 0),
+          nf_total_fat: Math.round(p.nutriments['fat_serving'] || 0),
+          countries: p.countries_tags || [],
+          source: 'off',
+        }))
+    }
+
+    // Primary: US-only search, with one retry on transient failure
+    let items = []
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const data = await fetchOFF(true)
+        items = mapOFF(data)
+        break
+      } catch (e) {
+        console.warn(`OFF US search attempt ${attempt + 1} failed:`, e)
+        if (attempt === 0) await new Promise(r => setTimeout(r, 400))
+      }
+    }
+
+    // Fallback: if US query returned nothing, search globally so the user isn't stranded
+    if (items.length === 0) {
+      try {
+        const data = await fetchOFF(false)
+        items = mapOFF(data)
+      } catch (e) {
+        console.error('OFF global fallback failed:', e)
+      }
+    }
+
+    const sorted = items
+      .map(item => ({ ...item, _score: scoreResult(item, search) }))
       .sort((a, b) => b._score - a._score)
 
     setResults(sorted)
