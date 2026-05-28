@@ -139,7 +139,11 @@ function App() {
     if (item.nf_total_carbohydrate > 0) score += 5
     if (item.nf_total_fat > 0) score += 5
     score -= name.length * 0.1
-
+    
+    // Penalize non-English names — they're usually mistagged products
+    const nonAsciiCount = (item.food_name || '').match(/[^\x00-\x7F]/g)?.length || 0
+    score -= nonAsciiCount * 5
+    
     return score
   }
 
