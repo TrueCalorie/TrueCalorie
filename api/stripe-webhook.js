@@ -1,29 +1,18 @@
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 
-// ──────────────────────────────────────────────────────────────────
-// CLIENTS
-// ──────────────────────────────────────────────────────────────────
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2026-04-22.dahlia',
 })
 
-// IMPORTANT: This uses the SERVICE ROLE key, not the anon key.
-// Service role bypasses RLS so the webhook can write to any user's data.
-// NEVER expose this key in frontend code.
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false } }
 )
 
-// Vercel needs the raw body to verify Stripe signatures.
-// This config tells Vercel NOT to parse the body as JSON.
 export const config = {
-  api: {
-    bodyParser: false,
-  },
+  api: { bodyParser: false },
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -35,12 +24,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  // Read raw body for signature verification
   const rawBody = await getRawBody(req)
   const signature = req.headers['stripe-signature']
 
   let event
-
   try {
     event = stripe.webhooks.constructEvent(
       rawBody,
@@ -59,19 +46,15 @@ export default async function handler(req, res) {
       case 'checkout.session.completed':
         await handleCheckoutCompleted(event.data.object)
         break
-
       case 'customer.subscription.updated':
         await handleSubscriptionUpdated(event.data.object)
         break
-
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event.data.object)
         break
-
       default:
         console.log(`Unhandled event type: ${event.type}`)
     }
-
     return res.status(200).json({ received: true })
   } catch (err) {
     console.error(`Error handling ${event.type}:`, err)
@@ -80,27 +63,68 @@ export default async function handler(req, res) {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// EVENT HANDLERS
+// CHECKOUT COMPLETED
+// Routes to Pro or Founder handler based on metadata
 // ──────────────────────────────────────────────────────────────────
 
-/**
- * Fires when someone successfully completes Stripe Checkout.
- * This is the "they just bought it" event.
- */
 async function handleCheckoutCompleted(session) {
+  // Pro subscriptions set client_reference_id to the Supabase user ID
+  const isProCheckout = !!session.client_reference_id
+
+  if (isProCheckout) {
+    await handleProCheckoutCompleted(session)
+  } else {
+    await handleFounderCheckoutCompleted(session)
+  }
+}
+
+// ── Pro subscription checkout ─────────────────────────────────────
+
+async function handleProCheckoutCompleted(session) {
+  const userId = session.client_reference_id
+  const subscriptionId = session.subscription
+
+  console.log(`Pro checkout completed for user ${userId}`)
+
+  // Fetch subscription to get current_period_end
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+
+  const { error } = await supabase
+    .from('user_settings')
+    .update({
+      is_pro: true,
+      pro_source: 'monthly',
+      pro_activated_at: new Date().toISOString(),
+      pro_expires_at: periodEnd,
+      // Store stripe subscription ID so we can update it later
+      stripe_subscription_id: subscriptionId,
+    })
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('Failed to grant Pro:', error)
+    throw error
+  }
+
+  console.log(`Granted Pro to user ${userId} until ${periodEnd}`)
+}
+
+// ── Founder one-time checkout (unchanged) ─────────────────────────
+
+async function handleFounderCheckoutCompleted(session) {
   const email = session.customer_details?.email || session.customer_email
   const customerId = session.customer
   const subscriptionId = session.subscription
-  const amountPaid = session.amount_total // in cents
+  const amountPaid = session.amount_total
 
   if (!email) {
-    console.error('No email on checkout session, skipping')
+    console.error('No email on founder checkout session, skipping')
     return
   }
 
   console.log(`Processing founder purchase for ${email}`)
 
-  // Check if a TrueCalorie user already exists with this email
   const { data: existingUser } = await supabase.auth.admin
     .listUsers()
     .then(({ data }) => ({
@@ -109,7 +133,6 @@ async function handleCheckoutCompleted(session) {
 
   const userId = existingUser?.id || null
 
-  // Insert founder row
   const { error: insertError } = await supabase
     .from('founders')
     .insert({
@@ -123,7 +146,6 @@ async function handleCheckoutCompleted(session) {
     })
 
   if (insertError) {
-    // If it's a duplicate (Stripe retried), that's fine — ignore
     if (insertError.code === '23505') {
       console.log(`Duplicate webhook for subscription ${subscriptionId}, ignoring`)
       return
@@ -131,7 +153,6 @@ async function handleCheckoutCompleted(session) {
     throw insertError
   }
 
-  // If we found a matching user, grant them Pro immediately
   if (userId) {
     const { error: settingsError } = await supabase
       .from('user_settings')
@@ -140,92 +161,107 @@ async function handleCheckoutCompleted(session) {
         is_pro: true,
         pro_source: 'founder',
         pro_activated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id',
-      })
+      }, { onConflict: 'user_id' })
 
-    if (settingsError) {
-      console.error('Failed to grant Pro:', settingsError)
-      throw settingsError
-    }
-
-    console.log(`Granted Pro to existing user ${userId}`)
-  } else {
-    console.log(`No matching user yet for ${email} — will link on signup`)
+    if (settingsError) throw settingsError
+    console.log(`Granted founder Pro to user ${userId}`)
   }
 }
 
-/**
- * Fires when a subscription's status changes.
- * Keeps the founders table status field in sync.
- */
+// ──────────────────────────────────────────────────────────────────
+// SUBSCRIPTION UPDATED
+// Handles both Pro renewals and founder status changes
+// ──────────────────────────────────────────────────────────────────
+
 async function handleSubscriptionUpdated(subscription) {
   const subscriptionId = subscription.id
-  const status = subscription.status // 'active', 'past_due', 'canceled', etc.
+  const userId = subscription.metadata?.user_id
+  const type = subscription.metadata?.type
 
-  console.log(`Subscription ${subscriptionId} updated to status: ${status}`)
+  console.log(`Subscription ${subscriptionId} updated — type: ${type}, status: ${subscription.status}`)
 
-  const { error } = await supabase
-    .from('founders')
-    .update({ status })
-    .eq('stripe_subscription_id', subscriptionId)
+  if (type === 'pro_monthly' && userId) {
+    // Pro subscription — update period end and status in user_settings
+    const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+    const isActive = subscription.status === 'active'
 
-  if (error) {
-    console.error('Failed to update subscription status:', error)
-    throw error
+    await supabase
+      .from('user_settings')
+      .update({
+        is_pro: isActive,
+        pro_expires_at: isActive ? periodEnd : new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+
+    console.log(`Updated Pro status for user ${userId}: active=${isActive}, expires=${periodEnd}`)
+  } else {
+    // Founder subscription — update founders table status only
+    await supabase
+      .from('founders')
+      .update({ status: subscription.status })
+      .eq('stripe_subscription_id', subscriptionId)
+
+    console.log(`Updated founder subscription ${subscriptionId} status to ${subscription.status}`)
   }
 }
 
-/**
- * Fires when a subscription is canceled or ends.
- * Marks the founder row as canceled and revokes Pro access.
- */
+// ──────────────────────────────────────────────────────────────────
+// SUBSCRIPTION DELETED
+// Revokes Pro when subscription is fully canceled
+// ──────────────────────────────────────────────────────────────────
+
 async function handleSubscriptionDeleted(subscription) {
   const subscriptionId = subscription.id
+  const userId = subscription.metadata?.user_id
+  const type = subscription.metadata?.type
 
-  console.log(`Subscription ${subscriptionId} canceled`)
+  console.log(`Subscription ${subscriptionId} deleted — type: ${type}`)
 
-  // Look up the founder row
-  const { data: founder, error: lookupError } = await supabase
-    .from('founders')
-    .select('user_id')
-    .eq('stripe_subscription_id', subscriptionId)
-    .single()
-
-  if (lookupError) {
-    console.error('Failed to find founder for canceled sub:', lookupError)
-    throw lookupError
-  }
-
-  // Mark as canceled
-  await supabase
-    .from('founders')
-    .update({ status: 'canceled' })
-    .eq('stripe_subscription_id', subscriptionId)
-
-  // Revoke Pro for the linked user
-  if (founder?.user_id) {
+  if (type === 'pro_monthly' && userId) {
+    // Revoke Pro — drop back to free tier
     await supabase
       .from('user_settings')
       .update({
         is_pro: false,
         pro_source: null,
-        pro_activated_at: null,
+        pro_expires_at: new Date().toISOString(),
+        stripe_subscription_id: null,
       })
-      .eq('user_id', founder.user_id)
+      .eq('user_id', userId)
 
-    console.log(`Revoked Pro for user ${founder.user_id}`)
+    console.log(`Revoked Pro for user ${userId}`)
+  } else {
+    // Founder subscription canceled
+    const { data: founder } = await supabase
+      .from('founders')
+      .select('user_id')
+      .eq('stripe_subscription_id', subscriptionId)
+      .single()
+
+    await supabase
+      .from('founders')
+      .update({ status: 'canceled' })
+      .eq('stripe_subscription_id', subscriptionId)
+
+    if (founder?.user_id) {
+      await supabase
+        .from('user_settings')
+        .update({ is_pro: false, pro_source: null, pro_activated_at: null })
+        .eq('user_id', founder.user_id)
+
+      console.log(`Revoked founder Pro for user ${founder.user_id}`)
+    }
   }
 }
 
 // ──────────────────────────────────────────────────────────────────
-// UTILITY: Read raw request body
+// UTILITY
 // ──────────────────────────────────────────────────────────────────
 
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = []
-    req.on('data', (chunk) => chunks.push(chunk))
+    req.on('data', chunk => chunks.push(chunk))
     req.on('end', () => resolve(Buffer.concat(chunks)))
     req.on('error', reject)
   })

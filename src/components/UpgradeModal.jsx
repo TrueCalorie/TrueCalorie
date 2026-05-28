@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { usePro } from '../hooks/usePro'
+import { supabase } from '../supabase'
 
 const FEATURES = [
   'Full macros for 200,000+ restaurant menu items',
@@ -10,8 +11,10 @@ const FEATURES = [
   'Strava integration',
 ]
 
-export default function UpgradeModal({ open, onClose, onCheckout }) {
+export default function UpgradeModal({ open, onClose }) {
   const { isTrialing, trialDaysLeft, source } = usePro()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!open) return
@@ -20,9 +23,17 @@ export default function UpgradeModal({ open, onClose, onCheckout }) {
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
 
+  // Handle ?checkout=success in URL after Stripe redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('checkout') === 'success') {
+      // Clean up URL
+      window.history.replaceState({}, '', '/')
+    }
+  }, [])
+
   if (!open) return null
 
-  // Determine which header state to show
   const trialExpired = source === 'trial' && !isTrialing
   const inTrial = isTrialing && trialDaysLeft > 0
 
@@ -37,6 +48,32 @@ export default function UpgradeModal({ open, onClose, onCheckout }) {
     : inTrial
     ? 'Upgrade now to keep access when your trial ends.'
     : 'Get accurate macros for every restaurant meal, voice logging, and more.'
+
+  const handleCheckout = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not signed in')
+
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, userEmail: user.email }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Checkout failed')
+
+      // Redirect to Stripe
+      window.location.href = data.url
+    } catch (err) {
+      console.error('Checkout error:', err)
+      setError('Something went wrong. Please try again.')
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -61,41 +98,35 @@ export default function UpgradeModal({ open, onClose, onCheckout }) {
           fontFamily: 'sans-serif',
         }}
       >
-        {/* Header */}
-        <div style={{ marginBottom: 20 }}>
-          {trialExpired && (
-            <div style={{
-              display: 'inline-block', marginBottom: 10,
-              padding: '3px 10px', borderRadius: 20,
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              color: '#ef4444', fontSize: 11, fontWeight: 600,
-              letterSpacing: '0.06em',
-            }}>
-              TRIAL ENDED
-            </div>
-          )}
-          {inTrial && (
-            <div style={{
-              display: 'inline-block', marginBottom: 10,
-              padding: '3px 10px', borderRadius: 20,
-              background: 'rgba(245,166,35,0.1)',
-              border: '1px solid rgba(245,166,35,0.3)',
-              color: '#f5a623', fontSize: 11, fontWeight: 600,
-              letterSpacing: '0.06em',
-            }}>
-              TRIAL ACTIVE
-            </div>
-          )}
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px' }}>
-            {headline}
-          </h2>
-          <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
-            {subtext}
-          </p>
-        </div>
+        {/* Status badge */}
+        {trialExpired && (
+          <div style={{
+            display: 'inline-block', marginBottom: 12,
+            padding: '3px 10px', borderRadius: 20,
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.3)',
+            color: '#ef4444', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+          }}>TRIAL ENDED</div>
+        )}
+        {inTrial && (
+          <div style={{
+            display: 'inline-block', marginBottom: 12,
+            padding: '3px 10px', borderRadius: 20,
+            background: 'rgba(245,166,35,0.1)',
+            border: '1px solid rgba(245,166,35,0.3)',
+            color: '#f5a623', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
+          }}>TRIAL ACTIVE</div>
+        )}
 
-        {/* Feature list */}
+        {/* Headline */}
+        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px' }}>
+          {headline}
+        </h2>
+        <p style={{ fontSize: 14, color: 'var(--muted)', margin: '0 0 20px', lineHeight: 1.5 }}>
+          {subtext}
+        </p>
+
+        {/* Features */}
         <div style={{ marginBottom: 24 }}>
           {FEATURES.map(f => (
             <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '5px 0', fontSize: 13, color: 'var(--text)' }}>
@@ -105,66 +136,45 @@ export default function UpgradeModal({ open, onClose, onCheckout }) {
           ))}
         </div>
 
-        {/* Pricing */}
+        {/* Price + CTA */}
         <div style={{
-          display: 'flex', gap: 10, marginBottom: 20,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: 12,
         }}>
-          {/* Monthly */}
+          <div>
+            <span style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>$9.99</span>
+            <span style={{ fontSize: 13, color: 'var(--muted)', marginLeft: 6 }}>/ month</span>
+          </div>
           <button
-            onClick={() => onCheckout?.('monthly')}
+            onClick={handleCheckout}
+            disabled={loading}
             style={{
-              flex: 1, padding: '14px 12px', borderRadius: 12,
-              border: '1px solid var(--border)',
-              background: 'var(--surface)',
-              cursor: 'pointer', textAlign: 'center',
-              transition: 'border-color 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--text)'}
-            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
-          >
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>$9.99</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>per month</div>
-          </button>
-
-          {/* Annual — highlighted */}
-          <button
-            onClick={() => onCheckout?.('annual')}
-            style={{
-              flex: 1, padding: '14px 12px', borderRadius: 12,
-              border: '2px solid var(--text)',
-              background: 'var(--text)',
-              cursor: 'pointer', textAlign: 'center',
-              position: 'relative',
+              padding: '12px 24px', borderRadius: 10, border: 'none',
+              background: loading ? 'var(--border)' : 'var(--text)',
+              color: 'var(--bg)',
+              fontSize: 14, fontWeight: 600, cursor: loading ? 'default' : 'pointer',
+              fontFamily: 'sans-serif', transition: 'background 0.15s',
             }}
           >
-            <div style={{
-              position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
-              background: '#1D9E75', color: '#fff',
-              fontSize: 10, fontWeight: 700, padding: '2px 8px',
-              borderRadius: 10, letterSpacing: '0.04em', whiteSpace: 'nowrap',
-            }}>
-              SAVE 42%
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--bg)' }}>$69.99</div>
-            <div style={{ fontSize: 11, color: 'var(--bg)', opacity: 0.7, marginTop: 2 }}>per year · $5.83/mo</div>
+            {loading ? 'Loading...' : 'Subscribe'}
           </button>
         </div>
 
-        {/* No card during trial note */}
-        <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', margin: '0 0 16px', lineHeight: 1.5 }}>
-          {inTrial
-            ? 'You won\'t be charged until your trial ends.'
-            : 'Cancel anytime. No hidden fees.'}
+        {error && (
+          <p style={{ fontSize: 12, color: '#ef4444', margin: '0 0 12px' }}>{error}</p>
+        )}
+
+        <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
+          {inTrial ? "You won't be charged until your trial ends." : 'Cancel anytime. No hidden fees.'}
         </p>
 
-        {/* Dismiss */}
         <button
           onClick={onClose}
           style={{
-            width: '100%', padding: '10px 0',
-            borderRadius: 10, border: '1px solid var(--border)',
-            background: 'none', color: 'var(--muted)',
-            fontSize: 13, cursor: 'pointer', fontFamily: 'sans-serif',
+            width: '100%', padding: '10px 0', borderRadius: 10,
+            border: '1px solid var(--border)', background: 'none',
+            color: 'var(--muted)', fontSize: 13, cursor: 'pointer',
+            fontFamily: 'sans-serif',
           }}
         >
           {inTrial ? 'keep exploring for now' : 'maybe later'}
