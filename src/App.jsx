@@ -33,6 +33,7 @@ function App() {
   const [selectedItem, setSelectedItem] = useState(null)
   const [selectedMealTime, setSelectedMealTime] = useState('Lunch')
   const [editingMeal, setEditingMeal] = useState(null)
+  const { isPro, isTrialing, trialDaysLeft } = usePro()
 
   useEffect(() => {
     const setRouteFromPath = () => {
@@ -221,7 +222,6 @@ function App() {
     <Onboarding session={session} onComplete={fetchSettings} />
   )
 
-  const { isPro, isTrialing, trialDaysLeft } = usePro()
   const isFounder = settings.pro_source === 'founder'
 
   return (
