@@ -10,21 +10,45 @@ const scoreResult = (item, query) => {
   const brand = (item.brand_name || '').toLowerCase()
   const q = query.toLowerCase()
 
+  // USDA uses comma-separated format: "Chicken, broilers or fryers, breast..."
+  // Extract primary food (before first comma) to score separately
+  const primaryName = name.split(',')[0].trim()
+  const hasComma = primaryName !== name
+
+  // Full name matching
   if (name === q) score += 100
   if (name.startsWith(q)) score += 50
   if (name.includes(q)) score += 25
+
+  // Primary name matching (catches USDA comma-format foods)
+  if (hasComma) {
+    if (primaryName === q) score += 80
+    if (primaryName.startsWith(q)) score += 40
+    if (primaryName.includes(q)) score += 20
+  }
+
   if (brand.includes(q)) score += 10
 
+  // Multi-word query: all words present in full name or primary name
   const queryWords = q.split(/\s+/).filter(w => w.length > 1)
-  if (queryWords.length > 1 && queryWords.every(w => name.includes(w))) score += 30
+  if (queryWords.length > 1) {
+    if (queryWords.every(w => name.includes(w))) score += 45
+    if (hasComma && queryWords.every(w => primaryName.includes(w))) score += 20
+  }
 
+  // Macro completeness
   if (item.nf_calories > 0) score += 20
   if (item.nf_protein > 0) score += 5
   if (item.nf_total_carbohydrate > 0) score += 5
   if (item.nf_total_fat > 0) score += 5
-  if (item.verified) score += 20
 
-  score -= name.length * 0.1
+  // Strong boost for USDA-verified data
+  if (item.verified) score += 45
+
+  // Length penalty — halved for verified items (names are intentionally verbose)
+  score -= name.length * (item.verified ? 0.05 : 0.15)
+
+  // Penalize non-ASCII (likely mistagged international products)
   const nonAscii = (item.food_name || '').match(/[^\x00-\x7F]/g)?.length || 0
   score -= nonAscii * 5
 
@@ -236,7 +260,7 @@ export default function LogFoodSheet({ open, onClose, onSelect }) {
           {/* ── Mode Picker ── */}
           {!mode && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              <ModeTile icon="📷" label="Scan Barcode" onClick={() => setMode('barcode')} />
+              <ModeTile icon="⬛" label="Scan Barcode" onClick={() => setMode('barcode')} />
               <ModeTile icon="🔍" label="Grocery Search" onClick={() => setMode('grocery')} />
               <ModeTile icon="🍽️" label="Restaurant" badge="PRO" onClick={() => setMode('restaurant')} />
               <ModeTile icon="🎙️" label="Voice Log" badge="SOON" disabled />
