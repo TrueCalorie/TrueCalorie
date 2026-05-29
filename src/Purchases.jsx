@@ -45,7 +45,7 @@ export default function Purchases({ session }) {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: session.user.id, email: session.user.email }),
+        body: JSON.stringify({ userId: session.user.id, userEmail: session.user.email }),
       })
       const data = await res.json()
       if (data?.url) {
