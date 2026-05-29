@@ -2,11 +2,10 @@ import { useState } from 'react'
 
 export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
   const [multiplier, setMultiplier] = useState(1)
-  const [deleting, setDeleting] = useState(false)
+  const [deleting, setDeleting]     = useState(false)
 
   if (!meal) return null
 
-  // Stored values are totals at the time of logging — treat as 1x baseline
   const baseCal = Math.round(meal.calories || 0)
   const baseP   = Math.round(meal.protein  || 0)
   const baseC   = Math.round(meal.carbs    || 0)
@@ -23,12 +22,7 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
   }
 
   const handleUpdate = () => {
-    onUpdate(meal.id, {
-      calories: totalCal,
-      protein:  totalP,
-      carbs:    totalC,
-      fat:      totalF,
-    })
+    onUpdate(meal.id, { calories: totalCal, protein: totalP, carbs: totalC, fat: totalF })
     onClose()
   }
 
@@ -39,7 +33,7 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
   }
 
   const labelStyle = { fontSize: 10, color: 'var(--muted)', letterSpacing: '0.06em', marginBottom: 8 }
-  const unchanged = multiplier === 1
+  const unchanged  = multiplier === 1
 
   return (
     <div
@@ -49,6 +43,9 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
         background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 20,
+        backdropFilter: 'blur(2px)',
+        WebkitBackdropFilter: 'blur(2px)',
+        animation: 'fadeIn 0.2s ease both',
       }}
     >
       <div
@@ -61,6 +58,7 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
           padding: 24,
           fontFamily: 'sans-serif',
           position: 'relative',
+          animation: 'modalEnter 0.25s cubic-bezier(0.34, 1.2, 0.64, 1) both',
         }}
       >
         {/* Close */}
@@ -70,15 +68,18 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
             position: 'absolute', top: 12, right: 12,
             background: 'none', border: 'none', cursor: 'pointer',
             fontSize: 20, color: 'var(--muted)', lineHeight: 1, padding: 6,
+            transition: 'color 0.15s',
           }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
         >×</button>
 
         {/* Name + meal time */}
-        <div style={{ marginBottom: 18, paddingRight: 24 }}>
+        <div style={{ marginBottom: 18, paddingRight: 32 }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>
             {meal.name}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
             {meal.restaurant && (
               <span style={{ fontSize: 12, color: 'var(--muted)' }}>{meal.restaurant}</span>
             )}
@@ -94,109 +95,115 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
 
         {/* Macro breakdown */}
         <div style={{
-          borderTop: '1px solid var(--border)',
-          borderBottom: '1px solid var(--border)',
-          padding: '14px 0',
-          marginBottom: 16,
+          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          gap: 8, marginBottom: 20,
         }}>
-          <div style={labelStyle}>LOGGED</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <div>
-              <span style={{ fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>{baseCal}</span>
-              <span style={{ fontSize: 12, color: 'var(--muted)', marginLeft: 6 }}>cal</span>
+          {[
+            { label: 'CALORIES', val: totalCal, unit: '' },
+            { label: 'PROTEIN',  val: totalP,   unit: 'g' },
+            { label: 'CARBS',    val: totalC,   unit: 'g' },
+            { label: 'FAT',      val: totalF,   unit: 'g' },
+          ].map(({ label, val, unit }) => (
+            <div key={label} style={{
+              background: 'var(--surface2)',
+              borderRadius: 10, padding: '10px 12px',
+              border: '1px solid var(--border)',
+              // Values animate when multiplier changes
+              transition: 'background 0.2s',
+            }}>
+              <div style={labelStyle}>{label}</div>
+              <div style={{
+                fontSize: 18, fontWeight: 700, color: 'var(--text)',
+                transition: 'color 0.15s',
+              }}>
+                {val}{unit}
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 16 }}>
-              {[
-                { label: 'protein', val: baseP },
-                { label: 'carbs',   val: baseC },
-                { label: 'fat',     val: baseF },
-              ].map(m => (
-                <div key={m.label} style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{m.val}g</div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{m.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Multiplier stepper */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={labelStyle}>ADJUST AMOUNT</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: 20,
+          background: 'var(--surface)', borderRadius: 10,
+          border: '1px solid var(--border)', padding: '10px 14px',
+        }}>
+          <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>Multiplier</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <button
               onClick={() => adjust(-0.5)}
-              disabled={multiplier <= 0.5}
               style={{
-                width: 36, height: 36, borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--surface)', color: 'var(--text)',
-                fontSize: 18, cursor: multiplier <= 0.5 ? 'default' : 'pointer',
-                opacity: multiplier <= 0.5 ? 0.4 : 1,
+                width: 32, height: 32, borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--surface2)',
+                color: 'var(--text)', fontSize: 18, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'transform 0.1s',
+                fontFamily: 'inherit',
               }}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
+              onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
             >−</button>
-            <div style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 600, color: 'var(--text)' }}>
-              {multiplier % 1 === 0 ? multiplier : multiplier.toFixed(1)}×
-            </div>
+            <span style={{
+              fontSize: 16, fontWeight: 600, color: 'var(--text)',
+              minWidth: 28, textAlign: 'center',
+              transition: 'color 0.15s',
+            }}>
+              {multiplier}×
+            </span>
             <button
               onClick={() => adjust(0.5)}
               style={{
-                width: 36, height: 36, borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--surface)', color: 'var(--text)',
-                fontSize: 18, cursor: 'pointer',
+                width: 32, height: 32, borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--surface2)',
+                color: 'var(--text)', fontSize: 18, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'transform 0.1s',
+                fontFamily: 'inherit',
               }}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
+              onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
             >+</button>
           </div>
         </div>
 
-        {/* Updated total — only show when multiplier changed */}
-        {!unchanged && (
-          <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 10,
-            padding: '12px 14px',
-            marginBottom: 16,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <div>
-              <div style={{ ...labelStyle, marginBottom: 4 }}>UPDATED TOTAL</div>
-              <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                {totalP}p · {totalC}c · {totalF}f
-              </div>
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--text)' }}>
-              {totalCal} <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400 }}>cal</span>
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
+        {/* Action buttons */}
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={handleDelete}
             disabled={deleting}
             style={{
-              flex: 1, padding: 12, borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'none', color: 'var(--muted)',
-              fontSize: 14, fontWeight: 500, cursor: 'pointer',
-              fontFamily: 'sans-serif',
+              flex: 1, padding: '13px 0', borderRadius: 12,
+              border: '1px solid var(--border)', background: 'none',
+              color: deleting ? 'var(--muted)' : 'var(--danger)',
+              fontSize: 14, fontWeight: 600, cursor: deleting ? 'default' : 'pointer',
+              fontFamily: 'inherit',
+              transition: 'background 0.15s, transform 0.1s',
             }}
+            onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = 'rgba(226,75,74,0.08)' }}
+            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
+            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
           >
-            {deleting ? '...' : 'delete'}
+            {deleting ? 'Deleting…' : 'Delete'}
           </button>
+
           <button
-            onClick={unchanged ? onClose : handleUpdate}
+            onClick={handleUpdate}
+            disabled={unchanged}
             style={{
-              flex: 2, padding: 12, borderRadius: 10, border: 'none',
-              background: 'var(--text)', color: 'var(--bg)',
-              fontSize: 14, fontWeight: 600, cursor: 'pointer',
-              fontFamily: 'sans-serif',
+              flex: 2, padding: '13px 0', borderRadius: 12, border: 'none',
+              background: unchanged ? 'var(--surface2)' : 'var(--text)',
+              color: unchanged ? 'var(--muted)' : 'var(--bg)',
+              fontSize: 14, fontWeight: 600,
+              cursor: unchanged ? 'default' : 'pointer',
+              fontFamily: 'inherit',
+              transition: 'background 0.2s, color 0.2s, transform 0.1s',
             }}
+            onMouseDown={e => { if (!unchanged) e.currentTarget.style.transform = 'scale(0.98)' }}
+            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
           >
-            {unchanged ? 'done' : 'save changes'}
+            {unchanged ? 'No changes' : 'Update'}
           </button>
         </div>
       </div>
