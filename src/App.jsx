@@ -44,13 +44,18 @@ function App() {
   const isFounder = source === 'founder'
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      if (event === 'INITIAL_SESSION') setLoading(false)
+      setLoading(false)
     })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
     return () => subscription.unsubscribe()
   }, [])
-
+  
   useEffect(() => {
     const setRouteFromPath = () => {
       const path = window.location.pathname
