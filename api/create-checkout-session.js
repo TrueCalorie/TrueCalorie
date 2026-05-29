@@ -44,7 +44,6 @@ export default async function handler(req, res) {
         },
         // Honor the remaining trial days if the user is still in trial
         // Stripe will not charge until trial ends
-        trial_end: 'now', // We manage trial in our DB — charge immediately on upgrade
       },
       success_url: `${process.env.VITE_APP_URL || 'https://truecalorie.net'}/?checkout=success`,
       cancel_url: `${process.env.VITE_APP_URL || 'https://truecalorie.net'}/?checkout=canceled`,
