@@ -355,8 +355,25 @@ function App() {
       )}
 
       {editingMeal && (
-        <MealEditModal meal={editingMeal} onClose={() => setEditingMeal(null)} onUpdate={updateMeal} onDelete={deleteItem} />
-      )}
+        <MealEditModal
+          meal={editingMeal}
+          onClose={() => setEditingMeal(null)}
+          onUpdate={updateMeal}
+          onDelete={deleteItem}
+          isSaved={isFoodSaved({
+            food_name:  editingMeal.name,
+            brand_name: editingMeal.restaurant,
+          })}
+          onToggleSave={() => toggleSaveFood({
+            food_name:             editingMeal.name,
+            brand_name:            editingMeal.restaurant,
+            nf_calories:           editingMeal.calories,
+            nf_protein:            editingMeal.protein,
+            nf_total_carbohydrate: editingMeal.carbs,
+            nf_total_fat:          editingMeal.fat,
+          })}
+    />
+  )}
     </div>
   )
 }

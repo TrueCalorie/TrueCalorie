@@ -1,8 +1,10 @@
 import { useState } from 'react'
 
-export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
+export default function MealEditModal({ meal, onClose, onUpdate, onDelete, isSaved, onToggleSave }) {
   const [multiplier, setMultiplier] = useState(1)
   const [deleting, setDeleting]     = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [starAnim, setStarAnim]     = useState(false)
 
   if (!meal) return null
 
@@ -32,8 +34,32 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
     onClose()
   }
 
+  const handleStar = async () => {
+    if (!onToggleSave || saving) return
+    setSaving(true)
+    setStarAnim(true)
+    await onToggleSave()
+    setSaving(false)
+    setTimeout(() => setStarAnim(false), 400)
+  }
+
   const labelStyle = { fontSize: 10, color: 'var(--muted)', letterSpacing: '0.06em', marginBottom: 8 }
   const unchanged  = multiplier === 1
+
+  const stepBtn = (label, delta) => (
+    <button
+      onClick={() => adjust(delta)}
+      style={{
+        width: 32, height: 32, borderRadius: 8,
+        border: '1px solid var(--border)', background: 'var(--surface2)',
+        color: 'var(--text)', fontSize: 18, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'transform 0.1s', fontFamily: 'inherit',
+      }}
+      onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
+      onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+    >{label}</button>
+  )
 
   return (
     <div
@@ -54,13 +80,31 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
           width: '100%', maxWidth: 380,
           background: 'var(--bg)',
           border: '1px solid var(--border)',
-          borderRadius: 16,
-          padding: 24,
-          fontFamily: 'sans-serif',
-          position: 'relative',
+          borderRadius: 16, padding: 24,
+          fontFamily: 'sans-serif', position: 'relative',
           animation: 'modalEnter 0.25s cubic-bezier(0.34, 1.2, 0.64, 1) both',
         }}
       >
+        {/* Star — save this food */}
+        {onToggleSave && (
+          <button
+            onClick={handleStar}
+            disabled={saving}
+            aria-label={isSaved ? 'Unsave food' : 'Save food'}
+            style={{
+              position: 'absolute', top: 12, left: 12,
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 22, lineHeight: 1, padding: 6,
+              color: isSaved ? '#f5a623' : 'var(--border)',
+              transition: 'color 0.2s',
+              animation: starAnim ? 'starPop 0.35s ease forwards' : 'none',
+              transformOrigin: 'center',
+            }}
+          >
+            {isSaved ? '★' : '☆'}
+          </button>
+        )}
+
         {/* Close */}
         <button
           onClick={onClose}
@@ -75,7 +119,7 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
         >×</button>
 
         {/* Name + meal time */}
-        <div style={{ marginBottom: 18, paddingRight: 32 }}>
+        <div style={{ marginBottom: 18, paddingLeft: onToggleSave ? 32 : 0, paddingRight: 32 }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>
             {meal.name}
           </div>
@@ -93,11 +137,8 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
           </div>
         </div>
 
-        {/* Macro breakdown */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: 8, marginBottom: 20,
-        }}>
+        {/* Macro grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
           {[
             { label: 'CALORIES', val: totalCal, unit: '' },
             { label: 'PROTEIN',  val: totalP,   unit: 'g' },
@@ -105,17 +146,11 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
             { label: 'FAT',      val: totalF,   unit: 'g' },
           ].map(({ label, val, unit }) => (
             <div key={label} style={{
-              background: 'var(--surface2)',
-              borderRadius: 10, padding: '10px 12px',
-              border: '1px solid var(--border)',
-              // Values animate when multiplier changes
-              transition: 'background 0.2s',
+              background: 'var(--surface2)', borderRadius: 10,
+              padding: '10px 12px', border: '1px solid var(--border)',
             }}>
               <div style={labelStyle}>{label}</div>
-              <div style={{
-                fontSize: 18, fontWeight: 700, color: 'var(--text)',
-                transition: 'color 0.15s',
-              }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
                 {val}{unit}
               </div>
             </div>
@@ -125,49 +160,20 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
         {/* Multiplier stepper */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 20,
-          background: 'var(--surface)', borderRadius: 10,
+          marginBottom: 20, background: 'var(--surface)', borderRadius: 10,
           border: '1px solid var(--border)', padding: '10px 14px',
         }}>
           <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>Multiplier</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <button
-              onClick={() => adjust(-0.5)}
-              style={{
-                width: 32, height: 32, borderRadius: 8,
-                border: '1px solid var(--border)', background: 'var(--surface2)',
-                color: 'var(--text)', fontSize: 18, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'transform 0.1s',
-                fontFamily: 'inherit',
-              }}
-              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
-              onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-            >−</button>
-            <span style={{
-              fontSize: 16, fontWeight: 600, color: 'var(--text)',
-              minWidth: 28, textAlign: 'center',
-              transition: 'color 0.15s',
-            }}>
+            {stepBtn('−', -0.5)}
+            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', minWidth: 28, textAlign: 'center' }}>
               {multiplier}×
             </span>
-            <button
-              onClick={() => adjust(0.5)}
-              style={{
-                width: 32, height: 32, borderRadius: 8,
-                border: '1px solid var(--border)', background: 'var(--surface2)',
-                color: 'var(--text)', fontSize: 18, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'transform 0.1s',
-                fontFamily: 'inherit',
-              }}
-              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
-              onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-            >+</button>
+            {stepBtn('+', 0.5)}
           </div>
         </div>
 
-        {/* Action buttons */}
+        {/* Actions */}
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={handleDelete}
@@ -175,18 +181,16 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
             style={{
               flex: 1, padding: '13px 0', borderRadius: 12,
               border: '1px solid var(--border)', background: 'none',
-              color: deleting ? 'var(--muted)' : 'var(--danger)',
-              fontSize: 14, fontWeight: 600, cursor: deleting ? 'default' : 'pointer',
-              fontFamily: 'inherit',
-              transition: 'background 0.15s, transform 0.1s',
+              color: deleting ? 'var(--muted)' : '#E24B4A',
+              fontSize: 14, fontWeight: 600,
+              cursor: deleting ? 'default' : 'pointer',
+              fontFamily: 'inherit', transition: 'background 0.15s, transform 0.1s',
             }}
             onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = 'rgba(226,75,74,0.08)' }}
             onMouseLeave={e => e.currentTarget.style.background = 'none'}
             onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
             onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            {deleting ? 'Deleting…' : 'Delete'}
-          </button>
+          >{deleting ? 'Deleting…' : 'Delete'}</button>
 
           <button
             onClick={handleUpdate}
@@ -197,14 +201,11 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete }) {
               color: unchanged ? 'var(--muted)' : 'var(--bg)',
               fontSize: 14, fontWeight: 600,
               cursor: unchanged ? 'default' : 'pointer',
-              fontFamily: 'inherit',
-              transition: 'background 0.2s, color 0.2s, transform 0.1s',
+              fontFamily: 'inherit', transition: 'background 0.2s, color 0.2s, transform 0.1s',
             }}
             onMouseDown={e => { if (!unchanged) e.currentTarget.style.transform = 'scale(0.98)' }}
             onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            {unchanged ? 'No changes' : 'Update'}
-          </button>
+          >{unchanged ? 'No changes' : 'Update'}</button>
         </div>
       </div>
     </div>
