@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import RestaurantSearch from './RestaurantSearch'
 import BarcodeScanner from './BarcodeScanner'
 import { searchUSDA } from '../services/usda'
+import VoiceLogger from './VoiceLogger'
 
 // ─── Animations ───────────────────────────────────────────────────────────────
 const SHEET_ANIM_MS = 300
@@ -368,7 +369,16 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
                 <ModeTile icon="📷"  label="Scan Barcode"   animDelay={0}    onClick={() => setMode('barcode')} />
                 <ModeTile icon="🔍"  label="Grocery Search" animDelay={0.05} onClick={() => setMode('grocery')} />
                 <ModeTile icon="🍽️" label="Restaurant"     animDelay={0.1}  badge="PRO"  onClick={() => setMode('restaurant')} />
-                <ModeTile icon="🎙️" label="Voice Log"      animDelay={0.15} badge="SOON" disabled />
+                <ModeTile
+                  icon="🎙️"
+                  label="Voice Log"
+                  animDelay={0.15}
+                  badge="PRO"
+                  onClick={() => {
+                    if (!isPro && !isTrialing) { setShowUpgrade(true); return }
+                    setMode('voice')
+                  }}
+                />
               </div>
             </>
           )}
@@ -532,6 +542,18 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
           {mode === 'restaurant' && (
             <RestaurantSearch onSelect={handleSelect} />
           )}
+          
+          {mode === 'voice' && (
+            <VoiceLogger
+              mealTime={selectedMealTime}
+              onLog={(food, servings) => {
+                onSelectFood(food)   // opens FoodDetailModal with pre-filled data
+                // OR if you want to log directly without the detail modal:
+                // handleLog(food, servings)
+              }}
+              onBack={() => setMode(null)}
+            />
+          )}          
 
         </div>
       </div>
