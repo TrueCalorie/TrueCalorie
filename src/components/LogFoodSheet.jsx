@@ -3,6 +3,8 @@ import RestaurantSearch from './RestaurantSearch'
 import BarcodeScanner from './BarcodeScanner'
 import { searchUSDA } from '../services/usda'
 import VoiceLogger from './VoiceLogger'
+import { usePro } from '../hooks/usePro'
+import UpgradeModal from './UpgradeModal'
 
 // ─── Animations ───────────────────────────────────────────────────────────────
 const SHEET_ANIM_MS = 300
@@ -17,29 +19,29 @@ const scoreResult = (item, query) => {
   const primaryName = name.split(',')[0].trim()
   const hasComma    = primaryName !== name
 
-  if (name === q)            score += 100
-  if (name.startsWith(q))   score += 50
-  if (name.includes(q))     score += 25
+  if (name === q)           score += 100
+  if (name.startsWith(q))  score += 50
+  if (name.includes(q))    score += 25
 
   if (hasComma) {
-    if (primaryName === q)           score += 80
-    if (primaryName.startsWith(q))  score += 40
-    if (primaryName.includes(q))    score += 20
+    if (primaryName === q)          score += 80
+    if (primaryName.startsWith(q)) score += 40
+    if (primaryName.includes(q))   score += 20
   }
 
   if (brand.includes(q)) score += 10
 
   const queryWords = q.split(/\s+/).filter(w => w.length > 1)
   if (queryWords.length > 1) {
-    if (queryWords.every(w => name.includes(w)))        score += 45
-    if (hasComma && queryWords.every(w => primaryName.includes(w))) score += 20
+    if (queryWords.every(w => name.includes(w)))                        score += 45
+    if (hasComma && queryWords.every(w => primaryName.includes(w)))     score += 20
   }
 
-  if (item.nf_calories            > 0) score += 20
-  if (item.nf_protein             > 0) score += 5
-  if (item.nf_total_carbohydrate  > 0) score += 5
-  if (item.nf_total_fat           > 0) score += 5
-  if (item.verified)                   score += 45
+  if (item.nf_calories           > 0) score += 20
+  if (item.nf_protein            > 0) score += 5
+  if (item.nf_total_carbohydrate > 0) score += 5
+  if (item.nf_total_fat          > 0) score += 5
+  if (item.verified)                  score += 45
 
   score -= name.length * (item.verified ? 0.05 : 0.15)
 
@@ -71,10 +73,10 @@ const fetchOFF = async (query) => {
         .map(p => ({
           food_name:             p.product_name,
           brand_name:            p.brands || null,
-          nf_calories:           Math.round(p.nutriments['energy-kcal_serving']    || 0),
-          nf_protein:            Math.round(p.nutriments['proteins_serving']        || 0),
-          nf_total_carbohydrate: Math.round(p.nutriments['carbohydrates_serving']  || 0),
-          nf_total_fat:          Math.round(p.nutriments['fat_serving']            || 0),
+          nf_calories:           Math.round(p.nutriments['energy-kcal_serving']   || 0),
+          nf_protein:            Math.round(p.nutriments['proteins_serving']       || 0),
+          nf_total_carbohydrate: Math.round(p.nutriments['carbohydrates_serving'] || 0),
+          nf_total_fat:          Math.round(p.nutriments['fat_serving']           || 0),
           countries: p.countries_tags || [],
           verified: false,
           source: 'off',
@@ -132,12 +134,15 @@ const MEAL_TIMES = ['Breakfast', 'Lunch', 'Snack', 'Dinner']
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] }) {
-  const [mode, setMode]             = useState(null)
-  const [mealTime, setMealTime]     = useState('Lunch')
-  const [search, setSearch]         = useState('')
-  const [results, setResults]       = useState([])
-  const [searching, setSearching]   = useState(false)
-  const [resultPage, setResultPage] = useState(0)
+  const [mode, setMode]               = useState(null)
+  const [mealTime, setMealTime]       = useState('Lunch')
+  const [search, setSearch]           = useState('')
+  const [results, setResults]         = useState([])
+  const [searching, setSearching]     = useState(false)
+  const [resultPage, setResultPage]   = useState(0)
+  const [showUpgrade, setShowUpgrade] = useState(false)  // ✅ inside component
+
+  const { isPro, isTrialing } = usePro()                 // ✅ inside component
 
   // ── Sheet animation state ──
   const [visible, setVisible]     = useState(false)
@@ -181,8 +186,8 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
     setSearching(true)
     setResultPage(0)
     const [offItems, usdaItems] = await Promise.all([fetchOFF(search), searchUSDA(search)])
-    const usOff = offItems.filter(p => p.countries?.includes('en:united-states'))
-    const pool  = usOff.length >= 5 ? usOff : offItems
+    const usOff  = offItems.filter(p => p.countries?.includes('en:united-states'))
+    const pool   = usOff.length >= 5 ? usOff : offItems
     const sorted = [...pool, ...usdaItems]
       .map(item => ({ ...item, _score: scoreResult(item, search) }))
       .sort((a, b) => b._score - a._score)
@@ -202,7 +207,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
     voice:      'Voice Log',
   }
 
-  const sheetAnim   = isClosing
+  const sheetAnim = isClosing
     ? `sheetExit ${SHEET_ANIM_MS}ms cubic-bezier(0.4, 0, 1, 1) forwards`
     : `sheetEnter ${SHEET_ANIM_MS}ms cubic-bezier(0.32, 0.72, 0, 1) both`
 
@@ -312,10 +317,15 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
         {/* Scrollable content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
 
+          {/* ✅ UpgradeModal at top level — renders regardless of which mode is active */}
+          {showUpgrade && (
+            <UpgradeModal onClose={() => setShowUpgrade(false)} />
+          )}
+
           {/* ── Mode picker ── */}
           {!mode && (
             <>
-              {/* Saved foods — staggered entrance */}
+              {/* Saved foods */}
               {savedFoods.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
                   <div style={{
@@ -364,11 +374,11 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
                 </div>
               )}
 
-              {/* Mode tiles — staggered entrance */}
+              {/* Mode tiles */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                 <ModeTile icon="📷"  label="Scan Barcode"   animDelay={0}    onClick={() => setMode('barcode')} />
                 <ModeTile icon="🔍"  label="Grocery Search" animDelay={0.05} onClick={() => setMode('grocery')} />
-                <ModeTile icon="🍽️" label="Restaurant"     animDelay={0.1}  badge="PRO"  onClick={() => setMode('restaurant')} />
+                <ModeTile icon="🍽️" label="Restaurant"     animDelay={0.1}  badge="PRO" onClick={() => setMode('restaurant')} />
                 <ModeTile
                   icon="🎙️"
                   label="Voice Log"
@@ -429,7 +439,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
                 </button>
               </div>
 
-              {/* Results — keyed so stagger re-fires on each new search or page change */}
+              {/* Results */}
               {results.length > 0 && (
                 <div key={`${resultPage}-${results.length}`} style={{ marginBottom: 20 }}>
                   <div style={{
@@ -542,18 +552,15 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
           {mode === 'restaurant' && (
             <RestaurantSearch onSelect={handleSelect} />
           )}
-          
+
+          {/* ── Voice ── */}
           {mode === 'voice' && (
             <VoiceLogger
-              mealTime={selectedMealTime}
-              onLog={(food, servings) => {
-                onSelectFood(food)   // opens FoodDetailModal with pre-filled data
-                // OR if you want to log directly without the detail modal:
-                // handleLog(food, servings)
-              }}
+              mealTime={mealTime}
+              onLog={(food) => handleSelect(food)}  // ✅ handleSelect, not onSelectFood
               onBack={() => setMode(null)}
             />
-          )}          
+          )}
 
         </div>
       </div>
