@@ -128,6 +128,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
 
   const recognitionRef      = useRef(null)
   const finalTranscriptRef  = useRef('')
+  const interimRef          = useRef('')  // mirror of interimText for use in callbacks
   // Track phase in a ref so recognition callbacks always have fresh value
   const phaseRef            = useRef(PHASE.IDLE)
 
@@ -167,6 +168,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
           interim = t
         }
       }
+      interimRef.current = interim
       setInterimText(interim)
     }
 
@@ -203,7 +205,10 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
   }
 
   const processTranscript = async () => {
-    const text = finalTranscriptRef.current.trim()
+    // Combine final transcript with any interim text still in the buffer
+    // This prevents the last word or two from being dropped when user taps stop
+    const text = (finalTranscriptRef.current + ' ' + interimRef.current).trim()
+    interimRef.current = ''
     setInterimText('')
 
     if (!text) {

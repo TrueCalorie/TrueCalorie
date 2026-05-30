@@ -1,26 +1,34 @@
 // api/voice-log.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Voice logging NLP endpoint
-//
-// Accepts:  POST { transcript: string }
-// Returns:  { foods: [{ food_name, brand_name, nf_calories, nf_protein,
-//                       nf_total_carbohydrate, nf_total_fat,
-//                       serving_qty, serving_unit }] }
-//
-// Current:  Uses Claude Haiku as NLP parser (free during dev, no Nutritionix key needed)
-// Swap to:  Nutritionix /v2/natural/nutrients when keys arrive from Molly
-//           → replace parseWithClaude() call with parseWithNutritionix()
+// Edge Runtime — zero cold start (~50ms vs 2-4s for serverless)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default async function handler(req, res) {
+export const config = { runtime: 'edge' }
+
+export default async function handler(req) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
-  const { transcript } = req.body || {}
+  let transcript
+  try {
+    const body = await req.json()
+    transcript = body?.transcript
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
-  if (!transcript || typeof transcript !== 'string' || transcript.trim().length === 0) {
-    return res.status(400).json({ error: 'transcript is required' })
+  if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
+    return new Response(JSON.stringify({ error: 'transcript is required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   try {
@@ -30,16 +38,21 @@ export default async function handler(req, res) {
     // ─────────────────────────────────────────────────────────────────────
     const foods = await parseWithClaude(transcript)
 
-    return res.status(200).json({ foods })
+    return new Response(JSON.stringify({ foods }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (err) {
     console.error('[voice-log] NLP error:', err)
-    return res.status(500).json({ error: 'Failed to parse meal' })
+    return new Response(JSON.stringify({ error: 'Failed to parse meal' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CLAUDE PARSER — dev fallback until Nutritionix activates
-// Uses claude-haiku-4-5 (cheapest, fast, ~50ms, sufficient for structured extraction)
+// CLAUDE PARSER
 // ─────────────────────────────────────────────────────────────────────────────
 async function parseWithClaude(transcript) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
@@ -101,13 +114,11 @@ Return this exact structure:
   const text = data?.content?.[0]?.text?.trim()
   if (!text) throw new Error('Empty response from Claude')
 
-  // Strip any accidental markdown fences
   const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
   const parsed = JSON.parse(clean)
 
   if (!Array.isArray(parsed.foods)) throw new Error('Invalid response shape')
 
-  // Sanitize — ensure all required fields exist and are numbers
   return parsed.foods.map(f => ({
     food_name:             String(f.food_name || 'Unknown food'),
     brand_name:            f.brand_name || null,
@@ -122,7 +133,6 @@ Return this exact structure:
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NUTRITIONIX PARSER — swap in when keys arrive from Molly (~June 2)
-// Uncomment and set NUTRITIONIX_APP_ID + NUTRITIONIX_API_KEY in Vercel env
 // ─────────────────────────────────────────────────────────────────────────────
 // async function parseWithNutritionix(transcript) {
 //   const APP_ID  = process.env.NUTRITIONIX_APP_ID
