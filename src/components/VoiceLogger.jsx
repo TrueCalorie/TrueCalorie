@@ -9,7 +9,7 @@ const PHASE = {
   ERROR:      'error',
 }
 
-// ─── Waveform — animated bars shown while recording ──────────────────────────
+// ─── Waveform ─────────────────────────────────────────────────────────────────
 function Waveform() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, height: 28 }}>
@@ -17,9 +17,7 @@ function Waveform() {
         <div
           key={i}
           style={{
-            width: 4,
-            borderRadius: 2,
-            background: '#fff',
+            width: 4, borderRadius: 2, background: '#fff',
             animation: `voiceBar 0.9s ease-in-out ${i * 0.12}s infinite alternate`,
           }}
         />
@@ -28,109 +26,237 @@ function Waveform() {
   )
 }
 
-// ─── Macro pill ───────────────────────────────────────────────────────────────
-function MacroPill({ label, value, unit = 'g' }) {
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      background: 'var(--surface2)', borderRadius: 8,
-      padding: '6px 10px', border: '1px solid var(--border)',
-      minWidth: 54,
-    }}>
-      <span style={{ fontSize: 9, color: 'var(--muted)', letterSpacing: '0.06em', marginBottom: 2 }}>
-        {label}
-      </span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-        {Math.round(value)}{unit}
-      </span>
-    </div>
-  )
-}
+// ─── Food Card ────────────────────────────────────────────────────────────────
+function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
+  const [clarifying, setClarifying] = useState(false)
 
-// ─── Single food card in review ───────────────────────────────────────────────
-function FoodCard({ food, index, onRemove }) {
-  const [pressed, setPressed] = useState(false)
+  const multiplier = food.multiplier ?? 1
+  const cal  = Math.round((food.nf_calories             || 0) * multiplier)
+  const prot = Math.round((food.nf_protein              || 0) * multiplier)
+  const carb = Math.round((food.nf_total_carbohydrate   || 0) * multiplier)
+  const fat  = Math.round((food.nf_total_fat            || 0) * multiplier)
+
+  const servingDisplay = food.serving_qty && food.serving_unit
+    ? `${(food.serving_qty * multiplier) % 1 === 0
+        ? food.serving_qty * multiplier
+        : (food.serving_qty * multiplier).toFixed(1)} ${food.serving_unit}`
+    : `${multiplier}× serving`
+
+  const adjustMultiplier = (delta) => {
+    const next = Math.max(0.5, Math.round((multiplier + delta) * 2) / 2)
+    onMultiplierChange(index, next)
+  }
+
+  const handleClarify = async (option) => {
+    setClarifying(true)
+    await onClarify(index, option)
+    setClarifying(false)
+  }
+
+  const hasQuestion = food.clarifying_question &&
+    Array.isArray(food.clarifying_options) &&
+    food.clarifying_options.length > 0 &&
+    !food.clarification_answered
 
   return (
     <div style={{
       background: 'var(--surface)',
-      border: '1px solid var(--border)',
+      border: `1px solid ${hasQuestion ? 'var(--accent)' : 'var(--border)'}`,
       borderRadius: 14,
-      padding: '14px 14px 12px',
+      overflow: 'hidden',
       animation: `slideInUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) ${index * 0.06}s both`,
+      transition: 'border-color 0.2s',
     }}>
-      {/* Name row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ flex: 1, paddingRight: 8 }}>
-          <div style={{
-            fontSize: 14, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3,
-            textTransform: 'capitalize',
-          }}>
-            {food.food_name}
+
+      {/* ── Main row ── */}
+      <div style={{ padding: '14px 14px 12px' }}>
+
+        {/* Name + remove */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ flex: 1, paddingRight: 8 }}>
+            <div style={{
+              fontSize: 14, fontWeight: 600, color: 'var(--text)',
+              lineHeight: 1.3, textTransform: 'capitalize',
+            }}>
+              {food.food_name}
+            </div>
+            {food.brand_name && (
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                {food.brand_name}
+              </div>
+            )}
           </div>
-          {food.serving_qty && food.serving_unit && (
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-              {food.serving_qty} {food.serving_unit}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div style={{
+              fontSize: 13, fontWeight: 700, color: 'var(--accent)',
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 8, padding: '3px 9px',
+            }}>
+              {cal} cal
+            </div>
+            <button
+              onClick={() => onRemove(index)}
+              style={{
+                width: 28, height: 28, borderRadius: 8,
+                border: '1px solid var(--border)',
+                background: 'var(--surface2)', color: 'var(--muted)',
+                fontSize: 14, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.15s, color 0.15s',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(226,75,74,0.12)'; e.currentTarget.style.color = '#E24B4A' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--muted)' }}
+            >✕</button>
+          </div>
+        </div>
+
+        {/* Macro pills */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+          {[
+            { label: 'PROTEIN', val: prot },
+            { label: 'CARBS',   val: carb },
+            { label: 'FAT',     val: fat  },
+          ].map(({ label, val }) => (
+            <div key={label} style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+              background: 'var(--surface2)', borderRadius: 8,
+              padding: '6px 4px', border: '1px solid var(--border)',
+            }}>
+              <span style={{ fontSize: 9, color: 'var(--muted)', letterSpacing: '0.06em', marginBottom: 2 }}>
+                {label}
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                {val}g
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Portion stepper */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--surface2)', borderRadius: 10,
+          border: '1px solid var(--border)', padding: '8px 12px',
+        }}>
+          <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>
+            {servingDisplay}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              onClick={() => adjustMultiplier(-0.5)}
+              disabled={multiplier <= 0.5}
+              style={{
+                width: 28, height: 28, borderRadius: 7,
+                border: '1px solid var(--border)', background: 'var(--surface)',
+                color: multiplier <= 0.5 ? 'var(--border)' : 'var(--text)',
+                fontSize: 16, cursor: multiplier <= 0.5 ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'transform 0.1s',
+                fontFamily: 'inherit',
+              }}
+              onMouseDown={e => { if (multiplier > 0.5) e.currentTarget.style.transform = 'scale(0.88)' }}
+              onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+            >−</button>
+            <span style={{
+              fontSize: 13, fontWeight: 700, color: 'var(--text)',
+              minWidth: 28, textAlign: 'center',
+            }}>
+              {multiplier % 1 === 0 ? multiplier : multiplier.toFixed(1)}×
+            </span>
+            <button
+              onClick={() => adjustMultiplier(0.5)}
+              style={{
+                width: 28, height: 28, borderRadius: 7,
+                border: '1px solid var(--border)', background: 'var(--surface)',
+                color: 'var(--text)', fontSize: 16, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'transform 0.1s',
+                fontFamily: 'inherit',
+              }}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.88)'}
+              onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+            >+</button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Clarifying question ── */}
+      {hasQuestion && (
+        <div style={{
+          padding: '10px 14px 14px',
+          borderTop: '1px solid var(--border)',
+          background: 'var(--surface2)',
+        }}>
+          <div style={{
+            fontSize: 12, fontWeight: 600, color: 'var(--accent)',
+            marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <span>💬</span>
+            <span>{food.clarifying_question}</span>
+          </div>
+          {clarifying ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12 }}>
+              <div style={{
+                width: 12, height: 12, borderRadius: '50%',
+                border: '2px solid var(--border)', borderTopColor: 'var(--accent)',
+                animation: 'spin 0.7s linear infinite', flexShrink: 0,
+              }} />
+              Updating nutrition…
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {food.clarifying_options.map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => handleClarify(opt)}
+                  style={{
+                    padding: '5px 12px', borderRadius: 20,
+                    border: '1px solid var(--accent)',
+                    background: 'none', color: 'var(--accent)',
+                    fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--accent)' }}
+                >
+                  {opt}
+                </button>
+              ))}
+              <button
+                onClick={() => onClarify(index, null)}
+                style={{
+                  padding: '5px 12px', borderRadius: 20,
+                  border: '1px solid var(--border)',
+                  background: 'none', color: 'var(--muted)',
+                  fontSize: 12, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Skip
+              </button>
             </div>
           )}
         </div>
-
-        {/* Calorie badge + remove */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <div style={{
-            fontSize: 13, fontWeight: 700, color: 'var(--accent)',
-            background: 'var(--surface2)', border: '1px solid var(--border)',
-            borderRadius: 8, padding: '3px 9px',
-          }}>
-            {Math.round(food.nf_calories)} cal
-          </div>
-          <button
-            onClick={() => onRemove(index)}
-            onMouseDown={() => setPressed(true)}
-            onMouseUp={() => setPressed(false)}
-            onMouseLeave={() => setPressed(false)}
-            aria-label="Remove item"
-            style={{
-              width: 28, height: 28, borderRadius: 8,
-              border: '1px solid var(--border)',
-              background: pressed ? 'rgba(226,75,74,0.12)' : 'var(--surface2)',
-              color: pressed ? '#E24B4A' : 'var(--muted)',
-              fontSize: 14, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background 0.15s, color 0.15s, transform 0.1s',
-              transform: pressed ? 'scale(0.88)' : 'scale(1)',
-              flexShrink: 0,
-            }}
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-
-      {/* Macro pills */}
-      <div style={{ display: 'flex', gap: 6 }}>
-        <MacroPill label="PROTEIN" value={food.nf_protein} />
-        <MacroPill label="CARBS"   value={food.nf_total_carbohydrate} />
-        <MacroPill label="FAT"     value={food.nf_total_fat} />
-      </div>
+      )}
     </div>
   )
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function VoiceLogger({ mealTime, onLog, onBack }) {
-  const [phase, setPhase]           = useState(PHASE.IDLE)
-  const [transcript, setTranscript] = useState('')
+  const [phase, setPhase]             = useState(PHASE.IDLE)
+  const [transcript, setTranscript]   = useState('')
   const [interimText, setInterimText] = useState('')
-  const [foods, setFoods]           = useState([])
-  const [error, setError]           = useState(null)
-  const [btnPressed, setBtnPressed] = useState(false)
+  const [foods, setFoods]             = useState([])
+  const [error, setError]             = useState(null)
+  const [btnPressed, setBtnPressed]   = useState(false)
 
-  const recognitionRef      = useRef(null)
-  const finalTranscriptRef  = useRef('')
-  const interimRef          = useRef('')  // mirror of interimText for use in callbacks
-  // Track phase in a ref so recognition callbacks always have fresh value
-  const phaseRef            = useRef(PHASE.IDLE)
+  const recognitionRef     = useRef(null)
+  const finalTranscriptRef = useRef('')
+  const interimRef         = useRef('')
+  const phaseRef           = useRef(PHASE.IDLE)
 
   const setPhaseSync = (p) => { phaseRef.current = p; setPhase(p) }
 
@@ -140,21 +266,22 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
   // ── Start recording ──────────────────────────────────────────────────────
   const startRecording = () => {
     if (!supported) {
-      setError('Voice logging requires a modern browser. Try Chrome on Android or Safari on iOS 16.4+.')
+      setError('Voice logging requires Chrome on Android or Safari on iOS 16.4+.')
       setPhaseSync(PHASE.ERROR)
       return
     }
 
     finalTranscriptRef.current = ''
+    interimRef.current = ''
     setTranscript('')
     setInterimText('')
     setError(null)
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     const recognition = new SR()
-    recognition.continuous     = true
-    recognition.interimResults = true
-    recognition.lang           = 'en-US'
+    recognition.continuous      = true
+    recognition.interimResults  = true
+    recognition.lang            = 'en-US'
     recognition.maxAlternatives = 1
 
     recognition.onresult = (e) => {
@@ -174,7 +301,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
 
     recognition.onerror = (e) => {
       if (e.error === 'not-allowed') {
-        setError('Microphone access denied. Allow microphone access in your browser settings and try again.')
+        setError('Microphone access denied. Allow microphone access in your browser settings.')
       } else if (e.error === 'no-speech') {
         setError("Didn't catch anything. Tap the mic and speak your meal.")
       } else {
@@ -183,11 +310,8 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
       setPhaseSync(PHASE.ERROR)
     }
 
-    // iOS Safari auto-stops recognition — process whatever was captured
     recognition.onend = () => {
-      if (phaseRef.current === PHASE.RECORDING) {
-        processTranscript()
-      }
+      if (phaseRef.current === PHASE.RECORDING) processTranscript()
     }
 
     recognitionRef.current = recognition
@@ -205,8 +329,6 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
   }
 
   const processTranscript = async () => {
-    // Combine final transcript with any interim text still in the buffer
-    // This prevents the last word or two from being dropped when user taps stop
     const text = (finalTranscriptRef.current + ' ' + interimRef.current).trim()
     interimRef.current = ''
     setInterimText('')
@@ -230,12 +352,17 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
       const data = await res.json()
 
       if (!data.foods || data.foods.length === 0) {
-        setError("Couldn't match those foods to nutrition data. Try being more specific, like '2 scrambled eggs and a cup of oatmeal'.")
+        setError("Couldn't match those foods. Try being more specific — e.g. '2 scrambled eggs and a cup of oatmeal'.")
         setPhaseSync(PHASE.ERROR)
         return
       }
 
-      setFoods(data.foods)
+      // Attach client-side fields
+      setFoods(data.foods.map(f => ({
+        ...f,
+        multiplier: 1,
+        clarification_answered: !f.clarifying_question,
+      })))
       setPhaseSync(PHASE.REVIEW)
     } catch {
       setError('Failed to analyze your meal. Check your connection and try again.')
@@ -243,19 +370,92 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
     }
   }
 
-  // ── Review actions ───────────────────────────────────────────────────────
+  // ── Clarification: re-fetch with refined query ───────────────────────────
+  const handleClarify = async (foodIndex, selectedOption) => {
+    // Skip pressed — just dismiss the question
+    if (!selectedOption) {
+      setFoods(prev => prev.map((f, i) =>
+        i === foodIndex ? { ...f, clarification_answered: true } : f
+      ))
+      return
+    }
+
+    const food = foods[foodIndex]
+    // Build a refined query: e.g. "grilled chicken breast, 1 medium breast"
+    const refinedQuery = `${selectedOption} ${food.food_name}${
+      food.serving_qty ? `, ${food.serving_qty} ${food.serving_unit}` : ''
+    }`
+
+    try {
+      const res = await fetch('/api/voice-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: refinedQuery }),
+      })
+
+      if (!res.ok) throw new Error('Refine failed')
+      const data = await res.json()
+
+      if (data.foods?.[0]) {
+        const updated = data.foods[0]
+        setFoods(prev => prev.map((f, i) =>
+          i === foodIndex
+            ? {
+                ...f,
+                ...updated,
+                multiplier: f.multiplier,            // preserve the user's portion adjustment
+                clarification_answered: true,
+                clarifying_question: null,
+                clarifying_options: [],
+              }
+            : f
+        ))
+      } else {
+        // Refine returned nothing — just dismiss the question
+        setFoods(prev => prev.map((f, i) =>
+          i === foodIndex ? { ...f, clarification_answered: true } : f
+        ))
+      }
+    } catch {
+      // Silently dismiss — don't block the user from logging
+      setFoods(prev => prev.map((f, i) =>
+        i === foodIndex ? { ...f, clarification_answered: true } : f
+      ))
+    }
+  }
+
+  // ── Portion adjustment ───────────────────────────────────────────────────
+  const handleMultiplierChange = (index, newMultiplier) => {
+    setFoods(prev => prev.map((f, i) =>
+      i === index ? { ...f, multiplier: newMultiplier } : f
+    ))
+  }
+
+  // ── Remove food ──────────────────────────────────────────────────────────
   const removeFood = (index) => {
     const updated = foods.filter((_, i) => i !== index)
     if (updated.length === 0) resetToIdle()
     else setFoods(updated)
   }
 
+  // ── Log all ──────────────────────────────────────────────────────────────
   const logAll = () => {
-    foods.forEach(food => onLog(food, 1))
+    foods.forEach(food => {
+      const m = food.multiplier ?? 1
+      onLog({
+        food_name:             food.food_name,
+        brand_name:            food.brand_name || null,
+        nf_calories:           (food.nf_calories             || 0) * m,
+        nf_protein:            (food.nf_protein              || 0) * m,
+        nf_total_carbohydrate: (food.nf_total_carbohydrate   || 0) * m,
+        nf_total_fat:          (food.nf_total_fat            || 0) * m,
+      })
+    })
   }
 
   const resetToIdle = () => {
     finalTranscriptRef.current = ''
+    interimRef.current = ''
     setTranscript('')
     setInterimText('')
     setFoods([])
@@ -263,30 +463,38 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
     setPhaseSync(PHASE.IDLE)
   }
 
-  // ── Totals for review footer ─────────────────────────────────────────────
-  const totals = foods.reduce((acc, f) => ({
-    cal:     acc.cal  + (f.nf_calories             || 0),
-    protein: acc.protein + (f.nf_protein            || 0),
-    carbs:   acc.carbs   + (f.nf_total_carbohydrate || 0),
-    fat:     acc.fat     + (f.nf_total_fat          || 0),
-  }), { cal: 0, protein: 0, carbs: 0, fat: 0 })
+  // ── Totals ───────────────────────────────────────────────────────────────
+  const totals = foods.reduce((acc, f) => {
+    const m = f.multiplier ?? 1
+    return {
+      cal:     acc.cal     + (f.nf_calories             || 0) * m,
+      protein: acc.protein + (f.nf_protein              || 0) * m,
+      carbs:   acc.carbs   + (f.nf_total_carbohydrate   || 0) * m,
+      fat:     acc.fat     + (f.nf_total_fat            || 0) * m,
+    }
+  }, { cal: 0, protein: 0, carbs: 0, fat: 0 })
+
+  const pendingQuestions = foods.filter(f =>
+    f.clarifying_question && !f.clarification_answered
+  ).length
 
   // ────────────────────────────────────────────────────────────────────────
-  // RENDER
+  // RENDER — REVIEW
   // ────────────────────────────────────────────────────────────────────────
-
-  // ── REVIEW phase ─────────────────────────────────────────────────────────
   if (phase === PHASE.REVIEW) {
     return (
       <div style={{ animation: 'fadeIn 0.2s ease both' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start',
+          justifyContent: 'space-between', marginBottom: 16,
+        }}>
+          <div style={{ flex: 1, paddingRight: 12 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
               Review your meal
             </div>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2, lineHeight: 1.4 }}>
               "{transcript.trim()}"
             </div>
           </div>
@@ -295,17 +503,37 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
             style={{
               fontSize: 12, color: 'var(--muted)', background: 'none',
               border: 'none', cursor: 'pointer', padding: '4px 8px',
-              borderRadius: 8, fontFamily: 'inherit',
+              borderRadius: 8, fontFamily: 'inherit', flexShrink: 0,
             }}
           >
             Re-record
           </button>
         </div>
 
+        {/* Pending questions hint */}
+        {pendingQuestions > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 12px', marginBottom: 12,
+            background: 'rgba(var(--accent-rgb, 29,158,117), 0.08)',
+            border: '1px solid var(--accent)',
+            borderRadius: 10, fontSize: 12, color: 'var(--accent)',
+          }}>
+            💬 Answer {pendingQuestions === 1 ? 'the question' : `${pendingQuestions} questions`} below for more accurate calories
+          </div>
+        )}
+
         {/* Food cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
           {foods.map((food, i) => (
-            <FoodCard key={i} food={food} index={i} onRemove={removeFood} />
+            <FoodCard
+              key={i}
+              food={food}
+              index={i}
+              onRemove={removeFood}
+              onMultiplierChange={handleMultiplierChange}
+              onClarify={handleClarify}
+            />
           ))}
         </div>
 
@@ -346,7 +574,9 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
     )
   }
 
-  // ── IDLE / RECORDING / PROCESSING / ERROR ─────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────
+  // RENDER — IDLE / RECORDING / PROCESSING / ERROR
+  // ────────────────────────────────────────────────────────────────────────
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -365,7 +595,6 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
           width: 80, height: 80, borderRadius: '50%', border: 'none',
           cursor: phase === PHASE.PROCESSING ? 'default' : 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          position: 'relative',
           background: phase === PHASE.RECORDING
             ? '#E24B4A'
             : phase === PHASE.PROCESSING
@@ -373,19 +602,19 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
             : 'var(--accent)',
           transform: btnPressed ? 'scale(0.93)' : 'scale(1)',
           transition: 'background 0.2s, transform 0.1s',
-          // Outer pulse ring while recording
-          boxShadow: phase === PHASE.RECORDING
-            ? '0 0 0 0 rgba(226,75,74,0.4)'
-            : 'none',
+          boxShadow: phase === PHASE.RECORDING ? '0 0 0 0 rgba(226,75,74,0.4)' : 'none',
           animation: phase === PHASE.RECORDING ? 'voicePulse 1.4s ease-out infinite' : 'none',
         }}
       >
         {phase === PHASE.RECORDING ? (
           <Waveform />
         ) : phase === PHASE.PROCESSING ? (
-          <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2.5px solid var(--border)', borderTopColor: 'var(--accent)', animation: 'spin 0.7s linear infinite' }} />
+          <div style={{
+            width: 22, height: 22, borderRadius: '50%',
+            border: '2.5px solid var(--border)', borderTopColor: 'var(--accent)',
+            animation: 'spin 0.7s linear infinite',
+          }} />
         ) : (
-          // Mic icon (SVG)
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="9" y="2" width="6" height="12" rx="3"/>
             <path d="M5 10a7 7 0 0 0 14 0"/>
@@ -413,7 +642,6 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
             <div style={{ fontSize: 14, fontWeight: 600, color: '#E24B4A', marginBottom: 8 }}>
               Listening… tap to stop
             </div>
-            {/* Live transcript */}
             <div style={{
               fontSize: 14, color: 'var(--text)', lineHeight: 1.5,
               minHeight: 40, maxWidth: 280, textAlign: 'center',
@@ -443,7 +671,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
           <>
             <div style={{
               fontSize: 13, color: '#E24B4A',
-              maxWidth: 260, lineHeight: 1.5, marginBottom: 16, textAlign: 'center',
+              maxWidth: 260, lineHeight: 1.5, marginBottom: 16,
             }}>
               {error}
             </div>
@@ -462,7 +690,6 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
         )}
       </div>
 
-      {/* Back link */}
       {(phase === PHASE.IDLE || phase === PHASE.ERROR) && (
         <button
           onClick={onBack}

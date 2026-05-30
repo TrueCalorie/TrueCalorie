@@ -1,6 +1,6 @@
 // api/voice-log.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Edge Runtime — zero cold start (~50ms vs 2-4s for serverless)
+// Edge Runtime — zero cold start
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const config = { runtime: 'edge' }
@@ -8,8 +8,7 @@ export const config = { runtime: 'edge' }
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
+      status: 405, headers: { 'Content-Type': 'application/json' },
     })
   }
 
@@ -19,34 +18,30 @@ export default async function handler(req) {
     transcript = body?.transcript
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      status: 400, headers: { 'Content-Type': 'application/json' },
     })
   }
 
   if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
     return new Response(JSON.stringify({ error: 'transcript is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      status: 400, headers: { 'Content-Type': 'application/json' },
     })
   }
 
   try {
     // ── SWAP POINT ────────────────────────────────────────────────────────
-    // When Nutritionix keys arrive, replace this with:
+    // When Nutritionix keys arrive, replace with:
     //   const foods = await parseWithNutritionix(transcript)
     // ─────────────────────────────────────────────────────────────────────
     const foods = await parseWithClaude(transcript)
 
     return new Response(JSON.stringify({ foods }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      status: 200, headers: { 'Content-Type': 'application/json' },
     })
   } catch (err) {
     console.error('[voice-log] NLP error:', err)
     return new Response(JSON.stringify({ error: 'Failed to parse meal' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      status: 500, headers: { 'Content-Type': 'application/json' },
     })
   }
 }
@@ -66,15 +61,35 @@ Rules:
 - Use standard USDA nutrition values for generic foods
 - Use realistic restaurant/branded values for named brands (e.g. "Chipotle chicken bowl")
 - Parse quantities from the text (e.g. "2 eggs" = serving_qty: 2, serving_unit: "large eggs")
-- If no quantity is mentioned, use the standard single serving
+- If no quantity is mentioned, use the standard single serving as a best guess
 - Round all macro values to the nearest whole number
 - Return ONLY valid JSON — no markdown, no explanation, no extra text
 - food_name should be lowercase and readable (e.g. "scrambled eggs", not "EGGS, SCRAMBLED")
 - brand_name is null for generic foods
 
+Clarifying questions:
+- If preparation method significantly changes the calories (e.g. fried vs grilled chicken = 100+ cal difference), ask about it
+- If the portion is genuinely ambiguous with no quantity mentioned (e.g. "some pasta", "a bowl of rice"), ask about it
+- If the food type is ambiguous and matters nutritionally (e.g. "milk" could be whole/2%/skim), ask about it
+- Do NOT ask about foods that are already clear (e.g. "2 scrambled eggs", "banana", "apple")
+- Do NOT ask more than one question per food item
+- clarifying_question is null and clarifying_options is [] when no question is needed
+
 Return this exact structure:
 {
   "foods": [
+    {
+      "food_name": "chicken breast",
+      "brand_name": null,
+      "nf_calories": 165,
+      "nf_protein": 31,
+      "nf_total_carbohydrate": 0,
+      "nf_total_fat": 4,
+      "serving_qty": 1,
+      "serving_unit": "medium breast (170g)",
+      "clarifying_question": "How was it prepared?",
+      "clarifying_options": ["Grilled", "Baked", "Fried", "Rotisserie"]
+    },
     {
       "food_name": "scrambled eggs",
       "brand_name": null,
@@ -83,7 +98,9 @@ Return this exact structure:
       "nf_total_carbohydrate": 2,
       "nf_total_fat": 14,
       "serving_qty": 2,
-      "serving_unit": "large eggs"
+      "serving_unit": "large eggs",
+      "clarifying_question": null,
+      "clarifying_options": []
     }
   ]
 }`
@@ -99,9 +116,7 @@ Return this exact structure:
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       system: systemPrompt,
-      messages: [
-        { role: 'user', content: transcript }
-      ],
+      messages: [{ role: 'user', content: transcript }],
     }),
   })
 
@@ -116,7 +131,6 @@ Return this exact structure:
 
   const clean = text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()
   const parsed = JSON.parse(clean)
-
   if (!Array.isArray(parsed.foods)) throw new Error('Invalid response shape')
 
   return parsed.foods.map(f => ({
@@ -127,7 +141,9 @@ Return this exact structure:
     nf_total_carbohydrate: Number(f.nf_total_carbohydrate)   || 0,
     nf_total_fat:          Number(f.nf_total_fat)            || 0,
     serving_qty:           Number(f.serving_qty)             || 1,
-    serving_unit:          String(f.serving_unit || 'serving'),
+    serving_unit:          String(f.serving_unit             || 'serving'),
+    clarifying_question:   f.clarifying_question             || null,
+    clarifying_options:    Array.isArray(f.clarifying_options) ? f.clarifying_options : [],
   }))
 }
 
@@ -161,5 +177,7 @@ Return this exact structure:
 //     nf_total_fat:          f.nf_total_fat            || 0,
 //     serving_qty:           f.serving_qty             || 1,
 //     serving_unit:          f.serving_unit            || 'serving',
+//     clarifying_question:   null,
+//     clarifying_options:    [],
 //   }))
 // }
