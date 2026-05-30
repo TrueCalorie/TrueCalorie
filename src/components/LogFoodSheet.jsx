@@ -24,24 +24,24 @@ const scoreResult = (item, query) => {
   if (name.includes(q))    score += 25
 
   if (hasComma) {
-    if (primaryName === q)          score += 80
-    if (primaryName.startsWith(q)) score += 40
-    if (primaryName.includes(q))   score += 20
+    if (primaryName === q)           score += 80
+    if (primaryName.startsWith(q))  score += 40
+    if (primaryName.includes(q))    score += 20
   }
 
   if (brand.includes(q)) score += 10
 
   const queryWords = q.split(/\s+/).filter(w => w.length > 1)
   if (queryWords.length > 1) {
-    if (queryWords.every(w => name.includes(w)))                        score += 45
-    if (hasComma && queryWords.every(w => primaryName.includes(w)))     score += 20
+    if (queryWords.every(w => name.includes(w)))                         score += 45
+    if (hasComma && queryWords.every(w => primaryName.includes(w)))      score += 20
   }
 
-  if (item.nf_calories           > 0) score += 20
-  if (item.nf_protein            > 0) score += 5
-  if (item.nf_total_carbohydrate > 0) score += 5
-  if (item.nf_total_fat          > 0) score += 5
-  if (item.verified)                  score += 45
+  if (item.nf_calories            > 0) score += 20
+  if (item.nf_protein             > 0) score += 5
+  if (item.nf_total_carbohydrate  > 0) score += 5
+  if (item.nf_total_fat           > 0) score += 5
+  if (item.verified)                   score += 45
 
   score -= name.length * (item.verified ? 0.05 : 0.15)
 
@@ -69,28 +69,27 @@ const fetchOFF = async (query) => {
       const data = await res.json()
       if (!data?.products) return []
       return data.products
-        .filter(p => p.product_name && p.nutriments?.['energy-kcal_serving'])
+        .filter(p => p.product_name && p.nutriments?.['energy-kcal_100g'])
         .map(p => ({
-          food_name:             p.product_name,
-          brand_name:            p.brands || null,
-          nf_calories:           Math.round(p.nutriments['energy-kcal_serving']   || 0),
-          nf_protein:            Math.round(p.nutriments['proteins_serving']       || 0),
-          nf_total_carbohydrate: Math.round(p.nutriments['carbohydrates_serving'] || 0),
-          nf_total_fat:          Math.round(p.nutriments['fat_serving']           || 0),
-          countries: p.countries_tags || [],
-          verified: false,
-          source: 'off',
+          food_name:              p.product_name,
+          brand_name:             p.brands || null,
+          nf_calories:            Math.round(p.nutriments['energy-kcal_100g']   || 0),
+          nf_protein:             Math.round(p.nutriments['proteins_100g']       || 0),
+          nf_total_carbohydrate:  Math.round(p.nutriments['carbohydrates_100g'] || 0),
+          nf_total_fat:           Math.round(p.nutriments['fat_100g']            || 0),
+          countries:              p.countries_tags || [],
+          verified:               false,
+          source:                 'off',
         }))
     } catch (e) {
-      clearTimeout(timeoutId)
-      if (attempt === 0) await new Promise(r => setTimeout(r, 400))
+      if (attempt === 1) { clearTimeout(timeoutId); return [] }
     }
   }
   return []
 }
 
-// ─── Mode Tile ────────────────────────────────────────────────────────────────
-const ModeTile = ({ icon, label, badge, disabled, onClick, animDelay = 0 }) => (
+// ─── Mode tile ────────────────────────────────────────────────────────────────
+const ModeTile = ({ icon, label, badge, animDelay = 0, onClick, disabled = false }) => (
   <button
     onClick={disabled ? undefined : onClick}
     style={{
@@ -131,23 +130,26 @@ const ModeTile = ({ icon, label, badge, disabled, onClick, animDelay = 0 }) => (
 
 const RESULTS_PER_PAGE = 8
 const MEAL_TIMES = ['Breakfast', 'Lunch', 'Snack', 'Dinner']
+const DEBOUNCE_MS = 400
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] }) {
-  const [mode, setMode]               = useState(null)
-  const [mealTime, setMealTime]       = useState('Lunch')
-  const [search, setSearch]           = useState('')
-  const [results, setResults]         = useState([])
-  const [searching, setSearching]     = useState(false)
-  const [resultPage, setResultPage]   = useState(0)
-  const [showUpgrade, setShowUpgrade] = useState(false)  // ✅ inside component
+  const { isPro, isTrialing } = usePro()
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
-  const { isPro, isTrialing } = usePro()                 // ✅ inside component
+  const [mode, setMode]             = useState(null)
+  const [mealTime, setMealTime]     = useState('Lunch')
+  const [search, setSearch]         = useState('')
+  const [results, setResults]       = useState([])
+  const [searching, setSearching]   = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)   // ← NEW: only true after first search fires
+  const [resultPage, setResultPage] = useState(0)
 
   // ── Sheet animation state ──
   const [visible, setVisible]     = useState(false)
   const [isClosing, setIsClosing] = useState(false)
   const closeTimer                = useRef(null)
+  const debounceTimer             = useRef(null)
 
   useEffect(() => {
     if (open) {
@@ -164,11 +166,30 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
     return () => clearTimeout(closeTimer.current)
   }, [open])
 
+  // ── Debounced auto-search ─────────────────────────────────────────────────
+  // Fires 400ms after the user stops typing. Clears results instantly if input is empty.
+  useEffect(() => {
+    clearTimeout(debounceTimer.current)
+
+    if (!search.trim()) {
+      setResults([])
+      setHasSearched(false)
+      return
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      searchFood()
+    }, DEBOUNCE_MS)
+
+    return () => clearTimeout(debounceTimer.current)
+  }, [search])
+
   const reset = () => {
     setMode(null)
     setSearch('')
     setResults([])
     setResultPage(0)
+    setHasSearched(false)
   }
 
   const handleClose = () => {
@@ -184,6 +205,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
   const searchFood = async () => {
     if (!search.trim()) return
     setSearching(true)
+    setHasSearched(true)      // ← mark that a real search was attempted
     setResultPage(0)
     const [offItems, usdaItems] = await Promise.all([fetchOFF(search), searchUSDA(search)])
     const usOff  = offItems.filter(p => p.countries?.includes('en:united-states'))
@@ -207,7 +229,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
     voice:      'Voice Log',
   }
 
-  const sheetAnim = isClosing
+  const sheetAnim    = isClosing
     ? `sheetExit ${SHEET_ANIM_MS}ms cubic-bezier(0.4, 0, 1, 1) forwards`
     : `sheetEnter ${SHEET_ANIM_MS}ms cubic-bezier(0.32, 0.72, 0, 1) both`
 
@@ -265,104 +287,88 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
         }}>
           {mode ? (
             <button
-              onClick={reset}
+              onClick={() => { setMode(null); setSearch(''); setResults([]); setHasSearched(false) }}
               style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--muted)', fontSize: 20, padding: '0 12px 0 0', lineHeight: 1,
-                transition: 'color 0.15s',
+                background: 'none', border: 'none', padding: '4px 8px 4px 0',
+                fontSize: 13, color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit',
               }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
-              onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
-            >←</button>
-          ) : <div style={{ width: 32 }} />}
-
-          <h2 style={{
-            flex: 1, textAlign: 'center', fontSize: 16,
-            fontWeight: 600, color: 'var(--text)', margin: 0,
-          }}>
+            >
+              ← back
+            </button>
+          ) : null}
+          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', flex: 1 }}>
             {mode ? modeTitle[mode] : 'Log Food'}
-          </h2>
-
+          </div>
           <button
             onClick={handleClose}
             style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--muted)', fontSize: 20, padding: '0 0 0 12px', lineHeight: 1,
-              transition: 'color 0.15s',
+              background: 'none', border: 'none', padding: 4,
+              fontSize: 20, color: 'var(--muted)', cursor: 'pointer', lineHeight: 1,
             }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
           >×</button>
         </div>
 
-        {/* Meal time selector — always visible */}
-        <div style={{ display: 'flex', gap: 6, padding: '10px 20px 0' }}>
+        {/* Meal time selector */}
+        <div style={{
+          display: 'flex', gap: 6, padding: '10px 16px',
+          borderBottom: '1px solid var(--border)',
+          overflowX: 'auto',
+        }}>
           {MEAL_TIMES.map(t => (
             <button
               key={t}
               onClick={() => setMealTime(t)}
               style={{
-                fontSize: 12, padding: '5px 0', borderRadius: 20,
-                border: mealTime === t ? '1.5px solid var(--text)' : '1px solid var(--border)',
-                background: mealTime === t ? 'var(--text)' : 'none',
+                padding: '5px 14px', borderRadius: 20, border: 'none',
+                background: mealTime === t ? 'var(--text)' : 'var(--surface)',
                 color: mealTime === t ? 'var(--bg)' : 'var(--muted)',
-                cursor: 'pointer', flex: 1, textAlign: 'center',
-                transition: 'background 0.15s, border-color 0.15s, color 0.15s',
-                fontFamily: 'inherit',
+                fontSize: 13, fontWeight: mealTime === t ? 600 : 400,
+                cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
+                transition: 'background 0.15s, color 0.15s',
               }}
-            >{t.toLowerCase()}</button>
+            >
+              {t}
+            </button>
           ))}
         </div>
 
         {/* Scrollable content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+        <div style={{ overflowY: 'auto', flex: 1, padding: '16px' }}>
 
-          {/* ✅ UpgradeModal at top level — renders regardless of which mode is active */}
-          {showUpgrade && (
-            <UpgradeModal onClose={() => setShowUpgrade(false)} />
-          )}
+          {/* UpgradeModal must be at top level of content, outside mode blocks */}
+          <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
 
-          {/* ── Mode picker ── */}
+          {/* ── Home tiles ── */}
           {!mode && (
             <>
               {/* Saved foods */}
               {savedFoods.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 10 }}>
+                    SAVED FOODS
+                  </div>
                   <div style={{
-                    fontSize: 11, fontWeight: 600, color: 'var(--muted)',
-                    letterSpacing: '0.08em', marginBottom: 8,
-                  }}>SAVED FOODS</div>
-                  <div style={{
-                    border: '1px solid var(--border)', borderRadius: 10,
-                    overflow: 'hidden', background: 'var(--surface)',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12, overflow: 'hidden',
                   }}>
                     {savedFoods.map((food, i) => (
                       <div
-                        key={food.id}
+                        key={i}
                         onClick={() => handleSelect(food)}
                         style={{
-                          padding: '10px 14px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '12px 14px',
                           borderBottom: i < savedFoods.length - 1 ? '1px solid var(--border)' : 'none',
                           cursor: 'pointer',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          transition: 'background 0.15s',
-                          animation: `slideInUp 0.3s ease both`,
-                          animationDelay: `${i * 0.045}s`,
                         }}
                         onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
-                        <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-                          <div style={{
-                            fontSize: 14, fontWeight: 500, color: 'var(--text)',
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                          }}>
-                            {food.food_name}
-                          </div>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{food.food_name}</div>
                           {food.brand_name && (
-                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                              {food.brand_name}
-                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{food.brand_name}</div>
                           )}
                         </div>
                         <div style={{ fontSize: 13, color: 'var(--muted)', flexShrink: 0 }}>
@@ -378,12 +384,13 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                 <ModeTile icon="📷"  label="Scan Barcode"   animDelay={0}    onClick={() => setMode('barcode')} />
                 <ModeTile icon="🔍"  label="Grocery Search" animDelay={0.05} onClick={() => setMode('grocery')} />
-                <ModeTile icon="🍽️" label="Restaurant"     animDelay={0.1}  badge="PRO" onClick={() => setMode('restaurant')} />
-                <ModeTile
-                  icon="🎙️"
-                  label="Voice Log"
-                  animDelay={0.15}
-                  badge="PRO"
+                <ModeTile icon="🍽️" label="Restaurant"     animDelay={0.1}  badge="PRO"
+                  onClick={() => {
+                    if (!isPro && !isTrialing) { setShowUpgrade(true); return }
+                    setMode('restaurant')
+                  }}
+                />
+                <ModeTile icon="🎙️" label="Voice Log"      animDelay={0.15} badge="PRO"
                   onClick={() => {
                     if (!isPro && !isTrialing) { setShowUpgrade(true); return }
                     setMode('voice')
@@ -397,67 +404,62 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
           {mode === 'barcode' && (
             <BarcodeScanner
               onResult={(food) => handleSelect(food)}
-              onClose={() => setMode('grocery')}
+              onClose={() => setMode(null)}
             />
           )}
 
           {/* ── Grocery ── */}
           {mode === 'grocery' && (
             <>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && searchFood()}
-                  placeholder="search any food..."
-                  autoFocus
-                  style={{
-                    flex: 1, padding: '10px 14px', borderRadius: 10,
-                    border: '1px solid var(--border)', fontSize: 14, outline: 'none',
-                    background: 'var(--surface)', color: 'var(--text)',
-                    fontFamily: 'inherit',
-                  }}
-                />
-                <button
-                  onClick={searchFood}
-                  disabled={searching}
-                  style={{
-                    padding: '10px 18px', borderRadius: 10, border: 'none',
-                    background: 'var(--text)', color: 'var(--bg)',
-                    fontSize: 14, cursor: searching ? 'default' : 'pointer',
-                    minWidth: 72, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: 'inherit', transition: 'opacity 0.15s',
-                  }}
-                >
-                  {searching ? (
-                    <span style={{
-                      display: 'inline-block', width: 16, height: 16,
-                      border: '2px solid var(--bg)', borderTopColor: 'transparent',
-                      borderRadius: '50%', animation: 'spin 0.7s linear infinite',
+              {/* Search input — no button, debounced auto-search */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="search any food..."
+                    autoFocus
+                    style={{
+                      width: '100%', padding: '10px 40px 10px 14px',
+                      borderRadius: 10, boxSizing: 'border-box',
+                      border: '1px solid var(--border)', fontSize: 14, outline: 'none',
+                      background: 'var(--surface)', color: 'var(--text)',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                  {/* Inline spinner replaces the old search button */}
+                  {searching && (
+                    <div style={{
+                      position: 'absolute', right: 12, top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 16, height: 16,
+                      border: '2px solid var(--border)',
+                      borderTop: '2px solid var(--text)',
+                      borderRadius: '50%',
+                      animation: 'spin 0.7s linear infinite',
                     }} />
-                  ) : 'search'}
-                </button>
+                  )}
+                </div>
               </div>
 
               {/* Results */}
               {results.length > 0 && (
-                <div key={`${resultPage}-${results.length}`} style={{ marginBottom: 20 }}>
+                <div style={{ animation: 'slideInUp 0.2s ease both' }}>
                   <div style={{
-                    border: '1px solid var(--border)', borderRadius: 10,
-                    overflow: 'hidden', background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12, overflow: 'hidden',
+                    background: 'var(--surface)',
+                    marginBottom: 12,
                   }}>
                     {pagedResults.map((item, i) => (
                       <div
                         key={i}
                         onClick={() => handleSelect(item)}
                         style={{
-                          padding: '10px 14px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '12px 14px',
                           borderBottom: i < pagedResults.length - 1 ? '1px solid var(--border)' : 'none',
                           cursor: 'pointer',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          transition: 'background 0.15s',
-                          animation: `slideInUp 0.28s ease both`,
-                          animationDelay: `${i * 0.035}s`,
                         }}
                         onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -465,37 +467,35 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
                         <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
                           <div style={{
                             fontSize: 14, fontWeight: 500, color: 'var(--text)',
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                           }}>
                             {item.food_name}
                           </div>
-                          {(item.brand_name || item.verified) && (
-                            <div style={{
-                              fontSize: 12, color: 'var(--muted)',
-                              display: 'flex', alignItems: 'center', gap: 8, marginTop: 2,
-                            }}>
-                              {item.brand_name && <span>{item.brand_name}</span>}
-                              {item.verified && (
-                                <span style={{
-                                  fontSize: 9, color: '#1D9E75',
-                                  fontWeight: 700, letterSpacing: '0.08em',
-                                }}>VERIFIED</span>
-                              )}
-                            </div>
-                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                            {item.brand_name && (
+                              <span style={{ fontSize: 11, color: 'var(--muted)' }}>{item.brand_name}</span>
+                            )}
+                            {item.verified && (
+                              <span style={{
+                                fontSize: 9, fontWeight: 700, color: '#1D9E75',
+                                border: '1px solid rgba(29,158,117,0.4)',
+                                borderRadius: 4, padding: '1px 5px',
+                              }}>
+                                VERIFIED
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', flexShrink: 0 }}>
-                          {Math.round(item.nf_calories || 0)} cal
+                        <div style={{ fontSize: 13, color: 'var(--muted)', flexShrink: 0 }}>
+                          {Math.round(item.nf_calories)} cal
                         </div>
                       </div>
                     ))}
                   </div>
 
+                  {/* Pagination */}
                   {totalPages > 1 && (
-                    <div style={{
-                      display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', gap: 12, marginTop: 10,
-                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 12 }}>
                       <button
                         onClick={() => setResultPage(p => Math.max(0, p - 1))}
                         disabled={resultPage === 0}
@@ -504,7 +504,6 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
                           border: '1px solid var(--border)', background: 'none',
                           color: resultPage === 0 ? 'var(--border)' : 'var(--text)',
                           cursor: resultPage === 0 ? 'default' : 'pointer', fontSize: 13,
-                          transition: 'color 0.15s',
                         }}
                       >←</button>
                       <span style={{ fontSize: 13, color: 'var(--muted)' }}>
@@ -518,17 +517,13 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
                           border: '1px solid var(--border)', background: 'none',
                           color: resultPage === totalPages - 1 ? 'var(--border)' : 'var(--text)',
                           cursor: resultPage === totalPages - 1 ? 'default' : 'pointer', fontSize: 13,
-                          transition: 'color 0.15s',
                         }}
                       >→</button>
                     </div>
                   )}
 
                   {results.some(r => r.verified) && (
-                    <p style={{
-                      fontSize: 11, color: 'var(--muted)',
-                      marginTop: 10, marginBottom: 0, lineHeight: 1.5,
-                    }}>
+                    <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, lineHeight: 1.5 }}>
                       <span style={{ color: '#1D9E75', fontWeight: 700 }}>VERIFIED</span>
                       {' '}— USDA Foundation or SR Legacy data, validated by registered dietitians.
                     </p>
@@ -536,7 +531,8 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
                 </div>
               )}
 
-              {results.length === 0 && !searching && search.trim() && (
+              {/* No results — only shows AFTER a search has actually fired */}
+              {hasSearched && !searching && results.length === 0 && search.trim() && (
                 <p style={{
                   color: 'var(--muted)', textAlign: 'center',
                   fontSize: 14, marginTop: 32,
@@ -557,7 +553,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
           {mode === 'voice' && (
             <VoiceLogger
               mealTime={mealTime}
-              onLog={(food) => handleSelect(food)}  // ✅ handleSelect, not onSelectFood
+              onLog={(food) => handleSelect(food)}
               onBack={() => setMode(null)}
             />
           )}
