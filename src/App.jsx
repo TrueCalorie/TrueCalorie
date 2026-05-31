@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 import Auth from './Auth'
 import Onboarding from './Onboarding'
 import Settings from './Settings'
-import History from './Stats'
+import Stats from './Stats'
 import Founders from './Founders'
 import Privacy from './Privacy'
 import Terms from './Terms'
@@ -340,7 +340,7 @@ function App() {
 
       {/* Settings overlay */}
       {showSettings && (
-        <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 10, overflowY: 'auto', animation: 'fadeIn 0.2s ease both' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 30, overflowY: 'auto', animation: 'fadeIn 0.2s ease both' }}>
           <Settings session={session} settings={settings} onUpdate={fetchSettings} onClose={() => { setShowSettings(false); setActiveTab('today') }} />
         </div>
       )}
