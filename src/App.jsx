@@ -176,6 +176,26 @@ function App() {
     ringFlashTimer.current = setTimeout(() => setRingFlash(false), 900)
   }
 
+  const handleBatchLog = async (items) => {
+    for (const item of items) {
+      await supabase.from('meal_logs').insert({
+        user_id:    session.user.id,
+        name:       item.food_name,
+        restaurant: item.brand_name || null,
+        calories:   item.nf_calories             || 0,
+        protein:    item.nf_protein              || 0,
+        carbs:      item.nf_total_carbohydrate   || 0,
+        fat:        item.nf_total_fat            || 0,
+        meal_time:  item.meal_time,
+      })
+    }
+    await fetchMeals()
+    checkAndAwardAchievements()
+    clearTimeout(ringFlashTimer.current)
+    setRingFlash(true)
+    ringFlashTimer.current = setTimeout(() => setRingFlash(false), 900)
+  }
+
   const deleteItem = async (id) => {
     await supabase.from('meal_logs').delete().eq('id', id)
     fetchMeals()
@@ -521,6 +541,7 @@ function App() {
         open={showLogFood}
         onClose={() => setShowLogFood(false)}
         onSelect={handleFoodSelect}
+        onBatchLog={handleBatchLog}
         savedFoods={savedFoods}
       />
 

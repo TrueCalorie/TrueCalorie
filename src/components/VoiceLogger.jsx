@@ -29,6 +29,8 @@ function Waveform() {
 // ─── Food Card ────────────────────────────────────────────────────────────────
 function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
   const [clarifying, setClarifying] = useState(false)
+  const [otherMode, setOtherMode]   = useState(false)   // "Other…" text input active
+  const [otherText, setOtherText]   = useState('')       // value of the "Other…" input
 
   const multiplier = food.multiplier ?? 1
   const cal  = Math.round((food.nf_calories             || 0) * multiplier)
@@ -53,6 +55,14 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
     setClarifying(false)
   }
 
+  const handleOtherSubmit = () => {
+    const val = otherText.trim()
+    if (!val) return
+    handleClarify(val)
+    setOtherMode(false)
+    setOtherText('')
+  }
+
   const hasQuestion = food.clarifying_question &&
     Array.isArray(food.clarifying_options) &&
     food.clarifying_options.length > 0 &&
@@ -62,66 +72,53 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
     <div style={{
       background: 'var(--surface)',
       border: `1px solid ${hasQuestion ? 'var(--accent)' : 'var(--border)'}`,
-      borderRadius: 14,
-      overflow: 'hidden',
-      animation: `slideInUp 0.3s cubic-bezier(0.22, 1, 0.36, 1) ${index * 0.06}s both`,
-      transition: 'border-color 0.2s',
+      borderRadius: 14, overflow: 'hidden',
+      animation: 'slideInUp 0.25s ease both',
     }}>
 
-      {/* ── Main row ── */}
-      <div style={{ padding: '14px 14px 12px' }}>
+      {/* ── Main card body ── */}
+      <div style={{ padding: '12px 14px' }}>
 
-        {/* Name + remove */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+        {/* Header row: name + calories + remove */}
+        <div style={{
+          display: 'flex', alignItems: 'flex-start',
+          justifyContent: 'space-between', marginBottom: 10,
+        }}>
           <div style={{ flex: 1, paddingRight: 8 }}>
-            <div style={{
-              fontSize: 14, fontWeight: 600, color: 'var(--text)',
-              lineHeight: 1.3, textTransform: 'capitalize',
-            }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
               {food.food_name}
             </div>
             {food.brand_name && (
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>
                 {food.brand_name}
               </div>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <div style={{
-              fontSize: 13, fontWeight: 700, color: 'var(--accent)',
-              background: 'var(--surface2)', border: '1px solid var(--border)',
-              borderRadius: 8, padding: '3px 9px',
-            }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
               {cal} cal
-            </div>
+            </span>
             <button
               onClick={() => onRemove(index)}
               style={{
-                width: 28, height: 28, borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--surface2)', color: 'var(--muted)',
-                fontSize: 14, cursor: 'pointer',
+                width: 22, height: 22, borderRadius: '50%',
+                border: '1px solid var(--border)', background: 'var(--surface2)',
+                color: 'var(--muted)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'background 0.15s, color 0.15s',
-                flexShrink: 0,
+                fontSize: 13, fontFamily: 'inherit', lineHeight: 1,
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(226,75,74,0.12)'; e.currentTarget.style.color = '#E24B4A' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--muted)' }}
-            >✕</button>
+            >×</button>
           </div>
         </div>
 
         {/* Macro pills */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-          {[
-            { label: 'PROTEIN', val: prot },
-            { label: 'CARBS',   val: carb },
-            { label: 'FAT',     val: fat  },
-          ].map(({ label, val }) => (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          {[['P', prot], ['C', carb], ['F', fat]].map(([label, val]) => (
             <div key={label} style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
               background: 'var(--surface2)', borderRadius: 8,
               padding: '6px 4px', border: '1px solid var(--border)',
+              minWidth: 42,
             }}>
               <span style={{ fontSize: 9, color: 'var(--muted)', letterSpacing: '0.06em', marginBottom: 2 }}>
                 {label}
@@ -152,8 +149,7 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
                 color: multiplier <= 0.5 ? 'var(--border)' : 'var(--text)',
                 fontSize: 16, cursor: multiplier <= 0.5 ? 'default' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'transform 0.1s',
-                fontFamily: 'inherit',
+                transition: 'transform 0.1s', fontFamily: 'inherit',
               }}
               onMouseDown={e => { if (multiplier > 0.5) e.currentTarget.style.transform = 'scale(0.88)' }}
               onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -171,8 +167,7 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
                 border: '1px solid var(--border)', background: 'var(--surface)',
                 color: 'var(--text)', fontSize: 16, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'transform 0.1s',
-                fontFamily: 'inherit',
+                transition: 'transform 0.1s', fontFamily: 'inherit',
               }}
               onMouseDown={e => e.currentTarget.style.transform = 'scale(0.88)'}
               onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
@@ -195,6 +190,8 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
             <span>💬</span>
             <span>{food.clarifying_question}</span>
           </div>
+
+          {/* Loading spinner while re-fetching nutrition */}
           {clarifying ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12 }}>
               <div style={{
@@ -204,7 +201,48 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
               }} />
               Updating nutrition…
             </div>
+
+          ) : otherMode ? (
+            /* "Other…" free-text input */
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                autoFocus
+                value={otherText}
+                onChange={e => setOtherText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleOtherSubmit()
+                  if (e.key === 'Escape') { setOtherMode(false); setOtherText('') }
+                }}
+                placeholder="Describe it…"
+                style={{
+                  flex: 1, padding: '6px 10px', borderRadius: 20,
+                  border: '1px solid var(--accent)', background: 'var(--surface)',
+                  color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', outline: 'none',
+                }}
+              />
+              <button
+                onClick={handleOtherSubmit}
+                disabled={!otherText.trim()}
+                style={{
+                  padding: '6px 12px', borderRadius: 20, border: 'none',
+                  background: 'var(--accent)', color: '#fff',
+                  fontSize: 12, fontWeight: 600, cursor: otherText.trim() ? 'pointer' : 'default',
+                  fontFamily: 'inherit', opacity: otherText.trim() ? 1 : 0.45,
+                  transition: 'opacity 0.15s',
+                }}
+              >Done</button>
+              <button
+                onClick={() => { setOtherMode(false); setOtherText('') }}
+                style={{
+                  padding: '6px 10px', borderRadius: 20,
+                  border: '1px solid var(--border)', background: 'none',
+                  color: 'var(--muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >✕</button>
+            </div>
+
           ) : (
+            /* Predefined options + Other + Skip */
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {food.clarifying_options.map(opt => (
                 <button
@@ -218,24 +256,48 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
                     fontFamily: 'inherit',
                     transition: 'background 0.15s, color 0.15s',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent)'; e.currentTarget.style.color = '#fff' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--accent)' }}
-                >
-                  {opt}
-                </button>
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'var(--accent)'
+                    e.currentTarget.style.color = '#fff'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'none'
+                    e.currentTarget.style.color = 'var(--accent)'
+                  }}
+                >{opt}</button>
               ))}
+
+              {/* Other: opens free-text input */}
+              <button
+                onClick={() => setOtherMode(true)}
+                style={{
+                  padding: '5px 12px', borderRadius: 20,
+                  border: '1px solid var(--border)',
+                  background: 'none', color: 'var(--muted)',
+                  fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'background 0.15s, color 0.15s',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = 'var(--surface)'
+                  e.currentTarget.style.color = 'var(--text)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'none'
+                  e.currentTarget.style.color = 'var(--muted)'
+                }}
+              >Other…</button>
+
+              {/* Skip */}
               <button
                 onClick={() => onClarify(index, null)}
                 style={{
                   padding: '5px 12px', borderRadius: 20,
                   border: '1px solid var(--border)',
                   background: 'none', color: 'var(--muted)',
-                  fontSize: 12, cursor: 'pointer',
-                  fontFamily: 'inherit',
+                  fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
                 }}
-              >
-                Skip
-              </button>
+              >Skip</button>
             </div>
           )}
         </div>
@@ -245,7 +307,9 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export default function VoiceLogger({ mealTime, onLog, onBack }) {
+// onLogAll(foods[]) — receives all scaled foods at once; owns the sheet close.
+// onLog(food)       — kept for single-item fallback / future use.
+export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
   const [phase, setPhase]             = useState(PHASE.IDLE)
   const [transcript, setTranscript]   = useState('')
   const [interimText, setInterimText] = useState('')
@@ -329,6 +393,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
   }
 
   const processTranscript = async () => {
+    // Capture both finalized and any still-interim words (last words on stop)
     const text = (finalTranscriptRef.current + ' ' + interimRef.current).trim()
     interimRef.current = ''
     setInterimText('')
@@ -357,7 +422,6 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
         return
       }
 
-      // Attach client-side fields
       setFoods(data.foods.map(f => ({
         ...f,
         multiplier: 1,
@@ -372,7 +436,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
 
   // ── Clarification: re-fetch with refined query ───────────────────────────
   const handleClarify = async (foodIndex, selectedOption) => {
-    // Skip pressed — just dismiss the question
+    // null = Skip pressed — dismiss the question without re-fetching
     if (!selectedOption) {
       setFoods(prev => prev.map((f, i) =>
         i === foodIndex ? { ...f, clarification_answered: true } : f
@@ -381,7 +445,6 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
     }
 
     const food = foods[foodIndex]
-    // Build a refined query: e.g. "grilled chicken breast, 1 medium breast"
     const refinedQuery = `${selectedOption} ${food.food_name}${
       food.serving_qty ? `, ${food.serving_qty} ${food.serving_unit}` : ''
     }`
@@ -403,7 +466,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
             ? {
                 ...f,
                 ...updated,
-                multiplier: f.multiplier,            // preserve the user's portion adjustment
+                multiplier: f.multiplier,  // preserve user's portion choice
                 clarification_answered: true,
                 clarifying_question: null,
                 clarifying_options: [],
@@ -411,7 +474,6 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
             : f
         ))
       } else {
-        // Refine returned nothing — just dismiss the question
         setFoods(prev => prev.map((f, i) =>
           i === foodIndex ? { ...f, clarification_answered: true } : f
         ))
@@ -439,18 +501,27 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
   }
 
   // ── Log all ──────────────────────────────────────────────────────────────
+  // Bake the multiplier into the macro values before handing off.
+  // Calls onLogAll with the full array — LogFoodSheet logs each item
+  // and closes the sheet exactly once at the end. This prevents the
+  // "only last item logged" bug caused by calling onLog (→ handleSelect
+  // → handleClose) once per food in a forEach.
   const logAll = () => {
-    foods.forEach(food => {
+    const scaledFoods = foods.map(food => {
       const m = food.multiplier ?? 1
-      onLog({
+      return {
         food_name:             food.food_name,
         brand_name:            food.brand_name || null,
-        nf_calories:           (food.nf_calories             || 0) * m,
-        nf_protein:            (food.nf_protein              || 0) * m,
-        nf_total_carbohydrate: (food.nf_total_carbohydrate   || 0) * m,
-        nf_total_fat:          (food.nf_total_fat            || 0) * m,
-      })
+        nf_calories:           Math.round((food.nf_calories             || 0) * m),
+        nf_protein:            Math.round((food.nf_protein              || 0) * m),
+        nf_total_carbohydrate: Math.round((food.nf_total_carbohydrate   || 0) * m),
+        nf_total_fat:          Math.round((food.nf_total_fat            || 0) * m),
+        serving_qty:           (food.serving_qty || 1) * m,
+        serving_unit:          food.serving_unit || 'serving',
+        multiplier:            1,  // already applied — receiver should not re-apply
+      }
     })
+    onLogAll(scaledFoods)
   }
 
   const resetToIdle = () => {
@@ -505,9 +576,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
               border: 'none', cursor: 'pointer', padding: '4px 8px',
               borderRadius: 8, fontFamily: 'inherit', flexShrink: 0,
             }}
-          >
-            Re-record
-          </button>
+          >Re-record</button>
         </div>
 
         {/* Pending questions hint */}
@@ -683,9 +752,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
                 fontSize: 14, fontWeight: 600, cursor: 'pointer',
                 fontFamily: 'inherit',
               }}
-            >
-              Try again
-            </button>
+            >Try again</button>
           </>
         )}
       </div>
@@ -698,9 +765,7 @@ export default function VoiceLogger({ mealTime, onLog, onBack }) {
             background: 'none', border: 'none', cursor: 'pointer',
             fontFamily: 'inherit', padding: '4px 8px',
           }}
-        >
-          ← Back
-        </button>
+        >← Back</button>
       )}
     </div>
   )
