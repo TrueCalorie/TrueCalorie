@@ -264,8 +264,10 @@ function App() {
   const displayProtein  = useCountUp(Math.round(totalProtein))
   const displayCarbs    = useCountUp(Math.round(totalCarbs))
   const displayFat      = useCountUp(Math.round(totalFat))
-
-  const calorieGoal   = settings?.calorie_goal || 2000
+  const calorieGoal  = settings?.calorie_goal  || 2000
+  const proteinGoal  = settings?.protein_goal  || 150
+  const carbsGoal    = settings?.carbs_goal    || 250
+  const fatGoal      = settings?.fat_goal      || 65
   const circumference = 2 * Math.PI * 62
   const ringPercent   = Math.min(totalCalories / calorieGoal, 1)
   const offset        = circumference * (1 - ringPercent)
@@ -403,23 +405,40 @@ function App() {
                 border: '1px solid var(--pro-border, var(--border))',
               }}>
                 {[
-                  { label: 'protein', val: displayProtein },
-                  { label: 'carbs',   val: displayCarbs   },
-                  { label: 'fat',     val: displayFat     },
-                ].map((m, i) => (
-                  <div key={m.label} style={{
-                    textAlign: 'center', padding: '12px 28px',
-                    borderRight: i < 2 ? '1px solid var(--border)' : 'none',
-                  }}>
-                    <div style={{
-                      fontSize: 16, fontWeight: 600, color: 'var(--text)',
-                      animation: ringFlash ? `numberAccent 0.7s ease ${i * 0.06}s forwards` : 'none',
+                  { label: 'Protein', val: displayProtein, goal: proteinGoal, color: '#378ADD' },
+                  { label: 'Carbs',   val: displayCarbs,   goal: carbsGoal,   color: '#EF9F27' },
+                  { label: 'Fat',     val: displayFat,     goal: fatGoal,     color: '#D4537E' },
+                ].map((m, i) => {
+                  const pct  = m.goal > 0 ? Math.min((m.val / m.goal) * 100, 100) : 0
+                  const over = m.val > m.goal
+                  return (
+                    <div key={m.label} style={{
+                      flex: 1, textAlign: 'center', padding: '12px 8px 10px',
+                      borderRight: i < 2 ? '1px solid var(--border)' : 'none',
                     }}>
-                      {m.val}g
+                      <div style={{
+                        fontSize: 16, fontWeight: 600,
+                        color: over ? '#f59e0b' : 'var(--text)',
+                        animation: ringFlash ? 'numberAccent 0.7s ease forwards' : 'none',
+                      }}>
+                        {m.val}g
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, marginBottom: 7 }}>
+                        {m.label}
+                      </div>
+                      <div style={{ height: 3, background: 'var(--surface2)', borderRadius: 2, overflow: 'hidden', margin: '0 6px' }}>
+                        <div style={{
+                          height: '100%', width: `${pct}%`, borderRadius: 2,
+                          background: over ? '#f59e0b' : m.color,
+                          transition: 'width 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+                        }} />
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 5 }}>
+                        of {m.goal}g
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{m.label}</div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
