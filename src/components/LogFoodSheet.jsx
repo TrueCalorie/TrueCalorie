@@ -187,7 +187,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
 
   // ── Single-item selection (barcode, grocery, restaurant) ─────────────────
   const handleSelect = (food) => {
-    onSelect({ ...food, meal_time: mealTime })
+    onSelect(food, mealTime)
     handleClose()
   }
 

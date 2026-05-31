@@ -79,7 +79,7 @@ const SPORTS = [
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Settings({ session, settings, onUpdate, onClose, onUpgrade }) {
-  const { isPro, isTrialing, trialDaysLeft, source, expiresAt } = usePro()
+  const { isPro, isTrialing, trialDaysLeft, loading, source, expiresAt } = usePro()
   const isProUser    = isPro || isTrialing
   const isFounder    = source === 'founder'
   const isMonthlyPro = isPro && !isTrialing && source === 'monthly'
@@ -318,8 +318,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-                  {isFounder ? 'Lifetime Pro access' : isMonthlyPro ? `Pro${renewDate ? ` · renews ${renewDate}` : ''}` : isTrialing ? `Trial · ${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} left` : 'Free plan'}
-                </div>
+                  {isFounder ? 'Lifetime Pro access' : (isPro && !isFounder) ? `Pro${renewDate ? ` · renews ${renewDate}` : ''}` : isTrialing ? `Trial · ${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} left` : 'Free plan'}                </div>
                 {isFounder && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>You were here first — every feature, permanently.</div>}
               </div>
             </div>
@@ -332,7 +331,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
                 {portalError && <p style={{ fontSize: 12, color: '#ef4444', padding: '0 16px 12px', margin: 0 }}>{portalError}</p>}
               </div>
             )}
-            {(isTrialing || !isPro) && (
+            {!loading && (isTrialing || !isPro) && (
               <button onClick={onUpgrade || onClose} style={{ width: '100%', padding: '13px 16px', background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontFamily: 'inherit' }}>
                 <span style={{ fontSize: 15, color: 'var(--accent)', fontWeight: 500 }}>{isTrialing ? 'Subscribe before trial ends' : 'Upgrade to Pro'}</span>
                 <span style={{ color: 'var(--accent)', fontSize: 16, opacity: 0.7 }}>›</span>
