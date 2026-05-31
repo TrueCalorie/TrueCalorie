@@ -110,12 +110,20 @@ function App() {
 
   const fetchMeals = async () => {
     if (!session) return
-    const today = new Date().toISOString().split('T')[0]
+
+    // Build start/end of the current LOCAL calendar day.
+    // new Date(y, m, d, ...) uses local time, so .toISOString() on it
+    // gives the correct UTC equivalent of local midnight — not UTC midnight.
+    const now = new Date()
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+    const endOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+
     const { data } = await supabase
       .from('meal_logs').select('*').eq('user_id', session.user.id)
-      .gte('logged_at', `${today}T00:00:00`)
-      .lte('logged_at', `${today}T23:59:59`)
+      .gte('logged_at', startOfDay.toISOString())
+      .lte('logged_at', endOfDay.toISOString())
       .order('logged_at', { ascending: true })
+
     if (data) setMeals(data)
   }
 
@@ -139,7 +147,8 @@ function App() {
       .gte('logged_at', thirtyDaysAgo.toISOString())
     const grouped = {}
     ;(logs || []).forEach(m => {
-      const date = m.logged_at.split('T')[0]
+      const d = new Date(m.logged_at)
+      const date = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
       if (!grouped[date]) grouped[date] = 0
       grouped[date] += Number(m.calories)
     })
