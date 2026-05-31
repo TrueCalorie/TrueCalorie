@@ -305,7 +305,9 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
           <Card>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-              borderBottom: (isMonthlyPro || isTrialing || !isPro) ? '1px solid var(--border)' : 'none',
+              borderBottom: (!isFounder && isPro) || isTrialing || !isPro ? '1px solid var(--border)' : 'none',
+              opacity: loading ? 0 : 1,
+              transition: 'opacity 0.15s ease',
             }}>
               <div style={{
                 padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
@@ -318,8 +320,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-                  {isFounder ? 'Lifetime Pro access' : (isPro && !isFounder) ? `Pro${renewDate ? ` · renews ${renewDate}` : ''}` : isTrialing ? `Trial · ${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} left` : 'Free plan'}                </div>
-                {isFounder && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>You were here first — every feature, permanently.</div>}
+                  {isFounder ? 'Lifetime access' : (isPro && !isFounder) ? (renewDate ? `Renews ${renewDate}` : 'Active') : isTrialing ? `${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} left in trial` : 'Free plan'}                {isFounder && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>You were here first — every feature, permanently.</div>}
               </div>
             </div>
             {isMonthlyPro && (
