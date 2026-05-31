@@ -150,6 +150,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
   const [isClosing, setIsClosing] = useState(false)
   const closeTimer                = useRef(null)
   const debounceTimer             = useRef(null)
+  const searchIdRef               = useRef(0)   // increments with each search; stale responses are discarded
 
   useEffect(() => {
     if (open) {
@@ -204,10 +205,13 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
 
   const searchFood = async () => {
     if (!search.trim()) return
+    const myId = ++searchIdRef.current   // capture this search's ID
     setSearching(true)
-    setHasSearched(true)      // ← mark that a real search was attempted
+    setHasSearched(true)
     setResultPage(0)
     const [offItems, usdaItems] = await Promise.all([fetchOFF(search), searchUSDA(search)])
+    // If a newer search has fired while this one was in-flight, discard these results
+    if (myId !== searchIdRef.current) return
     const usOff  = offItems.filter(p => p.countries?.includes('en:united-states'))
     const pool   = usOff.length >= 5 ? usOff : offItems
     const sorted = [...pool, ...usdaItems]
@@ -384,13 +388,15 @@ export default function LogFoodSheet({ open, onClose, onSelect, savedFoods = [] 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                 <ModeTile icon="📷"  label="Scan Barcode"   animDelay={0}    onClick={() => setMode('barcode')} />
                 <ModeTile icon="🔍"  label="Grocery Search" animDelay={0.05} onClick={() => setMode('grocery')} />
-                <ModeTile icon="🍽️" label="Restaurant"     animDelay={0.1}  badge="PRO"
+                <ModeTile icon="🍽️" label="Restaurant"     animDelay={0.1}
+                  badge={(!isPro && !isTrialing) ? 'PRO' : undefined}
                   onClick={() => {
                     if (!isPro && !isTrialing) { setShowUpgrade(true); return }
                     setMode('restaurant')
                   }}
                 />
-                <ModeTile icon="🎙️" label="Voice Log"      animDelay={0.15} badge="PRO"
+                <ModeTile icon="🎙️" label="Voice Log"      animDelay={0.15}
+                  badge={(!isPro && !isTrialing) ? 'PRO' : undefined}
                   onClick={() => {
                     if (!isPro && !isTrialing) { setShowUpgrade(true); return }
                     setMode('voice')
