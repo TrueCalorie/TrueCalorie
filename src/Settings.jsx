@@ -117,7 +117,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
   const [bodyOpen,      setBodyOpen]      = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError,   setPortalError]   = useState('')
-  const [proCalcResult, setProCalcResult] = useState(null) // result from calculateGoalsPro
+  const [proCalcResult, setProCalcResult] = useState(null)
   const [currentTheme,  setCurrentTheme]  = useState(
     localStorage.getItem('theme') || 'system'
   )
@@ -303,12 +303,15 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
         <div>
           <SectionLabel>Subscription</SectionLabel>
           <Card>
+
+            {/* Plan row */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
               borderBottom: (!isFounder && isPro) || isTrialing || !isPro ? '1px solid var(--border)' : 'none',
               opacity: loading ? 0 : 1,
               transition: 'opacity 0.15s ease',
             }}>
+              {/* Badge */}
               <div style={{
                 padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
                 background: isFounder ? 'rgba(251,191,36,0.15)' : isPro ? 'rgba(29,158,117,0.12)' : isTrialing ? 'rgba(245,158,11,0.12)' : 'var(--surface2)',
@@ -318,26 +321,69 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
               }}>
                 {isFounder ? '✦ FOUNDER' : isPro ? 'PRO' : isTrialing ? 'TRIAL' : 'FREE'}
               </div>
+
+              {/* Text */}
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-                  {isFounder ? 'Lifetime access' : (isPro && !isFounder) ? (renewDate ? `Renews ${renewDate}` : 'Active') : isTrialing ? `${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} left in trial` : 'Free plan'}                {isFounder && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>You were here first — every feature, permanently.</div>}
+                  {isFounder
+                    ? 'Lifetime access'
+                    : (isPro && !isFounder)
+                      ? (renewDate ? `Renews ${renewDate}` : 'Active')
+                      : isTrialing
+                        ? `${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} left in trial`
+                        : 'Free plan'}
+                </div>
+                {isFounder && (
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                    You were here first — every feature, permanently.
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Manage billing — monthly Pro only */}
             {isMonthlyPro && (
               <div style={{ padding: '4px 0' }}>
-                <button onClick={openPortal} disabled={portalLoading} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px', background: 'none', border: 'none', cursor: portalLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: portalLoading ? 0.6 : 1 }}>
-                  <span style={{ fontSize: 15, color: 'var(--text)' }}>{portalLoading ? 'Opening…' : 'Manage billing'}</span>
+                <button
+                  onClick={openPortal}
+                  disabled={portalLoading}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '13px 16px', background: 'none', border: 'none',
+                    cursor: portalLoading ? 'default' : 'pointer', fontFamily: 'inherit',
+                    opacity: portalLoading ? 0.6 : 1,
+                  }}
+                >
+                  <span style={{ fontSize: 15, color: 'var(--text)' }}>
+                    {portalLoading ? 'Opening…' : 'Manage billing'}
+                  </span>
                   <span style={{ color: 'var(--muted)', fontSize: 16, opacity: 0.5 }}>›</span>
                 </button>
-                {portalError && <p style={{ fontSize: 12, color: '#ef4444', padding: '0 16px 12px', margin: 0 }}>{portalError}</p>}
+                {portalError && (
+                  <p style={{ fontSize: 12, color: '#ef4444', padding: '0 16px 12px', margin: 0 }}>
+                    {portalError}
+                  </p>
+                )}
               </div>
             )}
+
+            {/* Upgrade CTA — free / trial only, hidden while loading */}
             {!loading && (isTrialing || !isPro) && (
-              <button onClick={onUpgrade || onClose} style={{ width: '100%', padding: '13px 16px', background: 'none', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontFamily: 'inherit' }}>
-                <span style={{ fontSize: 15, color: 'var(--accent)', fontWeight: 500 }}>{isTrialing ? 'Subscribe before trial ends' : 'Upgrade to Pro'}</span>
+              <button
+                onClick={onUpgrade || onClose}
+                style={{
+                  width: '100%', padding: '13px 16px', background: 'none', border: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                <span style={{ fontSize: 15, color: 'var(--accent)', fontWeight: 500 }}>
+                  {isTrialing ? 'Subscribe before trial ends' : 'Upgrade to Pro'}
+                </span>
                 <span style={{ color: 'var(--accent)', fontSize: 16, opacity: 0.7 }}>›</span>
               </button>
             )}
+
           </Card>
         </div>
 
@@ -547,7 +593,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
                   {/* Calculate button */}
                   <div style={{ padding: '12px 16px', borderTop: proCalcResult ? 'none' : '1px solid var(--border)' }}>
                     <button
-                      onClick={isProUser || !canRecalculatePro ? recalculatePro : recalculatePro}
+                      onClick={recalculatePro}
                       disabled={!canRecalculatePro}
                       style={{ width: '100%', padding: '10px', background: canRecalculatePro ? 'var(--accent)' : 'var(--surface2)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: canRecalculatePro ? '#fff' : 'var(--muted)', cursor: canRecalculatePro ? 'pointer' : 'default', fontFamily: 'inherit', opacity: canRecalculatePro ? 1 : 0.6 }}
                     >
