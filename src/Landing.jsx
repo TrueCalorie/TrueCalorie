@@ -214,7 +214,7 @@ export default function Landing({ onGetStarted }) {
         maxWidth: 760, margin: '0 auto 80px', padding: '0 32px', textAlign: 'center',
       }}>
         <div style={{ fontSize: 13, color: '#444', fontFamily: 'sans-serif' }}>
-          Used by distance runners, swimmers, and strength athletes at Colorado School of Mines
+          Used by athletes at South Dakota School of Mines and Technology
         </div>
       </div>
 
