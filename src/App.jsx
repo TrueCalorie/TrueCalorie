@@ -442,8 +442,6 @@ function App() {
               </div>
             </div>
 
-            <WeightCard session={session} />
-
             {/* Log Food button */}
             <button
               onClick={() => setShowLogFood(true)}
@@ -534,6 +532,18 @@ function App() {
                 })()
               )}
             </div>
+
+            {/* Weight */}
+            <div style={{ marginTop: 32, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+              <div style={{
+                fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+                letterSpacing: '0.08em', marginBottom: 12,
+              }}>
+                WEIGHT
+              </div>
+              <WeightCard session={session} />
+            </div>
+
           </>
         )}
       </div>
