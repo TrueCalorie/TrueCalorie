@@ -541,6 +541,7 @@ function App() {
             settings={settings}
             onUpdate={fetchSettings}
             onClose={() => { setShowSettings(false); setActiveTab('today') }}
+            onUpgrade={() => { setShowSettings(false); setActiveTab('pro') }}
           />
         </div>
       )}
