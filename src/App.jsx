@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 import Auth from './Auth'
 import Onboarding from './Onboarding'
 import Settings from './Settings'
-import History from './History'
+import History from './Stats'
 import Founders from './Founders'
 import Privacy from './Privacy'
 import Terms from './Terms'
@@ -204,7 +204,7 @@ function App() {
       {currentToast && <AchievementToast achievement={currentToast} onDone={() => setCurrentToast(null)} />}
 
       {/* Sticky header */}
-      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 50 }}>
+      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 30 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px 10px' }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
@@ -347,9 +347,9 @@ function App() {
 
       {/* History overlay */}
       {showHistory && (
-        <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 10, overflowY: 'auto', animation: 'fadeIn 0.2s ease both' }}>
-          <History session={session} settings={settings} onClose={() => { setShowHistory(false); setActiveTab('today') }} />
-        </div>
+          <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', zIndex: 30, overflowY: 'auto', animation: 'fadeIn 0.2s ease both' }}>
+            <Stats session={session} settings={settings} onClose={() => { setShowHistory(false); setActiveTab('today') }} />
+          </div>
       )}
 
       <LogFoodSheet open={showLogFood} onClose={() => setShowLogFood(false)} onSelect={handleFoodSelect} savedFoods={savedFoods} />

@@ -1,7 +1,7 @@
 export default function TabBar({ activeTab, onChange }) {
   const tabs = [
     { id: 'today',    label: 'Today',    icon: TodayIcon },
-    { id: 'history',  label: 'History',  icon: HistoryIcon },
+    { id: 'history',  label: 'Stats',    icon: StatsIcon },   // renamed from History
     { id: 'pro',      label: 'Pro',      icon: ProIcon },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ]
@@ -62,17 +62,16 @@ function TodayIcon({ size, active }) {
   )
 }
 
-function HistoryIcon({ size, active }) {
+// Bar chart icon — fits "Stats" better than a calendar
+function StatsIcon({ size, active }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth={active ? 2.2 : 1.8}
       strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="17" rx="2" />
-      <line x1="3" y1="9" x2="21" y2="9" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="7" y1="14" x2="12" y2="14" />
-      <line x1="7" y1="18" x2="16" y2="18" />
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6"  y1="20" x2="6"  y2="14" />
+      <line x1="2"  y1="20" x2="22" y2="20" />
     </svg>
   )
 }
