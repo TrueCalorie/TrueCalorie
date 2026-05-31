@@ -398,3 +398,25 @@ async function searchRestaurantsReal(query) {
 }
 
 export const NUTRITIONIX_HAS_REAL_KEYS = HAS_REAL_KEYS
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CHAIN BROWSER EXPORTS
+// Used by the restaurant chain picker UI.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Sorted list of all unique chain names in the mock dataset. */
+export const CHAIN_NAMES = [...new Set(MOCK_RESTAURANTS.map(i => i.brand_name))].sort()
+
+/**
+ * Get all menu items for a specific chain.
+ * In mock mode: filters local data (no limit, all items).
+ * In real mode: calls Nutritionix instant search with the brand name.
+ */
+export async function getChainMenuItems(brandName) {
+  if (!brandName) return []
+  if (HAS_REAL_KEYS) {
+    return searchRestaurantsReal(brandName)
+  }
+  await new Promise(r => setTimeout(r, 250))  // simulate latency
+  return MOCK_RESTAURANTS.filter(item => item.brand_name === brandName)
+}
