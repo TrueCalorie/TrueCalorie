@@ -17,6 +17,7 @@ import TabBar from './components/TabBar'
 import Purchases from './Purchases'
 import { usePro } from './hooks/usePro'
 import { useCountUp } from './hooks/useCountUp'
+import WeightCard from './components/WeightCard'
 
 function App() {
   const [session, setSession]               = useState(null)
@@ -421,6 +422,8 @@ function App() {
                 ))}
               </div>
             </div>
+
+            <WeightCard session={session} />
 
             {/* Log Food button */}
             <button
