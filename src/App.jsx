@@ -18,6 +18,7 @@ import Purchases from './Purchases'
 import { usePro } from './hooks/usePro'
 import { useCountUp } from './hooks/useCountUp'
 import WeightCard from './components/WeightCard'
+import WaterCard from './components/WaterCard'
 
 function App() {
   const [session, setSession]               = useState(null)
@@ -542,6 +543,17 @@ function App() {
                 WEIGHT
               </div>
               <WeightCard session={session} />
+            </div>
+
+            {/* Water */}
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+              <div style={{
+                fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+                letterSpacing: '0.08em', marginBottom: 12,
+              }}>
+                WATER
+              </div>
+              <WaterCard session={session} />
             </div>
 
           </>
