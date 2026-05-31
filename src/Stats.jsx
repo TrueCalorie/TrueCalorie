@@ -264,23 +264,33 @@ export default function Stats({ session, settings, onClose }) {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      paddingTop: 56,
-      paddingBottom: 40,
-      maxWidth: 480,
-      margin: '0 auto',
-      padding: '56px 16px 40px',
-    }}>
+    <div style={{ maxWidth: 480, margin: '0 auto' }}>
 
-      {/* ── Page header ── */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+      {/* ── Back button header — matches Settings.jsx style ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '18px 16px 14px',
+        borderBottom: '1px solid var(--border)',
+        position: 'sticky', top: 0,
+        background: 'var(--bg)', zIndex: 1,
+      }}>
+        <button
+          onClick={onClose}
+          style={{
+            background: 'none', border: 'none', padding: 0,
+            cursor: 'pointer', color: 'var(--text)',
+            display: 'flex', alignItems: 'center',
+            fontSize: 18, lineHeight: 1,
+          }}
+        >
+          ←
+        </button>
+        <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
           Stats
         </div>
-        <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>
-          Your nutrition at a glance
-        </div>
       </div>
+
+      <div style={{ padding: '20px 16px 40px' }}>
 
       {/* ── Range toggle ── */}
       <div style={{
@@ -436,8 +446,9 @@ export default function Stats({ session, settings, onClose }) {
             )
           })}
         </div>
-      </div>
+      </div>  {/* end achievement grid */}
 
-    </div>
+      </div>  {/* end inner padding div */}
+    </div>   {/* end outer container */}
   )
 }
