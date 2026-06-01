@@ -531,8 +531,7 @@ function App() {
                         return (
                           <div
                             key={meal.id}
-                            onClick={() => setEditingMeal(meal)}
-                            style={{
+                              onClick={(e) => { e.stopPropagation(); setEditingMeal(meal) }}                            style={{
                               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                               padding: '12px 0', borderBottom: '1px solid var(--border)',
                               cursor: 'pointer', borderRadius: 6,
