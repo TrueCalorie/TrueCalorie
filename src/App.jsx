@@ -228,6 +228,15 @@ function App() {
     fetchMeals()
   }
 
+  const moveMealTime = async (id, newMealTime) => {
+    await supabase
+      .from('meal_logs')
+      .update({ meal_time: newMealTime })
+      .eq('id', id)
+      .eq('user_id', session.user.id)
+    fetchMeals()
+  }
+
   // ── Saved foods ────────────────────────────────────────────────────────────
   const toggleSaveFood = async (item) => {
     const existing = savedFoods.find(
@@ -668,6 +677,7 @@ function App() {
           onClose={() => setEditingMeal(null)}
           onUpdate={updateMeal}
           onDelete={deleteItem}
+          onMove={moveMealTime}
           isSaved={isFoodSaved({
             food_name:  editingMeal.name,
             brand_name: editingMeal.restaurant,

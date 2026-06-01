@@ -1,17 +1,61 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
-export default function MealEditModal({ meal, onClose, onUpdate, onDelete, isSaved, onToggleSave }) {
-  const [multiplier, setMultiplier] = useState(1)
-  const [deleting, setDeleting]     = useState(false)
-  const [saving, setSaving]         = useState(false)
-  const [starAnim, setStarAnim]     = useState(false)
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  if (!meal) return null
+// Returns true if the unit string is generic/useless for display
+const isGenericUnit = (unit) => {
+  if (!unit) return true
+  const u = unit.toLowerCase().trim()
+  return ['serving', 'servings', 'g', 'gram', 'grams', 'oz', 'ml', ''].includes(u)
+}
 
-  const baseCal = Math.round(meal.calories || 0)
-  const baseP   = Math.round(meal.protein  || 0)
-  const baseC   = Math.round(meal.carbs    || 0)
-  const baseF   = Math.round(meal.fat      || 0)
+// Returns the increment to use for the stepper.
+// Countable things (eggs, slices, pieces) → 1. Continuous things → 0.5.
+const getIncrement = (unit) => {
+  if (!unit) return 0.5
+  const u = unit.toLowerCase()
+  const countable = ['egg', 'slice', 'piece', 'strip', 'patty', 'tablet',
+                     'pill', 'capsule', 'scoop', 'bar', 'cup', 'tbsp',
+                     'tsp', 'can', 'bottle', 'packet', 'bag', 'wrap',
+                     'sandwich', 'burger', 'bowl', 'taco', 'burrito',
+                     'cookie', 'muffin', 'roll', 'bun', 'fillet', 'breast',
+                     'thigh', 'wing', 'drumstick', 'chop', 'steak', 'link']
+  return countable.some(c => u.includes(c)) ? 1 : 0.5
+}
+
+// Human-readable label for the quantity row
+const buildQuantityLabel = (qty, unit) => {
+  if (isGenericUnit(unit)) return 'Servings'
+  // Strip parenthetical weight hints: "large egg (50g)" → "large egg"
+  const cleanUnit = unit.replace(/\s*\(.*?\)\s*$/, '').trim()
+  return cleanUnit.charAt(0).toUpperCase() + cleanUnit.slice(1)
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId, isSaved, onToggleSave }) {
+  const [qty, setQty]           = useState(1)
+  const [saving, setSaving]     = useState(false)
+  const [starAnim, setStarAnim] = useState(false)
+
+  useEffect(() => {
+    // Seed with the item's own serving_qty if it's a sane number, otherwise 1
+    const seed = item?.serving_qty && item.serving_qty > 0 ? item.serving_qty : 1
+    setQty(seed)
+  }, [item])
+
+  if (!item) return null
+
+  const increment = getIncrement(item.serving_unit)
+
+  // When the item has a real serving_qty, the multiplier is qty / serving_qty.
+  // When it doesn't, the multiplier is qty directly.
+  const baseQty   = item.serving_qty && item.serving_qty > 0 ? item.serving_qty : 1
+  const multiplier = qty / baseQty
+
+  const baseCal = Math.round(item.nf_calories             || 0)
+  const baseP   = Math.round(item.nf_protein              || 0)
+  const baseC   = Math.round(item.nf_total_carbohydrate   || 0)
+  const baseF   = Math.round(item.nf_total_fat            || 0)
 
   const totalCal = Math.round(baseCal * multiplier)
   const totalP   = Math.round(baseP   * multiplier)
@@ -19,18 +63,24 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete, isSav
   const totalF   = Math.round(baseF   * multiplier)
 
   const adjust = (delta) => {
-    const next = Math.max(0.5, Math.round((multiplier + delta) * 2) / 2)
-    setMultiplier(next)
+    const next = Math.max(increment, Math.round((qty + delta) / increment) * increment)
+    setQty(parseFloat(next.toFixed(1)))
   }
 
-  const handleUpdate = () => {
-    onUpdate(meal.id, { calories: totalCal, protein: totalP, carbs: totalC, fat: totalF })
-    onClose()
-  }
+  // Display the qty value cleanly (no trailing .0 for whole numbers)
+  const qtyDisplay = qty % 1 === 0 ? String(qty) : qty.toFixed(1)
 
-  const handleDelete = async () => {
-    setDeleting(true)
-    await onDelete(meal.id)
+  const quantityLabel = buildQuantityLabel(qty, item.serving_unit)
+  const showUnit      = !isGenericUnit(item.serving_unit)
+
+  // Strip weight hint from unit for compact display inside the stepper
+  const shortUnit = showUnit
+    ? item.serving_unit.replace(/\s*\(.*?\)\s*$/, '').trim()
+    : null
+
+  const submit = () => {
+    // Pass the multiplier as servings so App.jsx logItem math stays unchanged
+    onLog(item, multiplier)
     onClose()
   }
 
@@ -38,28 +88,12 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete, isSav
     if (!onToggleSave || saving) return
     setSaving(true)
     setStarAnim(true)
-    await onToggleSave()
+    await onToggleSave(item)
     setSaving(false)
     setTimeout(() => setStarAnim(false), 400)
   }
 
   const labelStyle = { fontSize: 10, color: 'var(--muted)', letterSpacing: '0.06em', marginBottom: 8 }
-  const unchanged  = multiplier === 1
-
-  const stepBtn = (label, delta) => (
-    <button
-      onClick={() => adjust(delta)}
-      style={{
-        width: 32, height: 32, borderRadius: 8,
-        border: '1px solid var(--border)', background: 'var(--surface2)',
-        color: 'var(--text)', fontSize: 18, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'transform 0.1s', fontFamily: 'inherit',
-      }}
-      onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
-      onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-    >{label}</button>
-  )
 
   return (
     <div
@@ -80,12 +114,14 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete, isSav
           width: '100%', maxWidth: 380,
           background: 'var(--bg)',
           border: '1px solid var(--border)',
-          borderRadius: 16, padding: 24,
-          fontFamily: 'sans-serif', position: 'relative',
+          borderRadius: 16,
+          padding: 24,
+          fontFamily: 'sans-serif',
+          position: 'relative',
           animation: 'modalEnter 0.25s cubic-bezier(0.34, 1.2, 0.64, 1) both',
         }}
       >
-        {/* Star — save this food */}
+        {/* Star — save food */}
         {onToggleSave && (
           <button
             onClick={handleStar}
@@ -108,6 +144,7 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete, isSav
         {/* Close */}
         <button
           onClick={onClose}
+          aria-label="Close"
           style={{
             position: 'absolute', top: 12, right: 12,
             background: 'none', border: 'none', cursor: 'pointer',
@@ -118,27 +155,28 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete, isSav
           onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
         >×</button>
 
-        {/* Name + meal time */}
+        {/* Name + brand */}
         <div style={{ marginBottom: 18, paddingLeft: onToggleSave ? 32 : 0, paddingRight: 32 }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', lineHeight: 1.3 }}>
-            {meal.name}
+            {item.food_name}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
-            {meal.restaurant && (
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{meal.restaurant}</span>
-            )}
-            <span style={{
-              fontSize: 10, padding: '2px 7px', borderRadius: 4,
-              border: '1px solid var(--border)', color: 'var(--muted)',
-              letterSpacing: '0.05em',
-            }}>
-              {meal.meal_time?.toUpperCase()}
-            </span>
-          </div>
+          {item.brand_name && (
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>{item.brand_name}</div>
+          )}
+          {/* Serving size context */}
+          {showUnit && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              Per {baseQty} {item.serving_unit.replace(/\s*\(.*?\)\s*$/, '').trim()}
+              {' · '}{baseCal} cal
+            </div>
+          )}
         </div>
 
-        {/* Macro grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
+        {/* Macro breakdown — updates live with qty */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          gap: 8, marginBottom: 20,
+        }}>
           {[
             { label: 'CALORIES', val: totalCal, unit: '' },
             { label: 'PROTEIN',  val: totalP,   unit: 'g' },
@@ -146,8 +184,9 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete, isSav
             { label: 'FAT',      val: totalF,   unit: 'g' },
           ].map(({ label, val, unit }) => (
             <div key={label} style={{
-              background: 'var(--surface2)', borderRadius: 10,
-              padding: '10px 12px', border: '1px solid var(--border)',
+              background: 'var(--surface2)',
+              borderRadius: 10, padding: '10px 12px',
+              border: '1px solid var(--border)',
             }}>
               <div style={labelStyle}>{label}</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
@@ -157,56 +196,77 @@ export default function MealEditModal({ meal, onClose, onUpdate, onDelete, isSav
           ))}
         </div>
 
-        {/* Multiplier stepper */}
+        {/* Quantity stepper */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginBottom: 20, background: 'var(--surface)', borderRadius: 10,
+          marginBottom: 20,
+          background: 'var(--surface)', borderRadius: 10,
           border: '1px solid var(--border)', padding: '10px 14px',
         }}>
-          <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>Multiplier</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {stepBtn('−', -0.5)}
-            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', minWidth: 28, textAlign: 'center' }}>
-              {multiplier}×
+          <div>
+            <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>
+              {quantityLabel}
             </span>
-            {stepBtn('+', 0.5)}
+            {showUnit && (
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
+                {shortUnit}
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button
+              onClick={() => adjust(-increment)}
+              disabled={qty <= increment}
+              style={{
+                width: 32, height: 32, borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--surface2)',
+                color: qty <= increment ? 'var(--border)' : 'var(--text)',
+                fontSize: 18, cursor: qty <= increment ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.15s, transform 0.1s',
+                fontFamily: 'inherit',
+              }}
+              onMouseDown={e => { if (qty > increment) e.currentTarget.style.transform = 'scale(0.9)' }}
+              onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+            >−</button>
+
+            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', minWidth: 32, textAlign: 'center' }}>
+              {qtyDisplay}
+            </span>
+
+            <button
+              onClick={() => adjust(increment)}
+              style={{
+                width: 32, height: 32, borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--surface2)',
+                color: 'var(--text)', fontSize: 18, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.15s, transform 0.1s',
+                fontFamily: 'inherit',
+              }}
+              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
+              onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+            >+</button>
           </div>
         </div>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            style={{
-              flex: 1, padding: '13px 0', borderRadius: 12,
-              border: '1px solid var(--border)', background: 'none',
-              color: deleting ? 'var(--muted)' : '#E24B4A',
-              fontSize: 14, fontWeight: 600,
-              cursor: deleting ? 'default' : 'pointer',
-              fontFamily: 'inherit', transition: 'background 0.15s, transform 0.1s',
-            }}
-            onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = 'rgba(226,75,74,0.08)' }}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}
-            onMouseDown={e => e.currentTarget.style.transform = 'scale(0.97)'}
-            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-          >{deleting ? 'Deleting…' : 'Delete'}</button>
-
-          <button
-            onClick={handleUpdate}
-            disabled={unchanged}
-            style={{
-              flex: 2, padding: '13px 0', borderRadius: 12, border: 'none',
-              background: unchanged ? 'var(--surface2)' : 'var(--text)',
-              color: unchanged ? 'var(--muted)' : 'var(--bg)',
-              fontSize: 14, fontWeight: 600,
-              cursor: unchanged ? 'default' : 'pointer',
-              fontFamily: 'inherit', transition: 'background 0.2s, color 0.2s, transform 0.1s',
-            }}
-            onMouseDown={e => { if (!unchanged) e.currentTarget.style.transform = 'scale(0.98)' }}
-            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
-          >{unchanged ? 'No changes' : 'Update'}</button>
-        </div>
+        {/* Add CTA */}
+        <button
+          onClick={submit}
+          style={{
+            width: '100%', padding: '14px 0', borderRadius: 12, border: 'none',
+            background: 'var(--accent)', color: '#fff',
+            fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            letterSpacing: '0.01em',
+            transition: 'opacity 0.15s, transform 0.1s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
+          onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          Add to {mealTime}
+        </button>
       </div>
     </div>
   )
