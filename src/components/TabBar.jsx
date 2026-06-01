@@ -2,7 +2,7 @@ export default function TabBar({ activeTab, onChange }) {
   const tabs = [
     { id: 'today',    label: 'Today',    icon: TodayIcon },
     { id: 'history',  label: 'Stats',    icon: StatsIcon },   // renamed from History
-    { id: 'pro',      label: 'Pro',      icon: ProIcon },
+    { id: 'trends', label: 'Trends', icon: TrendsIcon },
     { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ]
 
@@ -76,13 +76,13 @@ function StatsIcon({ size, active }) {
   )
 }
 
-function ProIcon({ size, active }) {
+function TrendsIcon({ size, active }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24"
-      fill={active ? 'currentColor' : 'none'}
-      stroke="currentColor" strokeWidth={active ? 0 : 1.8}
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={active ? 2.2 : 1.8}
       strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
     </svg>
   )
 }

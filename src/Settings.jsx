@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from './supabase'
 import { calculateGoals, calculateGoalsPro, previewProGoals } from './macros'
 import { usePro } from './hooks/usePro'
+import Purchases from './Purchases'
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
 function Row({ label, children, last }) {
@@ -117,6 +118,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
   const [bodyOpen,      setBodyOpen]      = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError,   setPortalError]   = useState('')
+  const [showPurchases, setShowPurchases] = useState(false)
   const [proCalcResult, setProCalcResult] = useState(null)
   const [currentTheme,  setCurrentTheme]  = useState(
     localStorage.getItem('theme') || 'system'
@@ -305,11 +307,12 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
           <Card>
 
             {/* Plan row */}
-            <div style={{
+            <button onClick={() => setShowPurchases(true)} style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-              borderBottom: (!isFounder && isPro) || isTrialing || !isPro ? '1px solid var(--border)' : 'none',
-              opacity: loading ? 0 : 1,
+              borderBottom: isMonthlyPro ? '1px solid var(--border)' : 'none',              opacity: loading ? 0 : 1,
               transition: 'opacity 0.15s ease',
+              width: '100%', background: 'none', border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
             }}>
               {/* Badge */}
               <div style={{
@@ -339,7 +342,8 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
                   </div>
                 )}
               </div>
-            </div>
+              <span style={{ color: 'var(--muted)', fontSize: 16, opacity: 0.4, flexShrink: 0 }}>›</span>
+            </button>
 
             {/* Manage billing — monthly Pro only */}
             {isMonthlyPro && (
@@ -365,23 +369,6 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
                   </p>
                 )}
               </div>
-            )}
-
-            {/* Upgrade CTA — free / trial only, hidden while loading */}
-            {!loading && (isTrialing || !isPro) && (
-              <button
-                onClick={onUpgrade || onClose}
-                style={{
-                  width: '100%', padding: '13px 16px', background: 'none', border: 'none',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                <span style={{ fontSize: 15, color: 'var(--accent)', fontWeight: 500 }}>
-                  {isTrialing ? 'Subscribe before trial ends' : 'Upgrade to Pro'}
-                </span>
-                <span style={{ color: 'var(--accent)', fontSize: 16, opacity: 0.7 }}>›</span>
-              </button>
             )}
 
           </Card>
@@ -583,7 +570,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
                           Apply these targets
                         </button>
                       ) : (
-                        <button onClick={onUpgrade || onClose} style={{ width: '100%', padding: '11px', background: 'none', border: '1px solid var(--accent)', borderRadius: 10, fontSize: 14, fontWeight: 500, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        <button onClick={() => setShowPurchases(true)} style={{ width: '100%', padding: '11px', background: 'none', border: '1px solid var(--accent)', borderRadius: 10, fontSize: 14, fontWeight: 500, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' }}>
                           Upgrade to Pro to apply →
                         </button>
                       )}
@@ -653,6 +640,28 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
         </p>
 
       </div>
+        {/* Purchases overlay */}
+        {showPurchases && (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            background: 'var(--bg)', overflowY: 'auto', fontFamily: 'inherit',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '16px 16px 14px', borderBottom: '1px solid var(--border)',
+              position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
+            }}>
+              <button onClick={() => setShowPurchases(false)} style={{
+                background: 'none', border: 'none', padding: 0,
+                cursor: 'pointer', color: 'var(--text)', fontSize: 20, lineHeight: 1,
+              }}>←</button>
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
+                Subscription
+              </span>
+            </div>
+            <Purchases session={session} />
+          </div>
+        )}
     </div>
   )
 }

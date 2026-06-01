@@ -4,6 +4,7 @@ import Auth from './Auth'
 import Onboarding from './Onboarding'
 import Settings from './Settings'
 import Stats from './Stats'
+import Trends from './Trends'
 import Founders from './Founders'
 import Privacy from './Privacy'
 import Terms from './Terms'
@@ -29,6 +30,7 @@ function App() {
   const [savedFoods, setSavedFoods]         = useState([])
   const [showSettings, setShowSettings]     = useState(false)
   const [showHistory, setShowHistory]       = useState(false)
+  const [showPurchasesOverlay, setShowPurchasesOverlay] = useState(false)
   const [showFounders, setShowFounders]     = useState(false)
   const [showPrivacy, setShowPrivacy]       = useState(false)
   const [showTerms, setShowTerms]           = useState(false)
@@ -349,9 +351,7 @@ function App() {
       {/* ── Main content ── */}
       <div key={activeTab} style={{ padding: '20px 16px 80px', animation: 'fadeIn 0.2s ease both' }}>
 
-        {activeTab === 'pro' && <Purchases session={session} />}
-
-        {activeTab !== 'pro' && (
+        {(
           <>
             {/* Calorie ring */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 40 }}>
@@ -585,10 +585,49 @@ function App() {
             settings={settings}
             onUpdate={fetchSettings}
             onClose={() => { setShowSettings(false); setActiveTab('today') }}
-            onUpgrade={() => { setShowSettings(false); setActiveTab('pro') }}
+            onUpgrade={() => setShowPurchasesOverlay(true)}
           />
         </div>
       )}
+
+{/* ── Trends overlay ── */}
+{activeTab === 'trends' && (
+  <div style={{
+    position: 'fixed', inset: 0, background: 'var(--bg)',
+    zIndex: 30, overflowY: 'auto', animation: 'fadeIn 0.2s ease both',
+  }}>
+    <Trends
+      session={session}
+      settings={settings}
+      isPro={isPro}
+      onUpgrade={() => setShowPurchasesOverlay(true)}
+      onClose={() => setActiveTab('today')}
+    />
+  </div>
+)}
+
+  {/* ── Purchases overlay (from Trends upgrade CTA) ── */}
+  {showPurchasesOverlay && (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'var(--bg)',
+      zIndex: 50, overflowY: 'auto', animation: 'fadeIn 0.2s ease both',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '16px 16px 14px', borderBottom: '1px solid var(--border)',
+        position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
+      }}>
+        <button onClick={() => setShowPurchasesOverlay(false)} style={{
+          background: 'none', border: 'none', padding: 0,
+          cursor: 'pointer', color: 'var(--text)', fontSize: 20, lineHeight: 1,
+        }}>←</button>
+        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
+          Upgrade to Pro
+        </span>
+      </div>
+      <Purchases session={session} />
+    </div>
+  )}
 
       {/* ── Log Food sheet ── */}
       <LogFoodSheet
