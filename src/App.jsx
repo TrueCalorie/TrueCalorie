@@ -644,8 +644,7 @@ function App() {
           Upgrade to Pro
         </span>
       </div>
-      <Purchases session={session} />
-    </div>
+      <Purchases session={session} onClose={() => setShowPurchasesOverlay(false)} />    </div>
   )}
 
       {/* ── Log Food sheet ── */}
