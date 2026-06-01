@@ -237,6 +237,30 @@ function App() {
     fetchMeals()
   }
 
+  const combineMeals = async (anchorId, selectedIds, name, totals, mealTime) => {
+    // 1. Delete all component meals (anchor + selected)
+    const allIds = [anchorId, ...selectedIds]
+    await supabase
+      .from('meal_logs')
+      .delete()
+      .in('id', allIds)
+      .eq('user_id', session.user.id)
+
+    // 2. Insert the single combined entry
+    await supabase.from('meal_logs').insert({
+      user_id:   session.user.id,
+      name:      name,
+      restaurant: null,
+      calories:  totals.calories,
+      protein:   totals.protein,
+      carbs:     totals.carbs,
+      fat:       totals.fat,
+      meal_time: mealTime,
+    })
+
+    fetchMeals()
+  }
+
   // ── Saved foods ────────────────────────────────────────────────────────────
   const toggleSaveFood = async (item) => {
     const existing = savedFoods.find(
@@ -673,10 +697,12 @@ function App() {
       {editingMeal && (
         <MealEditModal
           meal={editingMeal}
+          allMeals={meals}
           onClose={() => setEditingMeal(null)}
           onUpdate={updateMeal}
           onDelete={deleteItem}
           onMove={moveMealTime}
+          onCombine={combineMeals}
           isSaved={isFoodSaved({
             food_name:  editingMeal.name,
             brand_name: editingMeal.restaurant,
