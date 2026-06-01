@@ -34,6 +34,7 @@ function App() {
   const [showFounders, setShowFounders]     = useState(false)
   const [showPrivacy, setShowPrivacy]       = useState(false)
   const [showTerms, setShowTerms]           = useState(false)
+  const [passwordResetMode, setPasswordResetMode] = useState(false)
   const [showLogFood, setShowLogFood]       = useState(false)
   const [selectedItem, setSelectedItem]     = useState(null)
   const [selectedMealTime, setSelectedMealTime] = useState('Lunch')
@@ -54,8 +55,16 @@ function App() {
       setSession(session)
       setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordResetMode(true)
+        setSession(session)
+      } else {
+        setSession(session)
+        if (event !== 'INITIAL_SESSION') {
+          setPasswordResetMode(false)
+        }
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -294,6 +303,7 @@ function App() {
   if (showTerms)    return <Terms    onBack={goHome} />
   if (showFounders) return <Founders onBack={goHome} />
   if (loading || (session && !settingsLoaded)) return <LoadingScreen />
+  if (passwordResetMode) return <Auth resetMode={true} />
   if (!session) return <Auth />
   if (!settings || !settings.onboarding_complete) return <Onboarding session={session} onComplete={fetchSettings} />
 
