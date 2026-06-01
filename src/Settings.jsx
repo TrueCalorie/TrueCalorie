@@ -1,22 +1,18 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
-import { calculateGoals, calculateGoalsPro, previewProGoals } from './macros'
 import { usePro } from './hooks/usePro'
+import { calculateGoals, calculateGoalsPro } from './macros'
 import Purchases from './Purchases'
 
-// ─── Shared sub-components ────────────────────────────────────────────────────
-function Row({ label, children, last }) {
+// ─── Sub-components ───────────────────────────────────────────────────────────
+function SectionLabel({ children }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '13px 16px',
-      borderBottom: last ? 'none' : '1px solid var(--border)',
-      gap: 12,
+      fontSize: 11, fontWeight: 700, letterSpacing: '0.09em',
+      color: 'var(--muted)', textTransform: 'uppercase',
+      marginBottom: 8, padding: '0 4px',
     }}>
-      <span style={{ fontSize: 15, color: 'var(--text)', flexShrink: 0 }}>{label}</span>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
-        {children}
-      </div>
+      {children}
     </div>
   )
 }
@@ -32,23 +28,25 @@ function Card({ children, style }) {
   )
 }
 
-function SectionLabel({ children }) {
+function Row({ label, children, last }) {
   return (
     <div style={{
-      fontSize: 11, fontWeight: 700, color: 'var(--muted)',
-      letterSpacing: '0.09em', textTransform: 'uppercase',
-      padding: '0 4px', marginBottom: 8,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '13px 16px',
+      borderBottom: last ? 'none' : '1px solid var(--border)',
+      gap: 12,
     }}>
+      <span style={{ fontSize: 15, color: 'var(--text)', flexShrink: 0 }}>{label}</span>
       {children}
     </div>
   )
 }
 
-function Segmented({ options, value, onChange }) {
+function Segmented({ value, onChange, options }) {
   return (
     <div style={{
-      display: 'inline-flex', background: 'var(--surface2)',
-      border: '1px solid var(--border)', borderRadius: 8, padding: 2, gap: 2,
+      display: 'flex', background: 'var(--surface2)',
+      borderRadius: 8, padding: 2, gap: 2,
     }}>
       {options.map(o => (
         <button
@@ -57,7 +55,7 @@ function Segmented({ options, value, onChange }) {
           style={{
             padding: '5px 12px', borderRadius: 6, border: 'none',
             background: value === o.value ? 'var(--text)' : 'transparent',
-            color:      value === o.value ? 'var(--bg)'   : 'var(--muted)',
+            color: value === o.value ? 'var(--bg)' : 'var(--muted)',
             fontSize: 12, fontWeight: value === o.value ? 600 : 400,
             cursor: 'pointer', fontFamily: 'inherit',
             transition: 'background 0.15s, color 0.15s',
@@ -104,7 +102,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
     sex:                 settings?.sex                 || '',
     height_ft:           initialHeight.ft,
     height_in:           initialHeight.in,
-    weight_lbs:          settings?.weight_kg ? Math.round(settings.weight_kg * 2.20462) : '',
+    weight_lbs:          settings?.weight_kg ? Math.round(settings.weight_kg / 0.453592) : '',
     activity_level:      settings?.activity_level      || '',
     goal:                settings?.goal                || '',
     sport:               settings?.sport               || '',
@@ -112,44 +110,101 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
     training_hours_week: settings?.training_hours_week || '',
   })
 
-  const [saving,        setSaving]        = useState(false)
-  const [saved,         setSaved]         = useState(false)
-  const [recalcFlash,   setRecalcFlash]   = useState(false)
-  const [bodyOpen,      setBodyOpen]      = useState(false)
-  const [portalLoading, setPortalLoading] = useState(false)
-  const [portalError,   setPortalError]   = useState('')
-  const [showPurchases, setShowPurchases] = useState(false)
+  const [saving, setSaving]           = useState(false)
+  const [saved, setSaved]             = useState(false)
+  const [bodyOpen, setBodyOpen]       = useState(false)
+  const [recalcFlash, setRecalcFlash] = useState(false)
   const [proCalcResult, setProCalcResult] = useState(null)
-  const [currentTheme,  setCurrentTheme]  = useState(
-    localStorage.getItem('theme') || 'system'
+  const [showPurchases, setShowPurchases] = useState(false)
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [portalError, setPortalError]     = useState(null)
+  const [currentTheme, setCurrentThemeState] = useState(
+    () => localStorage.getItem('tc-theme') || 'system'
   )
 
-  const update = (key, value) => setForm(f => ({ ...f, [key]: value }))
+  const update = (key, val) => setForm(f => ({ ...f, [key]: val }))
 
-  const setTheme = (t) => {
-    setCurrentTheme(t)
-    if (t === 'system') {
-      document.documentElement.removeAttribute('data-theme')
-      localStorage.removeItem('theme')
-    } else {
-      document.documentElement.setAttribute('data-theme', t)
-      localStorage.setItem('theme', t)
+  const setTheme = (val) => {
+    setCurrentThemeState(val)
+    localStorage.setItem('tc-theme', val)
+    const root = document.documentElement
+    if (val === 'dark')   { root.setAttribute('data-theme', 'dark') }
+    else if (val === 'light') { root.setAttribute('data-theme', 'light') }
+    else { root.removeAttribute('data-theme') }
+  }
+
+  const save = async () => {
+    setSaving(true)
+    const height_cm = form.height_ft && form.height_in
+      ? (parseInt(form.height_ft) * 12 + parseInt(form.height_in)) * 2.54
+      : settings?.height_cm || null
+    const weight_kg = form.weight_lbs
+      ? parseFloat(form.weight_lbs) * 0.453592
+      : settings?.weight_kg || null
+
+    const { error } = await supabase
+      .from('user_settings')
+      .update({
+        display_name:        form.display_name,
+        calorie_goal:        parseInt(form.calorie_goal),
+        protein_goal:        parseInt(form.protein_goal),
+        carbs_goal:          parseInt(form.carbs_goal),
+        fat_goal:            parseInt(form.fat_goal),
+        age:                 form.age ? parseInt(form.age) : null,
+        sex:                 form.sex || null,
+        height_cm:           height_cm ? Math.round(height_cm * 10) / 10 : null,
+        weight_kg:           weight_kg ? Math.round(weight_kg * 10) / 10 : null,
+        activity_level:      form.activity_level || null,
+        goal:                form.goal || null,
+        sport:               form.sport || null,
+        weekly_mileage:      form.weekly_mileage ? parseFloat(form.weekly_mileage) : null,
+        training_hours_week: form.training_hours_week ? parseFloat(form.training_hours_week) : null,
+      })
+      .eq('user_id', session.user.id)
+
+    setSaving(false)
+    if (!error) {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      if (onUpdate) onUpdate()
     }
   }
 
-  const selectedSport = SPORTS.find(s => s.value === form.sport)
+  const openPortal = async () => {
+    setPortalLoading(true)
+    setPortalError(null)
+    try {
+      const res  = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.user.id }),
+      })
+      const data = await res.json()
+      if (data?.url) window.location.href = data.url
+      else setPortalError(data?.error || 'Something went wrong. Try again.')
+    } catch {
+      setPortalError('Something went wrong. Try again.')
+    } finally {
+      setPortalLoading(false)
+    }
+  }
 
-  const canRecalculate = Boolean(
+  const renewDate = expiresAt
+    ? new Date(expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null
+
+  const canRecalculate = !!(
     form.age && form.sex && form.height_ft && form.height_in &&
     form.weight_lbs && form.activity_level && form.goal
   )
 
-  const canRecalculatePro = Boolean(
-    form.age && form.sex && form.height_ft && form.height_in &&
-    form.weight_lbs && form.goal && form.sport &&
-    (form.sport === 'general' ||
-     (selectedSport?.volumeType === 'miles' && form.weekly_mileage) ||
-     (selectedSport?.volumeType === 'hours' && form.training_hours_week))
+  const selectedSport = SPORTS.find(s => s.value === form.sport)
+  const canRecalculatePro = !!(
+    canRecalculate && form.sport && (
+      !selectedSport?.volumeType ||
+      (selectedSport?.volumeType === 'miles' && form.weekly_mileage) ||
+      (selectedSport?.volumeType === 'hours' && form.training_hours_week)
+    )
   )
 
   const getProParams = () => {
@@ -201,66 +256,13 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
     setTimeout(() => setRecalcFlash(false), 1500)
   }
 
-  const save = async () => {
-    setSaving(true)
-    const updates = {
-      display_name:   form.display_name,
-      calorie_goal:   parseInt(form.calorie_goal),
-      protein_goal:   parseInt(form.protein_goal),
-      carbs_goal:     parseInt(form.carbs_goal),
-      fat_goal:       parseInt(form.fat_goal),
-      activity_level: form.activity_level,
-      goal:           form.goal,
-      sport:          form.sport || null,
-    }
-    if (form.age)                          updates.age        = parseInt(form.age)
-    if (form.sex)                          updates.sex        = form.sex
-    if (form.height_ft && form.height_in) {
-      const cm = (parseInt(form.height_ft) * 12 + parseInt(form.height_in)) * 2.54
-      updates.height_cm = Math.round(cm * 10) / 10
-    }
-    if (form.weight_lbs)
-      updates.weight_kg = Math.round(parseFloat(form.weight_lbs) * 0.453592 * 10) / 10
-    if (form.weekly_mileage)
-      updates.weekly_mileage = parseFloat(form.weekly_mileage)
-    if (form.training_hours_week)
-      updates.training_hours_week = parseFloat(form.training_hours_week)
-
-    await supabase.from('user_settings').update(updates).eq('user_id', session.user.id)
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-    onUpdate()
-  }
-
-  const openPortal = async () => {
-    setPortalLoading(true)
-    setPortalError('')
-    try {
-      const res  = await fetch('/api/create-portal-session', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: session.user.id }),
-      })
-      const data = await res.json()
-      if (data.url) window.location.href = data.url
-      else setPortalError(data.error || 'Could not open billing portal.')
-    } catch {
-      setPortalError('Something went wrong. Try again.')
-    } finally {
-      setPortalLoading(false)
-    }
-  }
-
-  const renewDate = expiresAt
-    ? new Date(expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-    : null
-
   const goalInputStyle = (key) => ({
     type:     'number',
     value:    form[key],
     onChange: e => update(key, e.target.value),
     style: {
-      width: 72, textAlign: 'right', background: recalcFlash ? 'rgba(29,158,117,0.12)' : 'none',
+      width: 72, textAlign: 'right',
+      background: recalcFlash ? 'rgba(29,158,117,0.12)' : 'none',
       border: 'none', outline: 'none', fontSize: 15, color: 'var(--text)',
       fontFamily: 'inherit', padding: 0, borderRadius: 4,
       transition: 'background 0.4s', MozAppearance: 'textfield',
@@ -276,7 +278,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', background: 'var(--bg)', minHeight: '100vh', fontFamily: 'inherit' }}>
 
-      {/* ── Sticky header ─────────────────────────────────────────────────── */}
+      {/* ── Sticky header ──────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', alignItems: 'center', padding: '16px 16px 14px',
         borderBottom: '1px solid var(--border)', position: 'sticky', top: 0,
@@ -301,63 +303,65 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
 
       <div style={{ padding: '20px 16px 48px', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-        {/* ── SUBSCRIPTION ─────────────────────────────────────────────────── */}
+        {/* ── SUBSCRIPTION ───────────────────────────────────────────────── */}
         <div>
           <SectionLabel>Subscription</SectionLabel>
           <Card>
-
-            {/* Plan row */}
             <button onClick={() => setShowPurchases(true)} style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-              borderBottom: isMonthlyPro ? '1px solid var(--border)' : 'none',              opacity: loading ? 0 : 1,
-              transition: 'opacity 0.15s ease',
-              width: '100%', background: 'none', border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+              borderBottom: isMonthlyPro ? '1px solid var(--border)' : 'none',
+              opacity: loading ? 0 : 1, transition: 'opacity 0.3s',
+              width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'inherit', textAlign: 'left',
             }}>
-              {/* Badge */}
-              <div style={{
-                padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
-                background: isFounder ? 'rgba(251,191,36,0.15)' : isPro ? 'rgba(29,158,117,0.12)' : isTrialing ? 'rgba(245,158,11,0.12)' : 'var(--surface2)',
-                color:      isFounder ? '#d97706' : isPro ? '#1D9E75' : isTrialing ? '#d97706' : 'var(--muted)',
-                border: `1px solid ${isFounder ? 'rgba(217,119,6,0.3)' : isPro ? 'rgba(29,158,117,0.25)' : isTrialing ? 'rgba(245,158,11,0.3)' : 'var(--border)'}`,
-                flexShrink: 0,
-              }}>
-                {isFounder ? '✦ FOUNDER' : isPro ? 'PRO' : isTrialing ? 'TRIAL' : 'FREE'}
-              </div>
-
-              {/* Text */}
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-                  {isFounder
-                    ? 'Lifetime access'
-                    : (isPro && !isFounder)
-                      ? (renewDate ? `Renews ${renewDate}` : 'Active')
-                      : isTrialing
-                        ? `${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} left in trial`
-                        : 'Free plan'}
+                <div style={{ fontSize: 15, color: 'var(--text)', marginBottom: 2 }}>Plan</div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {isFounder && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                      color: '#1D9E75', background: 'rgba(29,158,117,0.1)',
+                      border: '1px solid rgba(29,158,117,0.25)',
+                      borderRadius: 4, padding: '2px 6px',
+                    }}>FOUNDER</span>
+                  )}
+                  {isPro && !isFounder && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                      color: '#1D9E75', background: 'rgba(29,158,117,0.1)',
+                      border: '1px solid rgba(29,158,117,0.25)',
+                      borderRadius: 4, padding: '2px 6px',
+                    }}>PRO</span>
+                  )}
+                  {isTrialing && (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+                      color: '#f5a623', background: 'rgba(245,166,35,0.1)',
+                      border: '1px solid rgba(245,166,35,0.25)',
+                      borderRadius: 4, padding: '2px 6px',
+                    }}>TRIAL · {trialDaysLeft}d left</span>
+                  )}
+                  {!isPro && !isTrialing && !loading && (
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>Free</span>
+                  )}
                 </div>
-                {isFounder && (
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                    You were here first — every feature, permanently.
-                  </div>
-                )}
               </div>
-              <span style={{ color: 'var(--muted)', fontSize: 16, opacity: 0.4, flexShrink: 0 }}>›</span>
+              <span style={{ color: 'var(--muted)', fontSize: 16, opacity: 0.4 }}>›</span>
             </button>
 
-            {/* Manage billing — monthly Pro only */}
             {isMonthlyPro && (
-              <div style={{ padding: '4px 0' }}>
-                <button
-                  onClick={openPortal}
-                  disabled={portalLoading}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '13px 16px', background: 'none', border: 'none',
-                    cursor: portalLoading ? 'default' : 'pointer', fontFamily: 'inherit',
-                    opacity: portalLoading ? 0.6 : 1,
-                  }}
-                >
+              <div>
+                {renewDate && (
+                  <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--muted)' }}>
+                    Renews {renewDate}
+                  </div>
+                )}
+                <button onClick={openPortal} disabled={portalLoading} style={{
+                  width: '100%', padding: '13px 16px', background: 'none', border: 'none',
+                  borderBottom: 'none', display: 'flex', alignItems: 'center',
+                  justifyContent: 'space-between', cursor: portalLoading ? 'default' : 'pointer',
+                  fontFamily: 'inherit', opacity: portalLoading ? 0.6 : 1,
+                }}>
                   <span style={{ fontSize: 15, color: 'var(--text)' }}>
                     {portalLoading ? 'Opening…' : 'Manage billing'}
                   </span>
@@ -370,11 +374,10 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
                 )}
               </div>
             )}
-
           </Card>
         </div>
 
-        {/* ── NUTRITION GOALS ───────────────────────────────────────────────── */}
+        {/* ── NUTRITION GOALS ─────────────────────────────────────────────── */}
         <div>
           <SectionLabel>Nutrition Goals</SectionLabel>
           <Card>
@@ -408,11 +411,19 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
           </p>
         </div>
 
-        {/* ── BODY & FITNESS ────────────────────────────────────────────────── */}
+        {/* ── BODY & FITNESS ──────────────────────────────────────────────── */}
         <div>
-          <button onClick={() => setBodyOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', padding: '0 4px', marginBottom: 8, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button onClick={() => setBodyOpen(o => !o)} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            width: '100%', background: 'none', border: 'none',
+            padding: '0 4px', marginBottom: 8, cursor: 'pointer', fontFamily: 'inherit',
+          }}>
             <SectionLabel>Body & Fitness</SectionLabel>
-            <span style={{ fontSize: 12, color: 'var(--muted)', transform: bodyOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', lineHeight: 1 }}>▾</span>
+            <span style={{
+              fontSize: 12, color: 'var(--muted)',
+              transform: bodyOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s', lineHeight: 1,
+            }}>▾</span>
           </button>
 
           {bodyOpen && (
@@ -421,33 +432,43 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
               {/* Body data */}
               <Card>
                 <Row label="Name">
-                  <input value={form.display_name} onChange={e => update('display_name', e.target.value)} placeholder="First name" style={{ ...inlineInputStyle, textAlign: 'right', width: 160 }} />
+                  <input value={form.display_name} onChange={e => update('display_name', e.target.value)}
+                    placeholder="First name"
+                    style={{ ...inlineInputStyle, textAlign: 'right', width: 160 }} />
                 </Row>
                 <Row label="Age">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <input type="number" value={form.age} onChange={e => update('age', e.target.value)} placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 50 }} />
+                    <input type="number" value={form.age} onChange={e => update('age', e.target.value)}
+                      placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 50 }} />
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>yrs</span>
                   </div>
                 </Row>
                 <Row label="Sex">
-                  <Segmented value={form.sex} onChange={v => update('sex', v)} options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} />
+                  <Segmented value={form.sex} onChange={v => update('sex', v)}
+                    options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }]} />
                 </Row>
                 <Row label="Height">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <input type="number" value={form.height_ft} onChange={e => update('height_ft', e.target.value)} placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 36 }} />
+                    <input type="number" value={form.height_ft} onChange={e => update('height_ft', e.target.value)}
+                      placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 36 }} />
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>ft</span>
-                    <input type="number" value={form.height_in} onChange={e => update('height_in', e.target.value)} placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 36 }} />
+                    <input type="number" value={form.height_in} onChange={e => update('height_in', e.target.value)}
+                      placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 36 }} />
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>in</span>
                   </div>
                 </Row>
                 <Row label="Weight">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <input type="number" value={form.weight_lbs} onChange={e => update('weight_lbs', e.target.value)} placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 60 }} />
+                    <input type="number" value={form.weight_lbs} onChange={e => update('weight_lbs', e.target.value)}
+                      placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 60 }} />
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>lbs</span>
                   </div>
                 </Row>
                 <Row label="Activity">
-                  <select value={form.activity_level} onChange={e => update('activity_level', e.target.value)} style={{ background: 'none', border: 'none', outline: 'none', fontSize: 15, color: form.activity_level ? 'var(--text)' : 'var(--muted)', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'right', maxWidth: 180 }}>
+                  <select value={form.activity_level} onChange={e => update('activity_level', e.target.value)}
+                    style={{ background: 'none', border: 'none', outline: 'none', fontSize: 15,
+                      color: form.activity_level ? 'var(--text)' : 'var(--muted)',
+                      fontFamily: 'inherit', cursor: 'pointer', textAlign: 'right', maxWidth: 180 }}>
                     <option value="" disabled>Select…</option>
                     <option value="sedentary">Sedentary</option>
                     <option value="light">Lightly active</option>
@@ -456,7 +477,10 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
                   </select>
                 </Row>
                 <Row label="Goal" last>
-                  <select value={form.goal} onChange={e => update('goal', e.target.value)} style={{ background: 'none', border: 'none', outline: 'none', fontSize: 15, color: form.goal ? 'var(--text)' : 'var(--muted)', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'right', maxWidth: 180 }}>
+                  <select value={form.goal} onChange={e => update('goal', e.target.value)}
+                    style={{ background: 'none', border: 'none', outline: 'none', fontSize: 15,
+                      color: form.goal ? 'var(--text)' : 'var(--muted)',
+                      fontFamily: 'inherit', cursor: 'pointer', textAlign: 'right', maxWidth: 180 }}>
                     <option value="" disabled>Select…</option>
                     <option value="lose">Lose weight</option>
                     <option value="maintain">Maintain weight</option>
@@ -466,150 +490,195 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
               </Card>
 
               {/* Standard recalculate */}
-              <button onClick={recalculate} disabled={!canRecalculate} style={{ width: '100%', padding: '11px', background: 'none', border: '1px solid var(--border)', borderRadius: 12, fontSize: 13, fontWeight: 500, color: canRecalculate ? 'var(--text)' : 'var(--muted)', cursor: canRecalculate ? 'pointer' : 'default', fontFamily: 'inherit', opacity: canRecalculate ? 1 : 0.6 }}>
+              <button onClick={recalculate} disabled={!canRecalculate} style={{
+                width: '100%', padding: '11px', background: 'none',
+                border: '1px solid var(--border)', borderRadius: 12, fontSize: 13,
+                fontWeight: 500, color: canRecalculate ? 'var(--text)' : 'var(--muted)',
+                cursor: canRecalculate ? 'pointer' : 'default', fontFamily: 'inherit',
+                opacity: canRecalculate ? 1 : 0.6,
+              }}>
                 {recalcFlash ? '✓ Goals updated' : 'Calculate standard targets'}
               </button>
 
-              {/* ── PRO: Athletic Calculation ────────────────────────────── */}
+              {/* ── PRO: Athletic Calculation ──────────────────────────────── */}
               <div style={{ marginTop: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px', marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.09em', textTransform: 'uppercase' }}>Athletic Targets</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: isProUser ? '#1D9E75' : 'var(--muted)', background: isProUser ? 'rgba(29,158,117,0.1)' : 'var(--surface2)', border: `1px solid ${isProUser ? 'rgba(29,158,117,0.25)' : 'var(--border)'}`, borderRadius: 5, padding: '2px 6px', letterSpacing: '0.06em' }}>PRO</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.09em', textTransform: 'uppercase' }}>
+                    Athletic Targets
+                  </span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700,
+                    color: isProUser ? '#1D9E75' : 'var(--muted)',
+                    background: isProUser ? 'rgba(29,158,117,0.1)' : 'var(--surface2)',
+                    border: `1px solid ${isProUser ? 'rgba(29,158,117,0.25)' : 'var(--border)'}`,
+                    borderRadius: 5, padding: '2px 6px', letterSpacing: '0.06em',
+                  }}>PRO</span>
                 </div>
 
-                <Card>
-                  {/* Sport selector */}
-                  <Row label="Sport">
-                    <select
-                      value={form.sport}
-                      onChange={e => { update('sport', e.target.value); setProCalcResult(null) }}
-                      style={{ background: 'none', border: 'none', outline: 'none', fontSize: 15, color: form.sport ? 'var(--text)' : 'var(--muted)', fontFamily: 'inherit', cursor: 'pointer', textAlign: 'right', maxWidth: 200 }}
+                {/* ── Locked state for free users ── */}
+                {!isProUser && !loading && (
+                  <div style={{
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    borderRadius: 12, padding: '20px 16px', textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 28, marginBottom: 10 }}>🏃</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
+                      Athletic targets are a Pro feature
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 16 }}>
+                      Enter your sport and training volume to get calorie and macro targets built around your actual training load — not a generic activity multiplier.
+                    </div>
+                    <button
+                      onClick={() => setShowPurchases(true)}
+                      style={{
+                        padding: '10px 20px', background: 'var(--accent)', border: 'none',
+                        borderRadius: 10, fontSize: 13, fontWeight: 600, color: '#fff',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}
                     >
-                      <option value="" disabled>Select sport…</option>
-                      {SPORTS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                    </select>
-                  </Row>
+                      Start free trial →
+                    </button>
+                  </div>
+                )}
 
-                  {/* Volume input — changes based on sport */}
-                  {selectedSport?.volumeType === 'miles' && (
-                    <Row label={selectedSport.volumeLabel}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <input type="number" value={form.weekly_mileage} onChange={e => { update('weekly_mileage', e.target.value); setProCalcResult(null) }} placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 60 }} />
-                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>mi</span>
-                      </div>
+                {/* ── Full calculator for Pro/Trial users ── */}
+                {isProUser && (
+                  <Card>
+                    {/* Sport selector */}
+                    <Row label="Sport">
+                      <select
+                        value={form.sport}
+                        onChange={e => { update('sport', e.target.value); setProCalcResult(null) }}
+                        style={{ background: 'none', border: 'none', outline: 'none', fontSize: 15,
+                          color: form.sport ? 'var(--text)' : 'var(--muted)',
+                          fontFamily: 'inherit', cursor: 'pointer', textAlign: 'right', maxWidth: 200 }}>
+                        <option value="" disabled>Select sport…</option>
+                        {SPORTS.map(s => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
                     </Row>
-                  )}
-                  {selectedSport?.volumeType === 'hours' && (
-                    <Row label={selectedSport.volumeLabel}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <input type="number" value={form.training_hours_week} onChange={e => { update('training_hours_week', e.target.value); setProCalcResult(null) }} placeholder="—" style={{ ...inlineInputStyle, textAlign: 'right', width: 50 }} />
-                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>hrs/wk</span>
-                      </div>
-                    </Row>
-                  )}
 
-                  {/* Results panel */}
-                  {proCalcResult && (
-                    <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', background: 'rgba(29,158,117,0.04)' }}>
-                      {/* Methodology breakdown */}
-                      <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.06em', marginBottom: 8 }}>
-                          BREAKDOWN
+                    {/* Volume input — shown when sport has a volumeType */}
+                    {selectedSport?.volumeType && (
+                      <Row label={selectedSport.volumeLabel} last={!proCalcResult}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <input
+                            type="number"
+                            value={selectedSport.volumeType === 'miles' ? form.weekly_mileage : form.training_hours_week}
+                            onChange={e => {
+                              update(selectedSport.volumeType === 'miles' ? 'weekly_mileage' : 'training_hours_week', e.target.value)
+                              setProCalcResult(null)
+                            }}
+                            placeholder="0"
+                            style={{ ...inlineInputStyle, textAlign: 'right', width: 60 }}
+                          />
+                          <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                            {selectedSport.volumeType === 'miles' ? 'mi/wk' : 'hrs/wk'}
+                          </span>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                            <span style={{ color: 'var(--muted)' }}>Resting metabolic rate</span>
-                            <span style={{ color: 'var(--text)', fontWeight: 500 }}>{proCalcResult.bmr.toLocaleString()} cal</span>
+                      </Row>
+                    )}
+
+                    {/* Results panel */}
+                    {proCalcResult && (
+                      <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
+                        {/* Breakdown */}
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.06em', marginBottom: 8 }}>
+                            BREAKDOWN
                           </div>
-                          {proCalcResult.training_cal > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                              <span style={{ color: 'var(--muted)' }}>Training load (daily avg)</span>
-                              <span style={{ color: 'var(--text)', fontWeight: 500 }}>+{proCalcResult.training_cal.toLocaleString()} cal</span>
-                            </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {[
+                              { label: 'Base metabolic rate', value: proCalcResult.bmr },
+                              { label: 'Training load',       value: proCalcResult.training_cal },
+                              { label: 'Total TDEE',          value: proCalcResult.tdee, bold: true },
+                            ].map(r => (
+                              <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                                <span style={{ color: 'var(--muted)' }}>{r.label}</span>
+                                <span style={{ color: 'var(--text)', fontWeight: r.bold ? 600 : 400 }}>{r.value} cal</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Recommended targets */}
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.06em', marginBottom: 8 }}>
+                            RECOMMENDED TARGETS
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
+                            {[
+                              { label: 'Cal',     value: proCalcResult.calorie_goal, unit: '' },
+                              { label: 'Protein', value: proCalcResult.protein_goal, unit: 'g' },
+                              { label: 'Carbs',   value: proCalcResult.carbs_goal,   unit: 'g' },
+                              { label: 'Fat',     value: proCalcResult.fat_goal,     unit: 'g' },
+                            ].map(m => (
+                              <div key={m.label} style={{ textAlign: 'center', background: 'var(--surface)', borderRadius: 8, padding: '8px 4px' }}>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{m.value}{m.unit}</div>
+                                <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{m.label}</div>
+                              </div>
+                            ))}
+                          </div>
+                          {proCalcResult.sport && ['running', 'cycling', 'swimming'].includes(proCalcResult.sport) && (
+                            <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
+                              High-carb split ({Math.round(proCalcResult.carbs_goal * 4 / proCalcResult.calorie_goal * 100)}% carbs) — optimized for glycogen-dependent endurance performance.
+                            </p>
                           )}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, paddingTop: 5, borderTop: '1px solid var(--border)', marginTop: 2 }}>
-                            <span style={{ color: 'var(--muted)' }}>Total daily energy</span>
-                            <span style={{ color: 'var(--text)', fontWeight: 700 }}>{proCalcResult.tdee.toLocaleString()} cal</span>
-                          </div>
+                          {proCalcResult.sport === 'strength' && (
+                            <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
+                              High-protein split (2.4g/kg) — optimized for muscle protein synthesis and strength adaptation.
+                            </p>
+                          )}
                         </div>
-                      </div>
 
-                      {/* Recommended targets */}
-                      <div style={{ marginBottom: 12 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.06em', marginBottom: 8 }}>
-                          RECOMMENDED TARGETS
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
-                          {[
-                            { label: 'Cal',     value: proCalcResult.calorie_goal, unit: '' },
-                            { label: 'Protein', value: proCalcResult.protein_goal, unit: 'g' },
-                            { label: 'Carbs',   value: proCalcResult.carbs_goal,   unit: 'g' },
-                            { label: 'Fat',     value: proCalcResult.fat_goal,     unit: 'g' },
-                          ].map(m => (
-                            <div key={m.label} style={{ textAlign: 'center', background: 'var(--surface)', borderRadius: 8, padding: '8px 4px' }}>
-                              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{m.value}{m.unit}</div>
-                              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{m.label}</div>
-                            </div>
-                          ))}
-                        </div>
-                        {proCalcResult.sport && (proCalcResult.sport === 'running' || proCalcResult.sport === 'cycling' || proCalcResult.sport === 'swimming') && (
-                          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
-                            High-carb split ({Math.round(proCalcResult.carbs_goal * 4 / proCalcResult.calorie_goal * 100)}% carbs) — optimized for glycogen-dependent endurance performance.
-                          </p>
-                        )}
-                        {proCalcResult.sport === 'strength' && (
-                          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
-                            High-protein split (2.4g/kg) — optimized for muscle protein synthesis and strength adaptation.
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Apply button or upgrade CTA */}
-                      {isProUser ? (
-                        <button onClick={applyProResult} style={{ width: '100%', padding: '11px', background: 'var(--accent)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {/* Apply button */}
+                        <button onClick={applyProResult} style={{
+                          width: '100%', padding: '11px', background: 'var(--accent)', border: 'none',
+                          borderRadius: 10, fontSize: 14, fontWeight: 600, color: '#fff',
+                          cursor: 'pointer', fontFamily: 'inherit',
+                        }}>
                           Apply these targets
                         </button>
-                      ) : (
-                        <button onClick={() => setShowPurchases(true)} style={{ width: '100%', padding: '11px', background: 'none', border: '1px solid var(--accent)', borderRadius: 10, fontSize: 14, fontWeight: 500, color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          Upgrade to Pro to apply →
-                        </button>
+                      </div>
+                    )}
+
+                    {/* Calculate button */}
+                    <div style={{ padding: '12px 16px', borderTop: proCalcResult ? 'none' : '1px solid var(--border)' }}>
+                      <button
+                        onClick={recalculatePro}
+                        disabled={!canRecalculatePro}
+                        style={{
+                          width: '100%', padding: '10px',
+                          background: canRecalculatePro ? 'var(--accent)' : 'var(--surface2)',
+                          border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600,
+                          color: canRecalculatePro ? '#fff' : 'var(--muted)',
+                          cursor: canRecalculatePro ? 'pointer' : 'default',
+                          fontFamily: 'inherit', opacity: canRecalculatePro ? 1 : 0.6,
+                        }}
+                      >
+                        {proCalcResult ? 'Recalculate' : 'Calculate athletic targets'}
+                      </button>
+                      {!canRecalculatePro && form.sport && (
+                        <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 6 }}>
+                          Fill in body data and goal above
+                        </p>
                       )}
                     </div>
-                  )}
-
-                  {/* Calculate button */}
-                  <div style={{ padding: '12px 16px', borderTop: proCalcResult ? 'none' : '1px solid var(--border)' }}>
-                    <button
-                      onClick={recalculatePro}
-                      disabled={!canRecalculatePro}
-                      style={{ width: '100%', padding: '10px', background: canRecalculatePro ? 'var(--accent)' : 'var(--surface2)', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, color: canRecalculatePro ? '#fff' : 'var(--muted)', cursor: canRecalculatePro ? 'pointer' : 'default', fontFamily: 'inherit', opacity: canRecalculatePro ? 1 : 0.6 }}
-                    >
-                      {proCalcResult ? 'Recalculate' : 'Calculate athletic targets'}
-                    </button>
-                    {!canRecalculatePro && form.sport && (
-                      <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 6 }}>
-                        Fill in body data and goal above
-                      </p>
-                    )}
-                  </div>
-                </Card>
-
-                {!isProUser && !proCalcResult && (
-                  <p style={{ fontSize: 12, color: 'var(--muted)', padding: '6px 4px 0', lineHeight: 1.5 }}>
-                    Calculate first to see your athletic targets. Pro required to apply them.
-                  </p>
+                  </Card>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* ── APPEARANCE ───────────────────────────────────────────────────── */}
+        {/* ── APPEARANCE ──────────────────────────────────────────────────── */}
         <div>
           <SectionLabel>Appearance</SectionLabel>
           <Card>
             <Row label="Theme" last>
-              <Segmented value={currentTheme} onChange={setTheme} options={[{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
+              <Segmented value={currentTheme} onChange={setTheme}
+                options={[{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} />
             </Row>
           </Card>
         </div>
@@ -623,11 +692,16 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
               <div style={{ fontSize: 14, color: 'var(--text)' }}>{session.user.email}</div>
             </div>
             {[
-              { label: 'Sign out', action: () => supabase.auth.signOut() },
-              { label: 'Privacy Policy', action: () => window.open('/privacy', '_blank') },
+              { label: 'Sign out',        action: () => supabase.auth.signOut() },
+              { label: 'Privacy Policy',  action: () => window.open('/privacy', '_blank') },
               { label: 'Terms of Service', action: () => window.open('/terms', '_blank') },
             ].map((item, i, arr) => (
-              <button key={item.label} onClick={item.action} style={{ width: '100%', padding: '13px 16px', background: 'none', border: 'none', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button key={item.label} onClick={item.action} style={{
+                width: '100%', padding: '13px 16px', background: 'none', border: 'none',
+                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
                 <span style={{ fontSize: 15, color: 'var(--text)' }}>{item.label}</span>
                 <span style={{ color: 'var(--muted)', fontSize: 16, opacity: 0.4 }}>›</span>
               </button>
@@ -640,28 +714,29 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
         </p>
 
       </div>
-        {/* Purchases overlay */}
-        {showPurchases && (
+
+      {/* ── Purchases overlay ────────────────────────────────────────────── */}
+      {showPurchases && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          background: 'var(--bg)', overflowY: 'auto', fontFamily: 'inherit',
+        }}>
           <div style={{
-            position: 'fixed', inset: 0, zIndex: 50,
-            background: 'var(--bg)', overflowY: 'auto', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '16px 16px 14px', borderBottom: '1px solid var(--border)',
+            position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
           }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '16px 16px 14px', borderBottom: '1px solid var(--border)',
-              position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
-            }}>
-              <button onClick={() => setShowPurchases(false)} style={{
-                background: 'none', border: 'none', padding: 0,
-                cursor: 'pointer', color: 'var(--text)', fontSize: 20, lineHeight: 1,
-              }}>←</button>
-              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
-                Subscription
-              </span>
-            </div>
-            <Purchases session={session} />
+            <button onClick={() => setShowPurchases(false)} style={{
+              background: 'none', border: 'none', padding: 0,
+              cursor: 'pointer', color: 'var(--text)', fontSize: 20, lineHeight: 1,
+            }}>←</button>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
+              Subscription
+            </span>
           </div>
-        )}
+          <Purchases session={session} onClose={() => setShowPurchases(false)} />
+        </div>
+      )}
     </div>
   )
 }

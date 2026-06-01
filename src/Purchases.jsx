@@ -8,18 +8,24 @@ const FOUNDER_CAP = 100
 const PRO_FEATURES = [
   { icon: '🍽',  label: 'Restaurant search',   desc: '200k+ menu items across 858 chains (via Nutritionix)' },
   { icon: '🎙',  label: 'Voice logging',        desc: 'Speak your meal — app logs it in seconds' },
+  { icon: '🏃',  label: 'Athletic targets',     desc: 'Sport-specific calorie & macro goals built for your training load' },
   { icon: '📈',  label: 'Advanced trends',      desc: 'Full nutrition history and weekly insights' },
   { icon: '📋',  label: 'Meal templates',       desc: 'Save your go-to meals for one-tap logging' },
   { icon: '📤',  label: 'CSV export',           desc: 'Export your complete food log anytime' },
-  { icon: '🏃',  label: 'Strava integration',   desc: 'Sync workouts and calories burned' },
+  { icon: '🔗',  label: 'Strava integration',   desc: 'Sync workouts and calories burned' },
 ]
 
-export default function Purchases({ session }) {
+export default function Purchases({ session, onClose }) {
   const { isPro, isTrialing, trialDaysLeft, source, expiresAt, loading } = usePro()
   const [showFoundersModal, setShowFoundersModal] = useState(false)
   const [checkoutLoading, setCheckoutLoading]     = useState(false)
   const [checkoutError, setCheckoutError]         = useState(null)
   const [foundersClaimed, setFoundersClaimed]     = useState(null)
+
+  // Show athletic targets prompt only when landing from Stripe checkout
+  const [showAthleticPrompt, setShowAthleticPrompt] = useState(
+    () => typeof window !== 'undefined' && window.location.search.includes('session_id')
+  )
 
   const isFounder = source === 'founder'
   const isPaidPro = isPro && source === 'monthly'
@@ -58,8 +64,6 @@ export default function Purchases({ session }) {
     setCheckoutLoading(false)
   }
 
-  // ── Guard: don't render anything until usePro resolves.
-  // This prevents the purchase screen flashing before we know the user's status.
   if (loading) return null
 
   // ── Pro / Founder dashboard ───────────────────────────────────────────────
@@ -71,15 +75,56 @@ export default function Purchases({ session }) {
     return (
       <div style={{ padding: '20px 16px 40px', maxWidth: 480, margin: '0 auto' }}>
 
+        {/* ── Post-purchase athletic targets prompt ── */}
+        {showAthleticPrompt && (
+          <div style={{
+            background: 'rgba(29,158,117,0.08)',
+            border: '1px solid rgba(29,158,117,0.25)',
+            borderRadius: 14, padding: '16px',
+            marginBottom: 20, position: 'relative',
+          }}>
+            <button
+              onClick={() => setShowAthleticPrompt(false)}
+              style={{
+                position: 'absolute', top: 10, right: 12,
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 18, color: 'var(--muted)', lineHeight: 1, padding: 4,
+                fontFamily: 'inherit',
+              }}
+            >×</button>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 24, flexShrink: 0 }}>🏃</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                  Welcome to Pro — set your athletic targets
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.55, marginBottom: 12 }}>
+                  Head to Settings → Body & Fitness to enter your sport and training volume. You'll get calorie and macro targets built for your actual training load.
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAthleticPrompt(false)
+                    if (typeof onClose === 'function') onClose()
+                  }}
+                  style={{
+                    padding: '9px 16px', background: 'var(--accent)', border: 'none',
+                    borderRadius: 9, fontSize: 13, fontWeight: 600, color: '#fff',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  Go to Settings →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Status card ── */}
         <div style={{
           background: isFounder ? '#0a0a0a' : 'var(--surface)',
           border: isFounder ? '1px solid #1f1f1f' : '1px solid var(--border)',
-          borderRadius: 16,
-          padding: '20px',
-          marginBottom: 20,
-          position: 'relative',
-          overflow: 'hidden',
+          borderRadius: 16, padding: '20px', marginBottom: 20,
+          position: 'relative', overflow: 'hidden',
         }}>
           {isFounder && (
             <div style={{
@@ -96,8 +141,7 @@ export default function Purchases({ session }) {
             color: isFounder ? '#1D9E75' : 'var(--accent)',
             textTransform: 'uppercase',
             border: `1px solid ${isFounder ? 'rgba(29,158,117,0.4)' : 'var(--border)'}`,
-            borderRadius: 6, padding: '3px 10px',
-            marginBottom: 14,
+            borderRadius: 6, padding: '3px 10px', marginBottom: 14,
           }}>
             <span style={{
               width: 5, height: 5, borderRadius: '50%',
@@ -108,11 +152,10 @@ export default function Purchases({ session }) {
           </div>
 
           <div style={{
-            fontSize: 20, fontWeight: 700,
-            color: isFounder ? '#fff' : 'var(--text)',
+            fontSize: 20, fontWeight: 700, color: isFounder ? '#fff' : 'var(--text)',
             letterSpacing: '-0.02em', marginBottom: 6,
           }}>
-            {isFounder ? 'Lifetime Pro access.' : 'You\'re on Pro.'}
+            {isFounder ? 'Lifetime Pro access.' : "You're on Pro."}
           </div>
 
           <div style={{ fontSize: 13, color: isFounder ? '#555' : 'var(--muted)', lineHeight: 1.55 }}>
@@ -126,18 +169,10 @@ export default function Purchases({ session }) {
 
         {/* ── Feature list ── */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
-            color: 'var(--muted)', marginBottom: 12,
-          }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 12 }}>
             INCLUDED IN YOUR PLAN
           </div>
-          <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 14,
-            overflow: 'hidden',
-          }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
             {PRO_FEATURES.map((f, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 12,
@@ -158,48 +193,47 @@ export default function Purchases({ session }) {
         {/* ── Manage billing (paid pro only) ── */}
         {isPaidPro && (
           <div style={{ textAlign: 'center' }}>
-            <a
-              href="https://billing.stripe.com/p/login/test_..."
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={async () => {
+                const res  = await fetch('/api/create-portal-session', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: session.user.id }),
+                })
+                const data = await res.json()
+                if (data?.url) window.location.href = data.url
+              }}
               style={{
-                fontSize: 13, color: 'var(--muted)',
-                textDecoration: 'underline',
-                textUnderlineOffset: 3,
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 13, color: 'var(--muted)', textDecoration: 'underline',
+                textUnderlineOffset: 3, fontFamily: 'inherit',
               }}
             >
               Manage billing →
-            </a>
+            </button>
           </div>
         )}
       </div>
     )
   }
 
-  // ── Purchase screen (free / expired trial users) ──────────────────────────
+  // ── Purchase screen (free / trialing users) ───────────────────────────────
   return (
     <div style={{ padding: '20px 16px 40px', maxWidth: 480, margin: '0 auto' }}>
 
-      {/* ── Trial status banner ── */}
+      {/* Trial banner */}
       {isTrialing && (
         <div style={{
-          background: 'rgba(245,166,35,0.1)',
-          border: '1px solid rgba(245,166,35,0.3)',
+          background: 'rgba(245,166,35,0.1)', border: '1px solid rgba(245,166,35,0.3)',
           borderRadius: 10, padding: '10px 14px',
-          fontSize: 13, color: '#f5a623',
-          marginBottom: 16, textAlign: 'center',
+          fontSize: 13, color: '#f5a623', marginBottom: 16, textAlign: 'center',
         }}>
           {trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left in your trial — upgrade to keep access.
         </div>
       )}
 
-      {/* ── Pro plan card ── */}
-      <div style={{
-        border: '1.5px solid var(--text)',
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginBottom: 14,
-      }}>
+      {/* Pro plan card */}
+      <div style={{ border: '1.5px solid var(--text)', borderRadius: 16, overflow: 'hidden', marginBottom: 14 }}>
         {/* Header band */}
         <div style={{
           background: 'var(--text)', color: 'var(--bg)',
@@ -207,10 +241,7 @@ export default function Purchases({ session }) {
           display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
         }}>
           <div>
-            <div style={{
-              fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
-              textTransform: 'uppercase', opacity: 0.5, marginBottom: 6,
-            }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.5, marginBottom: 6 }}>
               Pro Plan
             </div>
             <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1 }}>
@@ -219,9 +250,7 @@ export default function Purchases({ session }) {
             </div>
           </div>
           {isTrialing && (
-            <div style={{ fontSize: 11, color: '#f5a623', fontWeight: 600 }}>
-              {trialDaysLeft}d trial left
-            </div>
+            <div style={{ fontSize: 11, color: '#f5a623', fontWeight: 600 }}>{trialDaysLeft}d trial left</div>
           )}
         </div>
 
@@ -246,10 +275,9 @@ export default function Purchases({ session }) {
         <div style={{ padding: '0 18px 18px' }}>
           {checkoutError && (
             <div style={{
-              background: 'rgba(226,75,74,0.1)',
-              border: '1px solid rgba(226,75,74,0.3)',
-              color: '#E24B4A', borderRadius: 8,
-              padding: '10px 12px', fontSize: 13, marginBottom: 10,
+              background: 'rgba(226,75,74,0.1)', border: '1px solid rgba(226,75,74,0.3)',
+              color: '#E24B4A', borderRadius: 8, padding: '10px 12px',
+              fontSize: 13, marginBottom: 10,
             }}>
               {checkoutError}
             </div>
@@ -270,70 +298,53 @@ export default function Purchases({ session }) {
             {checkoutLoading
               ? 'Loading...'
               : isTrialing
-                ? `Subscribe · ${trialDaysLeft}d trial active`
-                : 'Subscribe to Pro →'}
+                ? 'Upgrade now — keep Pro access'
+                : 'Start 7-day free trial'}
           </button>
-          <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 8 }}>
-            Cancel anytime. No commitment.
-          </p>
+          {!isTrialing && (
+            <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 8 }}>
+              No card charged until trial ends · Cancel anytime
+            </p>
+          )}
         </div>
       </div>
 
-      {/* ── Founders card ── */}
+      {/* Founders card */}
       {spotsLeft !== 0 && (
-        <div
+        <button
           onClick={() => setShowFoundersModal(true)}
           style={{
-            background: '#0a0a0a',
-            border: '1px solid #1f1f1f',
-            borderRadius: 16, padding: '18px',
-            cursor: 'pointer', position: 'relative',
-            overflow: 'hidden', transition: 'border-color 0.2s',
+            width: '100%', padding: '16px 18px', textAlign: 'left',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit',
           }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = '#1D9E75'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = '#1f1f1f'}
         >
-          <div style={{
-            position: 'absolute', top: -20, right: -20,
-            width: 100, height: 100,
-            background: 'radial-gradient(circle, rgba(29,158,117,0.12) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
             <div style={{
-              fontSize: 9, fontWeight: 700, letterSpacing: '0.15em',
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
               color: '#1D9E75', textTransform: 'uppercase',
+              border: '1px solid rgba(29,158,117,0.4)',
+              borderRadius: 4, padding: '2px 8px',
             }}>
-              Founders' Access · Limited
+              {spotsLeft !== null ? `${spotsLeft} spots left` : "Founders' Access"}
             </div>
-            {spotsLeft !== null && (
-              <div style={{
-                fontSize: 10, color: '#555',
-                background: '#111', border: '1px solid #222',
-                borderRadius: 5, padding: '2px 8px', flexShrink: 0,
-              }}>
-                {spotsLeft} / {FOUNDER_CAP} left
-              </div>
-            )}
+            <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.03em' }}>
+              $80<span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}>/yr</span>
+            </div>
           </div>
-
-          <div style={{
-            fontSize: 18, fontWeight: 700, color: '#fff',
-            letterSpacing: '-0.02em', marginBottom: 6, lineHeight: 1.25,
-          }}>
-            Lock in Pro forever.
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
+            Founders' Access
           </div>
-          <div style={{ fontSize: 13, color: '#555', lineHeight: 1.55, marginBottom: 14 }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.55, marginBottom: 14 }}>
             One-time payment. Every Pro feature, permanently — at a price the public will never see.
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#1D9E75' }}>
             Learn more →
           </div>
-        </div>
+        </button>
       )}
 
-      {/* ── Founders modal ── */}
+      {/* Founders modal */}
       {showFoundersModal && (
         <FoundersModal
           spotsLeft={spotsLeft}
@@ -395,55 +406,45 @@ function FoundersModal({ spotsLeft, onClose }) {
           borderRadius: 6, padding: '4px 10px', marginBottom: 18,
         }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1D9E75', display: 'inline-block' }} />
-          {spotsLeft !== null
-            ? `${spotsLeft} of ${FOUNDER_CAP} spots left`
-            : "Founders' Access"}
+          {spotsLeft !== null ? `${spotsLeft} of ${FOUNDER_CAP} spots left` : "Founders' Access"}
         </div>
 
-        <div style={{
-          fontSize: 24, fontWeight: 700, color: '#fff',
-          letterSpacing: '-0.03em', marginBottom: 8, lineHeight: 1.2,
-        }}>
+        <div style={{ fontSize: 24, fontWeight: 700, color: '#fff', letterSpacing: '-0.03em', marginBottom: 8, lineHeight: 1.2 }}>
           Lock in Pro forever.
         </div>
-
-        <div style={{ fontSize: 14, color: '#666', lineHeight: 1.65, marginBottom: 22 }}>
-          One payment. Every Pro feature, now and everything we ship — permanently.
+        <div style={{ fontSize: 14, color: '#555', marginBottom: 22, lineHeight: 1.6 }}>
+          $80/year · recurring · cancel anytime
         </div>
 
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
           {PERKS.map((perk, i) => (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'flex-start', gap: 10,
-              padding: '9px 0',
-              borderBottom: i < PERKS.length - 1 ? '1px solid #1a1a1a' : 'none',
-            }}>
-              <span style={{ color: '#1D9E75', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
-              <span style={{ fontSize: 13, color: '#aaa', lineHeight: 1.45 }}>{perk}</span>
+            <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <span style={{ color: '#1D9E75', fontSize: 14, marginTop: 1, flexShrink: 0 }}>✓</span>
+              <span style={{ fontSize: 14, color: '#aaa', lineHeight: 1.5 }}>{perk}</span>
             </div>
           ))}
         </div>
 
-        {isFull ? (
-          <div style={{ textAlign: 'center', color: '#555', fontSize: 13 }}>
-            All founder spots have been claimed.
-          </div>
-        ) : (
-          <a
-            href={FOUNDERS_PAYMENT_LINK}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: 'block', width: '100%', padding: '14px',
-              background: '#1D9E75', color: '#fff',
-              border: 'none', borderRadius: 12,
-              fontSize: 15, fontWeight: 700,
-              textAlign: 'center', textDecoration: 'none',
-              letterSpacing: '-0.01em',
-            }}
-          >
-            Claim Founder Access →
-          </a>
+        <button
+          onClick={() => window.open(FOUNDERS_PAYMENT_LINK, '_blank')}
+          disabled={isFull}
+          style={{
+            width: '100%', padding: '14px',
+            background: isFull ? '#1a1a1a' : '#fff',
+            color: isFull ? '#555' : '#000',
+            border: 'none', borderRadius: 12,
+            fontSize: 15, fontWeight: 700,
+            cursor: isFull ? 'default' : 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          {isFull ? 'Sold out' : 'Claim founders pricing →'}
+        </button>
+
+        {!isFull && (
+          <p style={{ fontSize: 12, color: '#333', textAlign: 'center', marginTop: 12 }}>
+            You'll be taken to Stripe. Secure checkout.
+          </p>
         )}
       </div>
     </div>
