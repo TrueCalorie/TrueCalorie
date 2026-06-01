@@ -1,16 +1,29 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
-// ─── StravaConnect ────────────────────────────────────────────────────────────
-// Renders the Strava connection row inside Settings → Integrations.
-// Handles connect, disconnect, and URL param feedback (?strava=connected/denied/error)
+// Build the Strava OAuth URL client-side so the PWA service worker
+// doesn't intercept it. Navigating directly to strava.com bypasses
+// the service worker entirely (cross-origin).
+function buildStravaAuthUrl(userId) {
+  const clientId   = import.meta.env.VITE_STRAVA_CLIENT_ID
+  const redirectUri = `${window.location.origin}/api/strava-callback`
+  const params = new URLSearchParams({
+    client_id:       clientId,
+    redirect_uri:    redirectUri,
+    response_type:   'code',
+    approval_prompt: 'auto',
+    scope:           'read,activity:read',
+    state:           userId,
+  })
+  return `https://www.strava.com/oauth/authorize?${params}`
+}
 
 export default function StravaConnect({ session }) {
-  const [connected, setConnected]   = useState(false)
-  const [athleteName, setAthleteName] = useState(null)
-  const [loading, setLoading]       = useState(true)
+  const [connected, setConnected]         = useState(false)
+  const [athleteName, setAthleteName]     = useState(null)
+  const [loading, setLoading]             = useState(true)
   const [disconnecting, setDisconnecting] = useState(false)
-  const [feedback, setFeedback]     = useState(null) // 'connected' | 'denied' | 'error'
+  const [feedback, setFeedback]           = useState(null)
 
   useEffect(() => {
     checkConnection()
@@ -34,9 +47,7 @@ export default function StravaConnect({ session }) {
     const stravaParam = params.get('strava')
     if (stravaParam) {
       setFeedback(stravaParam)
-      // Clean up URL without reload
       window.history.replaceState({}, '', '/')
-      // If connected, refresh connection status
       if (stravaParam === 'connected') {
         setTimeout(checkConnection, 500)
       }
@@ -46,7 +57,8 @@ export default function StravaConnect({ session }) {
   const handleConnect = () => {
     const userId = session?.user?.id
     if (!userId) return
-    window.location.href = `/api/strava-auth?userId=${userId}`
+    // Navigate directly to Strava — bypasses PWA service worker
+    window.location.href = buildStravaAuthUrl(userId)
   }
 
   const handleDisconnect = async () => {
@@ -75,7 +87,6 @@ export default function StravaConnect({ session }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '13px 16px',
       }}>
-        {/* Left: icon + label */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
             <path d="M6.5 0L9.5 6H7L9.5 11L12 16H9L6.5 11L4 16H1L6.5 0Z" fill="#FC4C02"/>
@@ -93,7 +104,6 @@ export default function StravaConnect({ session }) {
           </div>
         </div>
 
-        {/* Right: action */}
         {connected ? (
           <button
             onClick={handleDisconnect}
@@ -123,11 +133,9 @@ export default function StravaConnect({ session }) {
         )}
       </div>
 
-      {/* Feedback banner */}
       {feedback === 'connected' && (
         <div style={{
-          margin: '0 16px 12px',
-          padding: '8px 12px',
+          margin: '0 16px 12px', padding: '8px 12px',
           background: 'rgba(29,158,117,0.08)',
           border: '1px solid rgba(29,158,117,0.2)',
           borderRadius: 8, fontSize: 12, color: 'var(--accent)',
@@ -137,8 +145,7 @@ export default function StravaConnect({ session }) {
       )}
       {(feedback === 'denied' || feedback === 'error') && (
         <div style={{
-          margin: '0 16px 12px',
-          padding: '8px 12px',
+          margin: '0 16px 12px', padding: '8px 12px',
           background: 'rgba(226,75,74,0.08)',
           border: '1px solid rgba(226,75,74,0.2)',
           borderRadius: 8, fontSize: 12, color: '#E24B4A',
