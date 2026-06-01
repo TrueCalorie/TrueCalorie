@@ -7,35 +7,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      // Ensure the service worker handles navigation correctly
-      // and doesn't interfere with auth session restoration
+      // Disable precaching entirely — service worker only handles manifest
+      // This prevents the SW from clearing localStorage on activation
       workbox: {
-        // Cache the app shell
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Don't cache API routes — let them go to the network
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        // Runtime caching strategy
-        runtimeCaching: [
-          {
-            // API calls always go to network
-            urlPattern: /^https:\/\/truecalorie\.net\/api\//,
-            handler: 'NetworkOnly',
-          },
-          {
-            // Supabase calls always go to network — never cache auth
-            urlPattern: /\.supabase\.co\//,
-            handler: 'NetworkOnly',
-          },
-          {
-            // Strava API calls always go to network
-            urlPattern: /\.strava\.com\//,
-            handler: 'NetworkOnly',
-          },
-        ],
-        // Skip waiting so new versions activate immediately
-        skipWaiting: true,
-        clientsClaim: true,
+        globPatterns: [],
+        navigateFallback: null,
+        runtimeCaching: [],
       },
       manifest: {
         name: 'TrueCalorie',
