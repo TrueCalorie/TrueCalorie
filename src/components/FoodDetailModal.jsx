@@ -1,30 +1,88 @@
 import { useState, useEffect } from 'react'
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Returns true if the unit string is generic/useless for display
+const isGenericUnit = (unit) => {
+  if (!unit) return true
+  const u = unit.toLowerCase().trim()
+  return ['serving', 'servings', 'g', 'gram', 'grams', 'oz', 'ml', ''].includes(u)
+}
+
+// Returns the increment to use for the stepper.
+// Countable things (eggs, slices, pieces) → 1. Continuous things → 0.5.
+const getIncrement = (unit) => {
+  if (!unit) return 0.5
+  const u = unit.toLowerCase()
+  const countable = ['egg', 'slice', 'piece', 'strip', 'patty', 'tablet',
+                     'pill', 'capsule', 'scoop', 'bar', 'cup', 'tbsp',
+                     'tsp', 'can', 'bottle', 'packet', 'bag', 'wrap',
+                     'sandwich', 'burger', 'bowl', 'taco', 'burrito',
+                     'cookie', 'muffin', 'roll', 'bun', 'fillet', 'breast',
+                     'thigh', 'wing', 'drumstick', 'chop', 'steak', 'link']
+  return countable.some(c => u.includes(c)) ? 1 : 0.5
+}
+
+// Human-readable label for the quantity row
+const buildQuantityLabel = (qty, unit) => {
+  if (isGenericUnit(unit)) return 'Servings'
+  // Strip parenthetical weight hints: "large egg (50g)" → "large egg"
+  const cleanUnit = unit.replace(/\s*\(.*?\)\s*$/, '').trim()
+  return cleanUnit.charAt(0).toUpperCase() + cleanUnit.slice(1)
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId, isSaved, onToggleSave }) {
-  const [servings, setServings] = useState(1)
+  const [qty, setQty]           = useState(1)
   const [saving, setSaving]     = useState(false)
   const [starAnim, setStarAnim] = useState(false)
 
-  useEffect(() => { setServings(1) }, [item])
+  useEffect(() => {
+    // Seed with the item's own serving_qty if it's a sane number, otherwise 1
+    const seed = item?.serving_qty && item.serving_qty > 0 ? item.serving_qty : 1
+    setQty(seed)
+  }, [item])
 
   if (!item) return null
+
+  const increment = getIncrement(item.serving_unit)
+
+  // When the item has a real serving_qty, the multiplier is qty / serving_qty.
+  // When it doesn't, the multiplier is qty directly.
+  const baseQty   = item.serving_qty && item.serving_qty > 0 ? item.serving_qty : 1
+  const multiplier = qty / baseQty
 
   const baseCal = Math.round(item.nf_calories             || 0)
   const baseP   = Math.round(item.nf_protein              || 0)
   const baseC   = Math.round(item.nf_total_carbohydrate   || 0)
   const baseF   = Math.round(item.nf_total_fat            || 0)
 
-  const totalCal = Math.round(baseCal * servings)
-  const totalP   = Math.round(baseP   * servings)
-  const totalC   = Math.round(baseC   * servings)
-  const totalF   = Math.round(baseF   * servings)
+  const totalCal = Math.round(baseCal * multiplier)
+  const totalP   = Math.round(baseP   * multiplier)
+  const totalC   = Math.round(baseC   * multiplier)
+  const totalF   = Math.round(baseF   * multiplier)
 
   const adjust = (delta) => {
-    const next = Math.max(0.5, Math.round((servings + delta) * 2) / 2)
-    setServings(next)
+    const next = Math.max(increment, Math.round((qty + delta) / increment) * increment)
+    setQty(parseFloat(next.toFixed(1)))
   }
 
-  const submit = () => { onLog(item, servings); onClose() }
+  // Display the qty value cleanly (no trailing .0 for whole numbers)
+  const qtyDisplay = qty % 1 === 0 ? String(qty) : qty.toFixed(1)
+
+  const quantityLabel = buildQuantityLabel(qty, item.serving_unit)
+  const showUnit      = !isGenericUnit(item.serving_unit)
+
+  // Strip weight hint from unit for compact display inside the stepper
+  const shortUnit = showUnit
+    ? item.serving_unit.replace(/\s*\(.*?\)\s*$/, '').trim()
+    : null
+
+  const submit = () => {
+    // Pass the multiplier as servings so App.jsx logItem math stays unchanged
+    onLog(item, multiplier)
+    onClose()
+  }
 
   const handleStar = async () => {
     if (!onToggleSave || saving) return
@@ -60,7 +118,6 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId
           padding: 24,
           fontFamily: 'sans-serif',
           position: 'relative',
-          // Scale + fade entrance
           animation: 'modalEnter 0.25s cubic-bezier(0.34, 1.2, 0.64, 1) both',
         }}
       >
@@ -76,7 +133,6 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId
               fontSize: 22, lineHeight: 1, padding: 6,
               color: isSaved ? '#f5a623' : 'var(--border)',
               transition: 'color 0.2s',
-              // Pop animation when toggled
               animation: starAnim ? 'starPop 0.35s ease forwards' : 'none',
               transformOrigin: 'center',
             }}
@@ -107,9 +163,16 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId
           {item.brand_name && (
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>{item.brand_name}</div>
           )}
+          {/* Serving size context */}
+          {showUnit && (
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              Per {baseQty} {item.serving_unit.replace(/\s*\(.*?\)\s*$/, '').trim()}
+              {' · '}{baseCal} cal
+            </div>
+          )}
         </div>
 
-        {/* Macro breakdown */}
+        {/* Macro breakdown — updates live with qty */}
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr',
           gap: 8, marginBottom: 20,
@@ -133,33 +196,46 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId
           ))}
         </div>
 
-        {/* Servings stepper */}
+        {/* Quantity stepper */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: 20,
           background: 'var(--surface)', borderRadius: 10,
           border: '1px solid var(--border)', padding: '10px 14px',
         }}>
-          <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>Servings</span>
+          <div>
+            <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>
+              {quantityLabel}
+            </span>
+            {showUnit && (
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
+                {shortUnit}
+              </div>
+            )}
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <button
-              onClick={() => adjust(-0.5)}
+              onClick={() => adjust(-increment)}
+              disabled={qty <= increment}
               style={{
                 width: 32, height: 32, borderRadius: 8,
                 border: '1px solid var(--border)', background: 'var(--surface2)',
-                color: 'var(--text)', fontSize: 18, cursor: 'pointer',
+                color: qty <= increment ? 'var(--border)' : 'var(--text)',
+                fontSize: 18, cursor: qty <= increment ? 'default' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'background 0.15s, transform 0.1s',
                 fontFamily: 'inherit',
               }}
-              onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
+              onMouseDown={e => { if (qty > increment) e.currentTarget.style.transform = 'scale(0.9)' }}
               onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
             >−</button>
-            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', minWidth: 28, textAlign: 'center' }}>
-              {servings}
+
+            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', minWidth: 32, textAlign: 'center' }}>
+              {qtyDisplay}
             </span>
+
             <button
-              onClick={() => adjust(0.5)}
+              onClick={() => adjust(increment)}
               style={{
                 width: 32, height: 32, borderRadius: 8,
                 border: '1px solid var(--border)', background: 'var(--surface2)',
