@@ -1,12 +1,16 @@
 {
   "name": "TrueCalorie",
   "short_name": "TrueCalorie",
-  "description": "The easiest way to track what you eat",
+  "id": "/",
+  "description": "Calorie and macro tracking built for athletes. Log food by voice, barcode, or search.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
   "orientation": "portrait",
+  "lang": "en-US",
+  "categories": ["health", "fitness"],
   "icons": [
     {
       "src": "/icon-192.png",

@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      id: '/',
+      scope: '/',
+      lang: 'en-US',
+      categories: ['health', 'fitness'],
+      description: 'Calorie and macro tracking built for athletes. Log food by voice, barcode, or search.',
       registerType: 'autoUpdate',
       manifest: {
         name: 'TrueCalorie',
