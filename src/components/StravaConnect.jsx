@@ -1,11 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 
-// Build the Strava OAuth URL client-side so the PWA service worker
-// doesn't intercept it. Navigating directly to strava.com bypasses
-// the service worker entirely (cross-origin).
 function buildStravaAuthUrl(userId) {
-  const clientId   = import.meta.env.VITE_STRAVA_CLIENT_ID
+  const clientId    = import.meta.env.VITE_STRAVA_CLIENT_ID
   const redirectUri = `${window.location.origin}/api/strava-callback`
   const params = new URLSearchParams({
     client_id:       clientId,
@@ -24,11 +21,20 @@ export default function StravaConnect({ session }) {
   const [loading, setLoading]             = useState(true)
   const [disconnecting, setDisconnecting] = useState(false)
   const [feedback, setFeedback]           = useState(null)
+  const feedbackHandled                   = useRef(false)
 
+  // Re-run whenever session becomes available (handles the post-OAuth race condition
+  // where Settings opens before session is restored from localStorage)
   useEffect(() => {
+    if (!session?.user?.id) return
     checkConnection()
-    handleUrlFeedback()
-  }, [])
+
+    // Only handle URL feedback once, after session is confirmed
+    if (!feedbackHandled.current) {
+      feedbackHandled.current = true
+      handleUrlFeedback()
+    }
+  }, [session?.user?.id])
 
   const checkConnection = async () => {
     if (!session?.user?.id) return
@@ -43,13 +49,14 @@ export default function StravaConnect({ session }) {
   }
 
   const handleUrlFeedback = () => {
-    const params = new URLSearchParams(window.location.search)
+    const params      = new URLSearchParams(window.location.search)
     const stravaParam = params.get('strava')
     if (stravaParam) {
       setFeedback(stravaParam)
       window.history.replaceState({}, '', '/')
+      // If connected param, re-check DB to confirm token saved
       if (stravaParam === 'connected') {
-        setTimeout(checkConnection, 500)
+        setTimeout(checkConnection, 800)
       }
     }
   }
@@ -57,7 +64,6 @@ export default function StravaConnect({ session }) {
   const handleConnect = () => {
     const userId = session?.user?.id
     if (!userId) return
-    // Navigate directly to Strava — bypasses PWA service worker
     window.location.href = buildStravaAuthUrl(userId)
   }
 
