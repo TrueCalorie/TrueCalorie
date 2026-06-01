@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
 import { calculateGoals, calculateGoalsPro } from './macros'
 import Purchases from './Purchases'
+import StravaConnect from './components/StravaConnect'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function SectionLabel({ children }) {
@@ -670,6 +671,14 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
               </div>
             </div>
           )}
+        </div>
+
+        {/* ── INTEGRATIONS ── */}
+        <div>
+          <SectionLabel>Integrations</SectionLabel>
+          <Card style={{ padding: 0 }}>
+            <StravaConnect session={session} />
+          </Card>
         </div>
 
         {/* ── APPEARANCE ──────────────────────────────────────────────────── */}

@@ -20,6 +20,7 @@ import { usePro } from './hooks/usePro'
 import { useCountUp } from './hooks/useCountUp'
 import WeightCard from './components/WeightCard'
 import WaterCard from './components/WaterCard'
+import StravaCard from './components/StravaCard'
 
 function App() {
   const [session, setSession]               = useState(null)
@@ -80,6 +81,13 @@ function App() {
     setRouteFromPath()
     window.addEventListener('popstate', setRouteFromPath)
     return () => window.removeEventListener('popstate', setRouteFromPath)
+  }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('strava')) {
+      setShowSettings(true)
+    }
   }, [])
 
   // ── Fetch on session ───────────────────────────────────────────────────────
@@ -574,6 +582,17 @@ function App() {
                   ))
                 })()
               )}
+            </div>
+
+            {/* TRAINING section */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{
+                fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+                letterSpacing: '0.08em', marginBottom: 12,
+              }}>
+                TRAINING
+              </div>
+              <StravaCard session={session} />
             </div>
 
             {/* Weight */}
