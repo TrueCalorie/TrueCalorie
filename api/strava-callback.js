@@ -74,5 +74,5 @@ export default async function handler(req, res) {
     return res.redirect(302, `${appUrl}/?strava=error`)
   }
 
-  return res.redirect(302, `${appUrl}/?strava=connected`)
+  return res.redirect(302, `${appUrl}/`)
 }
