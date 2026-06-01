@@ -42,7 +42,7 @@ export default function StravaConnect({ session }) {
       .from('strava_tokens')
       .select('athlete_name, athlete_id')
       .eq('user_id', session.user.id)
-      .single()
+      .maybeSingle()
     setConnected(!!data)
     setAthleteName(data?.athlete_name || null)
     setLoading(false)
