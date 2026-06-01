@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/((?!api/|\\.well-known/).*)", "destination": "/index.html" }
+    { "source": "/.well-known/assetlinks.json", "destination": "/api/assetlinks" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

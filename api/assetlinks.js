@@ -1,0 +1,11 @@
+export default function handler(req, res) {
+  res.setHeader('Content-Type', 'application/json')
+  res.status(200).json([{
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "net.truecalorie.app",
+      "sha256_cert_fingerprints": ["81:D0:30:70:64:7E:08:9E:78:56:B8:87:37:0F:2E:AE:E7:24:4E:C7:0B:38:EB:5F:52:67:A6:C6:67:BE:E2:1E"]
+    }
+  }])
+}
