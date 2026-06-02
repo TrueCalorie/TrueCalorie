@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { usePro } from '../hooks/usePro'
 
 // ─── State Machine ────────────────────────────────────────────────────────────
 const PHASE = {
@@ -310,6 +311,8 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
 // onLogAll(foods[]) — receives all scaled foods at once; owns the sheet close.
 // onLog(food)       — kept for single-item fallback / future use.
 export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
+  const { isTrialing } = usePro()
+
   const [phase, setPhase]             = useState(PHASE.IDLE)
   const [transcript, setTranscript]   = useState('')
   const [interimText, setInterimText] = useState('')
@@ -410,7 +413,7 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
       const res = await fetch('/api/voice-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: text }),
+        body: JSON.stringify({ transcript: text, isTrialing }),
       })
 
       if (!res.ok) throw new Error(`Server error ${res.status}`)
@@ -453,7 +456,7 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
       const res = await fetch('/api/voice-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: refinedQuery }),
+        body: JSON.stringify({ transcript: refinedQuery, isTrialing }),
       })
 
       if (!res.ok) throw new Error('Refine failed')

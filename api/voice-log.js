@@ -12,10 +12,11 @@ export default async function handler(req) {
     })
   }
 
-  let transcript
+  let transcript, isTrialing
   try {
     const body = await req.json()
     transcript = body?.transcript
+    isTrialing = body?.isTrialing ?? false
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
@@ -29,11 +30,11 @@ export default async function handler(req) {
   }
 
   try {
-    // Use Nutritionix NLP if keys are available, fall back to Claude
     const hasNutritionixKeys = !!(
       process.env.NUTRITIONIX_APP_ID && process.env.NUTRITIONIX_APP_KEY
     )
-    const foods = hasNutritionixKeys
+    console.log(`[voice-log] Using ${isTrialing ? 'Claude Haiku (trial)' : 'Nutritionix (paid)'}`)
+    const foods = (!isTrialing && hasNutritionixKeys)
       ? await parseWithNutritionix(transcript)
       : await parseWithClaude(transcript)
 
