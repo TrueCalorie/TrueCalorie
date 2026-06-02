@@ -16,6 +16,30 @@ export const config = {
 }
 
 // ──────────────────────────────────────────────────────────────────
+// PERIOD END HELPER
+// As of Stripe's Basil release (2025-03-31) and all later versions
+// including 2026-04-22.dahlia, `current_period_end` was REMOVED from
+// the Subscription object and moved onto each subscription item at
+// `items.data[].current_period_end`. Reading the old top-level field
+// returns undefined, and `new Date(undefined * 1000).toISOString()`
+// throws "Invalid time value", crashing the whole webhook handler.
+// This helper reads the field from the correct location safely.
+// ──────────────────────────────────────────────────────────────────
+
+function periodEndISO(subscription) {
+  const ts = subscription?.items?.data?.[0]?.current_period_end
+  if (ts) return new Date(ts * 1000).toISOString()
+
+  // Defensive fallback: a normal active subscription always has an item
+  // with a period end, so this branch should never run. If it somehow
+  // does, grant ~31 days rather than crash or accidentally set null
+  // (null = lifetime in our schema). The next subscription.updated
+  // webhook will correct the date.
+  console.warn('periodEndISO: no item period end found, using 31-day fallback')
+  return new Date(Date.now() + 31 * 24 * 60 * 60 * 1000).toISOString()
+}
+
+// ──────────────────────────────────────────────────────────────────
 // MAIN HANDLER
 // ──────────────────────────────────────────────────────────────────
 
@@ -86,9 +110,9 @@ async function handleProCheckoutCompleted(session) {
 
   console.log(`Pro checkout completed for user ${userId}`)
 
-  // Fetch subscription to get current_period_end
+  // Fetch subscription to get the current period end
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-  const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+  const periodEnd = periodEndISO(subscription)
 
   const { error } = await supabase
     .from('user_settings')
@@ -178,11 +202,11 @@ async function handleSubscriptionUpdated(subscription) {
   const userId = subscription.metadata?.user_id
   const type = subscription.metadata?.type
 
-  console.log(`Subscription ${subscriptionId} updated — type: ${type}, status: ${subscription.status}`)
+  console.log(`Subscription ${subscriptionId} updated - type: ${type}, status: ${subscription.status}`)
 
   if (type === 'pro_monthly' && userId) {
-    // Pro subscription — update period end and status in user_settings
-    const periodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+    // Pro subscription - update period end and status in user_settings
+    const periodEnd = periodEndISO(subscription)
     const isActive = subscription.status === 'active'
 
     await supabase
@@ -195,7 +219,7 @@ async function handleSubscriptionUpdated(subscription) {
 
     console.log(`Updated Pro status for user ${userId}: active=${isActive}, expires=${periodEnd}`)
   } else {
-    // Founder subscription — update founders table status only
+    // Founder subscription - update founders table status only
     await supabase
       .from('founders')
       .update({ status: subscription.status })
@@ -215,10 +239,10 @@ async function handleSubscriptionDeleted(subscription) {
   const userId = subscription.metadata?.user_id
   const type = subscription.metadata?.type
 
-  console.log(`Subscription ${subscriptionId} deleted — type: ${type}`)
+  console.log(`Subscription ${subscriptionId} deleted - type: ${type}`)
 
   if (type === 'pro_monthly' && userId) {
-    // Revoke Pro — drop back to free tier
+    // Revoke Pro - drop back to free tier
     await supabase
       .from('user_settings')
       .update({
