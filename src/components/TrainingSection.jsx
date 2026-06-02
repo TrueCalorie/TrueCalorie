@@ -302,6 +302,83 @@ function SportBreakdown({ sportBreakdown }) {
   )
 }
 
+// ─── This Week vs Last Week ───────────────────────────────────────────────────
+function WeekComparison({ weeklyTotals, priorWeeklyTotals }) {
+  if (!priorWeeklyTotals) return null
+
+  if (priorWeeklyTotals.activityCount === 0) {
+    return (
+      <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: '8px 0' }}>
+        Not enough history yet. Check back next week.
+      </div>
+    )
+  }
+
+  const pctChange = (curr, prev) => prev ? Math.round((curr - prev) / prev * 100) : null
+
+  const calPct  = pctChange(weeklyTotals.calories,      priorWeeklyTotals.calories)
+  const timePct = pctChange(weeklyTotals.movingTimeSec, priorWeeklyTotals.movingTimeSec)
+
+  const Arrow = ({ pct }) => {
+    if (pct === null || pct === 0) return <span style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>
+    const up = pct > 0
+    return (
+      <span style={{ fontSize: 12, fontWeight: 700, color: up ? '#1D9E75' : '#E24B4A' }}>
+        {up ? '↑' : '↓'} {Math.abs(pct)}%
+      </span>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 16 }}>
+      {[
+        { label: 'Calories burned', curr: weeklyTotals.calories,      prev: priorWeeklyTotals.calories,      pct: calPct,  fmt: v => v.toLocaleString() },
+        { label: 'Training time',   curr: weeklyTotals.movingTimeSec, prev: priorWeeklyTotals.movingTimeSec, pct: timePct, fmt: v => formatHours(v) },
+      ].map(({ label, curr, prev, pct, fmt }) => (
+        <div key={label} style={{ flex: 1 }}>
+          <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 6 }}>{label}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{fmt(curr)}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6 }}>vs {fmt(prev)} last week</div>
+          <Arrow pct={pct} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Calorie Accuracy ─────────────────────────────────────────────────────────
+function CalorieAccuracy({ weeklyTotals, sportBreakdown }) {
+  if (!weeklyTotals?.rawCalories || weeklyTotals.rawCalories === weeklyTotals.calories) return null
+
+  const raw      = weeklyTotals.rawCalories
+  const adjusted = weeklyTotals.calories
+  const reduction = Math.round((raw - adjusted) / raw * 100)
+  const hasCycling = sportBreakdown?.cycling?.calories > 0
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+        {[
+          { label: "Strava's estimate", val: raw,      color: 'var(--muted)' },
+          { label: 'Adjusted total',    val: adjusted, color: '#1D9E75'      },
+          { label: 'Reduction',         val: `-${reduction}%`, color: '#E24B4A', isStr: true },
+        ].map(({ label, val, color, isStr }) => (
+          <div key={label} style={{ flex: 1 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color, marginBottom: 2 }}>
+              {isStr ? val : val.toLocaleString()}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--muted)' }}>{label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+        Strava tends to overestimate calorie burn. We adjust by sport so your targets stay accurate.
+        {hasCycling && ' Cycling has the largest correction (−18%) — Strava is known to significantly overcount cycling calories.'}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main TrainingSection component ──────────────────────────────────────────
 export default function TrainingSection({ session, range, calByDate, calorieGoal }) {
   const [data, setData]       = useState(null)
@@ -362,7 +439,7 @@ export default function TrainingSection({ session, range, calByDate, calorieGoal
     </Card>
   )
 
-  const { byDate, trainingDays, weeklyTotals, sportBreakdown } = data
+  const { byDate, trainingDays, weeklyTotals, sportBreakdown, priorWeeklyTotals } = data
   const allDates = getDatesInRange(range)
   const hasTraining = trainingDays && trainingDays.length > 0
 
@@ -424,6 +501,14 @@ export default function TrainingSection({ session, range, calByDate, calorieGoal
         )}
       </Card>
 
+      {/* ── This Week vs Last Week ── */}
+      {hasTraining && (
+        <Card>
+          <SectionHead>THIS WEEK VS LAST WEEK</SectionHead>
+          <WeekComparison weeklyTotals={weeklyTotals} priorWeeklyTotals={priorWeeklyTotals} />
+        </Card>
+      )}
+
       {/* ── Fueling Score ── */}
       {hasTraining && (
         <Card>
@@ -455,6 +540,14 @@ export default function TrainingSection({ session, range, calByDate, calorieGoal
         <Card>
           <SectionHead>SPORT BREAKDOWN</SectionHead>
           <SportBreakdown sportBreakdown={sportBreakdown} />
+        </Card>
+      )}
+
+      {/* ── Calorie Accuracy ── */}
+      {hasTraining && weeklyTotals.rawCalories !== weeklyTotals.calories && (
+        <Card>
+          <SectionHead>CALORIE ACCURACY</SectionHead>
+          <CalorieAccuracy weeklyTotals={weeklyTotals} sportBreakdown={sportBreakdown} />
         </Card>
       )}
     </>

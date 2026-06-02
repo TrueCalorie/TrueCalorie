@@ -115,16 +115,18 @@ export default async function handler(req, res) {
   const sportBreakdown = {}
 
   stravaActivities.forEach(a => {
-    const sport      = SPORT_MAP[a.sport_type] || SPORT_MAP[a.type] || 'general'
-    const correction = CALORIE_CORRECTION[sport] || 0.90
-    const calories   = Math.round((a.calories || 0) * correction)
+    const sport        = SPORT_MAP[a.sport_type] || SPORT_MAP[a.type] || 'general'
+    const correction   = CALORIE_CORRECTION[sport] || 0.90
+    const rawCalories  = Math.round(a.calories || 0)
+    const calories     = Math.round(rawCalories * correction)
     const movingSec  = a.moving_time || 0
 
     // Use local date of activity start
     const actDate = toLocalDateStr(new Date(a.start_date_local || a.start_date))
 
-    if (!byDate[actDate]) byDate[actDate] = { calories: 0, movingTimeSec: 0, activities: [] }
+    if (!byDate[actDate]) byDate[actDate] = { calories: 0, rawCalories: 0, movingTimeSec: 0, activities: [] }
     byDate[actDate].calories      += calories
+    byDate[actDate].rawCalories   += rawCalories
     byDate[actDate].movingTimeSec += movingSec
     byDate[actDate].activities.push({
       id:           a.id,
@@ -149,12 +151,30 @@ export default async function handler(req, res) {
   weekStart.setDate(now.getDate() - ((dayOfWeek + 6) % 7)) // Monday
   const weekStartStr = toLocalDateStr(weekStart)
 
-  let weekCalories = 0, weekMovingSec = 0, weekActivityCount = 0
+  let weekCalories = 0, weekRawCalories = 0, weekMovingSec = 0, weekActivityCount = 0
   Object.entries(byDate).forEach(([date, d]) => {
     if (date >= weekStartStr && date <= todayStr) {
       weekCalories      += d.calories
+      weekRawCalories   += d.rawCalories || 0
       weekMovingSec     += d.movingTimeSec
       weekActivityCount += d.activities.length
+    }
+  })
+
+  // Prior Mon–Sun week
+  const priorWeekEnd   = new Date(weekStart)
+  priorWeekEnd.setDate(weekStart.getDate() - 1)
+  const priorWeekStart = new Date(weekStart)
+  priorWeekStart.setDate(weekStart.getDate() - 7)
+  const priorWeekStartStr = toLocalDateStr(priorWeekStart)
+  const priorWeekEndStr   = toLocalDateStr(priorWeekEnd)
+
+  let priorCalories = 0, priorMovingSec = 0, priorActivityCount = 0
+  Object.entries(byDate).forEach(([date, d]) => {
+    if (date >= priorWeekStartStr && date <= priorWeekEndStr) {
+      priorCalories      += d.calories
+      priorMovingSec     += d.movingTimeSec
+      priorActivityCount += d.activities.length
     }
   })
 
@@ -166,8 +186,14 @@ export default async function handler(req, res) {
     trainingDays,
     weeklyTotals: {
       calories:      weekCalories,
+      rawCalories:   weekRawCalories,
       movingTimeSec: weekMovingSec,
       activityCount: weekActivityCount,
+    },
+    priorWeeklyTotals: {
+      calories:      priorCalories,
+      movingTimeSec: priorMovingSec,
+      activityCount: priorActivityCount,
     },
     sportBreakdown,
     athleteName: tokenRow.athlete_name,
