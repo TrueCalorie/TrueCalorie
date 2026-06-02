@@ -5,10 +5,10 @@
 // Only callable by authenticated users (userId verified against Supabase).
 // Founders are excluded — their access is lifetime, no subscription to manage.
 
-const Stripe = require('stripe')
-const { createClient } = require('@supabase/supabase-js')
+import Stripe from 'stripe'
+import { createClient } from '@supabase/supabase-js'
 
-const stripe   = new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe   = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-04-22.dahlia' })
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -18,7 +18,7 @@ const supabase = createClient(
 // Dashboard → Billing → Customer Portal → Settings → Activate portal
 const RETURN_URL = process.env.PORTAL_RETURN_URL || 'https://truecalorie.net'
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
