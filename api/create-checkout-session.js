@@ -42,8 +42,7 @@ export default async function handler(req, res) {
           user_id: userId,
           type: 'pro_monthly',
         },
-        // Honor the remaining trial days if the user is still in trial
-        // Stripe will not charge until trial ends
+
       },
       success_url: `${process.env.VITE_APP_URL || 'https://truecalorie.net'}/?checkout=success`,
       cancel_url: `${process.env.VITE_APP_URL || 'https://truecalorie.net'}/?checkout=canceled`,
