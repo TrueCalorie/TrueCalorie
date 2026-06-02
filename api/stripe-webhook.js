@@ -140,6 +140,7 @@ async function handleFounderCheckoutCompleted(session) {
   const email = session.customer_details?.email || session.customer_email
   const customerId = session.customer
   const subscriptionId = session.subscription
+  const paymentIntentId = session.payment_intent
   const amountPaid = session.amount_total
 
   if (!email) {
@@ -147,7 +148,19 @@ async function handleFounderCheckoutCompleted(session) {
     return
   }
 
-  console.log(`Processing founder purchase for ${email}`)
+  console.log(`Processing founder purchase for ${email}, payment_intent: ${paymentIntentId}`)
+
+  // Email-based idempotency check — session.subscription is null for one-time payments
+  const { data: existing } = await supabase
+    .from('founders')
+    .select('id')
+    .eq('email', email.toLowerCase())
+    .maybeSingle()
+
+  if (existing) {
+    console.log(`Founder row already exists for ${email}, ignoring duplicate webhook`)
+    return
+  }
 
   const { data: existingUser } = await supabase.auth.admin
     .listUsers()
@@ -169,13 +182,7 @@ async function handleFounderCheckoutCompleted(session) {
       activated_at: new Date().toISOString(),
     })
 
-  if (insertError) {
-    if (insertError.code === '23505') {
-      console.log(`Duplicate webhook for subscription ${subscriptionId}, ignoring`)
-      return
-    }
-    throw insertError
-  }
+  if (insertError) throw insertError
 
   if (userId) {
     const { error: settingsError } = await supabase
@@ -185,6 +192,7 @@ async function handleFounderCheckoutCompleted(session) {
         is_pro: true,
         pro_source: 'founder',
         pro_activated_at: new Date().toISOString(),
+        pro_expires_at: null,
       }, { onConflict: 'user_id' })
 
     if (settingsError) throw settingsError

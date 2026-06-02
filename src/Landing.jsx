@@ -246,7 +246,7 @@ export default function Landing({ onGetStarted }) {
               Founders Membership. Limited spots.
             </div>
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
-              Lock in Pro for $79.99 a year, forever.
+              Lock in Pro for $79.99, one time.
             </div>
             <div style={{ fontSize: 13, color: '#888', fontFamily: 'sans-serif' }}>
               100 spots total. Price locks in permanently when you join.

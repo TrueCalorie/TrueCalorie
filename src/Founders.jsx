@@ -90,7 +90,7 @@ export default function Founders({ onBack }) {
           lineHeight: 1.15, letterSpacing: '-0.03em',
           marginBottom: 20, textAlign: 'center',
         }}>
-          $79.99 a year.<br />
+          $79.99.<br />
           <span style={{ color: '#555' }}>Locked in forever.</span>
         </h1>
 
@@ -100,8 +100,8 @@ export default function Founders({ onBack }) {
           fontFamily: 'sans-serif', textAlign: 'center',
           maxWidth: 460, margin: '0 auto 48px',
         }}>
-          TrueCalorie Pro is $9.99 a month. Founders get it for $79.99 a year,
-          and that price never changes no matter what Pro costs in the future.
+          TrueCalorie Pro is $9.99 a month. Founders get it for $79.99, one time.
+          No renewals, no price changes, ever.
         </p>
 
         {/* Spots counter */}
@@ -159,7 +159,7 @@ export default function Founders({ onBack }) {
             { icon: '📈', text: 'Advanced trends. Rolling averages, projections, heat maps.' },
             { icon: '🏃', text: 'Athletic targets. Goals calibrated to your sport and training volume.' },
             { icon: '✦', text: 'Founder badge. Permanent recognition in the app.' },
-            { icon: '🔒', text: '$79.99/year locked in. Forever. No matter what Pro costs later.' },
+            { icon: '🔒', text: '$79.99, one time. No renewals. No matter what Pro costs later.' },
           ].map((item, i) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'flex-start', gap: 14,
@@ -200,13 +200,13 @@ export default function Founders({ onBack }) {
                 onMouseEnter={e => e.target.style.opacity = 0.88}
                 onMouseLeave={e => e.target.style.opacity = 1}
               >
-                Claim your spot. $79.99/year.
+                Claim your spot. $79.99.
               </button>
               <p style={{
                 fontSize: 12, color: '#444', fontFamily: 'sans-serif',
                 textAlign: 'center', lineHeight: 1.6, margin: 0,
               }}>
-                Annual subscription. Cancel any time. Rate is locked in permanently for founders.
+                One-time purchase. No renewal. Yours forever.
               </p>
             </>
           )}
@@ -218,9 +218,8 @@ export default function Founders({ onBack }) {
           fontSize: 13, color: '#444', fontFamily: 'sans-serif', lineHeight: 1.7,
           textAlign: 'center',
         }}>
-          TrueCalorie Pro is $9.99/month. Founders pay $79.99/year, and that rate
-          is locked in permanently. When this app raises its prices, your rate
-          never does.
+          TrueCalorie Pro is $9.99/month. Founders pay $79.99, one time.
+          No renewals, no price changes, ever.
         </div>
 
       </div>
