@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
-// Stripe Payment Link — $79.99/year recurring founders price
-// To set up: Stripe Dashboard → Products → Add product → $79.99/year recurring
+// Stripe Payment Link — $79.99 one-time lifetime founders price
+// To set up: Stripe Dashboard → Products → Add product → $79.99 one-time
 // Then: Payment Links → New link → select that product → copy URL
 // Then add to Vercel env as VITE_STRIPE_FOUNDERS_LINK
 const STRIPE_PAYMENT_LINK = import.meta.env.VITE_STRIPE_FOUNDERS_LINK || ''

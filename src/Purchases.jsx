@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
 
-const FOUNDERS_PAYMENT_LINK = 'https://buy.stripe.com/9B63cx51cfpA5ac11v2Ji02'
+const FOUNDERS_PAYMENT_LINK = import.meta.env.VITE_STRIPE_FOUNDERS_LINK || ''
 const FOUNDER_CAP = 100
 
 const PRO_FEATURES = [
@@ -330,7 +330,7 @@ export default function Purchases({ session, onClose }) {
               {spotsLeft !== null ? `${spotsLeft} spots left` : "Founders' Access"}
             </div>
             <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.03em' }}>
-              $80<span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}>/yr</span>
+              $79.99<span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}> one time</span>
             </div>
           </div>
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
@@ -414,7 +414,7 @@ function FoundersModal({ spotsLeft, onClose }) {
           Lock in Pro forever.
         </div>
         <div style={{ fontSize: 14, color: '#555', marginBottom: 22, lineHeight: 1.6 }}>
-          $80/year · recurring · cancel anytime
+          $79.99 · one time · yours forever
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
@@ -427,7 +427,10 @@ function FoundersModal({ spotsLeft, onClose }) {
         </div>
 
         <button
-          onClick={() => window.open(FOUNDERS_PAYMENT_LINK, '_blank')}
+          onClick={() => {
+            if (!FOUNDERS_PAYMENT_LINK) { alert('Checkout is not configured yet'); return }
+            window.open(FOUNDERS_PAYMENT_LINK, '_blank')
+          }}
           disabled={isFull}
           style={{
             width: '100%', padding: '14px',
