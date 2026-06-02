@@ -68,8 +68,7 @@ export default function Landing({ onGetStarted }) {
           marginBottom: 28, textAlign: 'center',
         }}>
           The calorie tracker<br />
-          that finally gets<br />
-          <span style={{ color: '#555' }}>the numbers right.</span>
+          you talk to.
         </h1>
 
         <p className="fade-up" style={{
@@ -77,8 +76,7 @@ export default function Landing({ onGetStarted }) {
           marginBottom: 40, fontFamily: 'sans-serif',
           maxWidth: 520, margin: '0 auto 40px',
         }}>
-          Log meals in seconds, get targets built around your body and your goals,
-          and actually understand your nutrition. For anyone who takes what they eat seriously.
+          Speak your meal and it's logged in seconds. Athlete-calibrated targets, 200,000+ restaurant items, and Strava integration for anyone who takes nutrition seriously.
         </p>
 
         <div className="fade-up" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
