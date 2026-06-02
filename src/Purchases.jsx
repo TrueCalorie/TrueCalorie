@@ -28,7 +28,8 @@ export default function Purchases({ session, onClose }) {
   )
 
   const isFounder = source === 'founder'
-  const isPaidPro = isPro && source === 'monthly'
+  const isPaidPro = isPro && (source === 'monthly' || source === 'annual')
+  const hasOwnedPro = isPro && source !== 'trial'
   const spotsLeft = foundersClaimed !== null ? Math.max(0, FOUNDER_CAP - foundersClaimed) : null
 
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function Purchases({ session, onClose }) {
   if (loading) return null
 
   // ── Pro / Founder dashboard ───────────────────────────────────────────────
-  if (isPro || isFounder) {
+  if (hasOwnedPro) {
     const renewDate = expiresAt
       ? new Date(expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
       : null
