@@ -121,6 +121,7 @@ async function handleProCheckoutCompleted(session) {
       pro_source: 'monthly',
       pro_activated_at: new Date().toISOString(),
       pro_expires_at: periodEnd,
+      cancel_at_period_end: false,
       // Store stripe subscription ID so we can update it later
       stripe_subscription_id: subscriptionId,
     })
@@ -222,6 +223,7 @@ async function handleSubscriptionUpdated(subscription) {
       .update({
         is_pro: isActive,
         pro_expires_at: isActive ? periodEnd : new Date().toISOString(),
+        cancel_at_period_end: subscription.cancel_at_period_end,
       })
       .eq('user_id', userId)
 
@@ -258,6 +260,7 @@ async function handleSubscriptionDeleted(subscription) {
         pro_source: null,
         pro_expires_at: new Date().toISOString(),
         stripe_subscription_id: null,
+        cancel_at_period_end: false,
       })
       .eq('user_id', userId)
 

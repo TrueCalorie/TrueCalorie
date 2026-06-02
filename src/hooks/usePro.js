@@ -22,23 +22,24 @@ export function usePro() {
     loading: true,
     source: null,
     expiresAt: null,
+    cancelAtPeriodEnd: false,
   })
 
   const fetchProStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      setState({ isPro: false, isTrialing: false, trialDaysLeft: 0, loading: false, source: null, expiresAt: null })
+      setState({ isPro: false, isTrialing: false, trialDaysLeft: 0, loading: false, source: null, expiresAt: null, cancelAtPeriodEnd: false })
       return
     }
 
     const { data, error } = await supabase
       .from('user_settings')
-      .select('is_pro, pro_source, pro_expires_at, trial_started_at')
+      .select('is_pro, pro_source, pro_expires_at, trial_started_at, cancel_at_period_end')
       .eq('user_id', user.id)
       .single()
 
     if (error || !data) {
-      setState({ isPro: false, isTrialing: false, trialDaysLeft: 0, loading: false, source: null, expiresAt: null })
+      setState({ isPro: false, isTrialing: false, trialDaysLeft: 0, loading: false, source: null, expiresAt: null, cancelAtPeriodEnd: false })
       return
     }
 
@@ -62,6 +63,7 @@ export function usePro() {
       loading: false,
       source: data.pro_source,
       expiresAt,
+      cancelAtPeriodEnd: data.cancel_at_period_end ?? false,
     })
   }
 

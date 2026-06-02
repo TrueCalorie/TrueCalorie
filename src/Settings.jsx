@@ -79,7 +79,7 @@ const SPORTS = [
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Settings({ session, settings, onUpdate, onClose, onUpgrade }) {
-  const { isPro, isTrialing, trialDaysLeft, loading, source, expiresAt } = usePro()
+  const { isPro, isTrialing, trialDaysLeft, loading, source, expiresAt, cancelAtPeriodEnd } = usePro()
   const isProUser    = isPro || isTrialing
   const isFounder    = source === 'founder'
   const isMonthlyPro = isPro && !isTrialing && source === 'monthly'
@@ -354,7 +354,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
               <div>
                 {renewDate && (
                   <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--muted)' }}>
-                    Renews {renewDate}
+                    {cancelAtPeriodEnd ? `Pro until ${renewDate}, won't renew` : `Renews ${renewDate}`}
                   </div>
                 )}
                 <button onClick={openPortal} disabled={portalLoading} style={{

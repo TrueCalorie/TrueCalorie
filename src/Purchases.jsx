@@ -16,7 +16,7 @@ const PRO_FEATURES = [
 ]
 
 export default function Purchases({ session, onClose }) {
-  const { isPro, isTrialing, trialDaysLeft, source, expiresAt, loading } = usePro()
+  const { isPro, isTrialing, trialDaysLeft, source, expiresAt, loading, cancelAtPeriodEnd } = usePro()
   const [showFoundersModal, setShowFoundersModal] = useState(false)
   const [checkoutLoading, setCheckoutLoading]     = useState(false)
   const [checkoutError, setCheckoutError]         = useState(null)
@@ -163,7 +163,7 @@ export default function Purchases({ session, onClose }) {
             {isFounder
               ? 'You were here first. Every feature — now and everything we ship — is yours permanently.'
               : renewDate
-                ? `Renews ${renewDate}.`
+                ? cancelAtPeriodEnd ? `Pro until ${renewDate}, won't renew.` : `Renews ${renewDate}.`
                 : 'Your Pro access is active.'}
           </div>
         </div>
