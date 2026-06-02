@@ -40,6 +40,7 @@ function App() {
   const [selectedItem, setSelectedItem]     = useState(null)
   const [selectedMealTime, setSelectedMealTime] = useState('Lunch')
   const [editingMeal, setEditingMeal]       = useState(null)
+  const [stravaCalsBurned, setStravaCalsBurned] = useState(0)
   const [toastQueue, setToastQueue]         = useState([])
   const [currentToast, setCurrentToast]     = useState(null)
   const [activeTab, setActiveTab]           = useState('today')
@@ -93,6 +94,10 @@ function App() {
   // ── Fetch on session ───────────────────────────────────────────────────────
   useEffect(() => {
     if (session) { fetchSettings(); fetchMeals(); fetchSavedFoods() }
+  }, [session])
+
+  useEffect(() => {
+    if (session) fetchStravaToday()
   }, [session])
 
   // ── Toast queue ────────────────────────────────────────────────────────────
@@ -154,6 +159,22 @@ function App() {
       .from('saved_foods').select('*').eq('user_id', session.user.id)
       .order('created_at', { ascending: false })
     if (data) setSavedFoods(data)
+  }
+
+  const fetchStravaToday = async () => {
+    try {
+      const res = await fetch('/api/strava-activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.user.id }),
+      })
+      const data = await res.json()
+      if (data.connected && data.totalCalories > 0) {
+        setStravaCalsBurned(data.totalCalories)
+      }
+    } catch {
+      // Strava not connected or fetch failed — silent, non-blocking
+    }
   }
 
   const checkAndAwardAchievements = async () => {
@@ -318,11 +339,12 @@ function App() {
   const displayCarbs    = useCountUp(Math.round(totalCarbs))
   const displayFat      = useCountUp(Math.round(totalFat))
   const calorieGoal  = settings?.calorie_goal  || 2000
+  const effectiveCalorieGoal = calorieGoal + stravaCalsBurned
   const proteinGoal  = settings?.protein_goal  || 150
   const carbsGoal    = settings?.carbs_goal    || 250
   const fatGoal      = settings?.fat_goal      || 65
   const circumference = 2 * Math.PI * 62
-  const ringPercent   = Math.min(totalCalories / calorieGoal, 1)
+  const ringPercent   = Math.min(totalCalories / effectiveCalorieGoal, 1)
   const offset        = circumference * (1 - ringPercent)
 
   const groupedMeals = ['Breakfast', 'Lunch', 'Snack', 'Dinner'].reduce((acc, time) => {
@@ -445,7 +467,10 @@ function App() {
                     {displayCalories}
                   </span>
                   <span style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                    of {calorieGoal} cal
+                    of {effectiveCalorieGoal.toLocaleString()} cal
+                    {stravaCalsBurned > 0 && (
+                      <> · +{stravaCalsBurned} burned</>
+                    )}
                   </span>
                 </div>
               </div>

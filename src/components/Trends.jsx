@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import TrainingSection from './TrainingSection'
 
 // ─── Local date helpers ───────────────────────────────────────────────────────
 function toLocalDateStr(date) {
@@ -267,6 +268,7 @@ function SectionHead({ children }) {
 export default function Trends({ session, settings, isPro, onUpgrade, onClose }) {
   const [range,        setRange]        = useState(30)
   const [allData,      setAllData]      = useState([])   // [{date, calories, protein}]
+  const [calByDate,    setCalByDate]    = useState({})   // { date: calories }
   const [weightPoints, setWeightPoints] = useState([])   // [{date, weight}]
   const [loading,      setLoading]      = useState(true)
 
@@ -303,6 +305,7 @@ export default function Trends({ session, settings, isPro, onUpgrade, onClose })
       calories: byDate[date]?.calories || 0,
       protein:  byDate[date]?.protein  || 0,
     })))
+    setCalByDate(byDate)  // byDate is already built in fetchData
 
     // Weight logs — always fetch 90d for projection regression
     const wStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 89, 0, 0, 0)
@@ -431,6 +434,9 @@ export default function Trends({ session, settings, isPro, onUpgrade, onClose })
       </div>
 
       <div style={{ padding: '20px 16px 48px' }}>
+
+        {/* ── Training Section (Strava) — shown only when connected ── */}
+        <TrainingSection calByDate={calByDate} />
 
         {/* Range toggle — 14d / 30d / 90d (different from Stats' 7d/30d) */}
         <div style={{

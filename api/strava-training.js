@@ -1,0 +1,175 @@
+// api/strava-training.js
+// Fetches multiple days of Strava activities for training analysis.
+// Used by the Training section in Trends.jsx.
+//
+// POST { userId, days? }  (days defaults to 30)
+// Returns {
+//   connected, byDate: { [dateStr]: { calories, movingTimeSec, activities: [] } },
+//   weeklyTotals: { calories, movingTimeSec, activityCount },
+//   sportBreakdown: { [sportKey]: { minutes, calories } },
+//   trainingDays: string[],  // dates with at least one activity
+// }
+
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
+)
+
+const SPORT_MAP = {
+  Run: 'running', TrailRun: 'running', VirtualRun: 'running',
+  Ride: 'cycling', VirtualRide: 'cycling', MountainBike: 'cycling',
+  Swim: 'swimming',
+  WeightTraining: 'strength', Workout: 'strength', CrossFit: 'strength',
+  Soccer: 'team', Basketball: 'team', Football: 'team',
+  Lacrosse: 'team', Hockey: 'team', Baseball: 'team', Volleyball: 'team',
+  Tennis: 'general', Golf: 'general', Hike: 'general', Walk: 'general', Yoga: 'general',
+}
+
+const CALORIE_CORRECTION = {
+  running: 0.95, cycling: 0.82, swimming: 1.00,
+  strength: 0.88, team: 0.92, general: 0.90,
+}
+
+const SPORT_LABEL = {
+  running: 'Running', cycling: 'Cycling', swimming: 'Swimming',
+  strength: 'Strength', team: 'Team Sports', general: 'Other',
+}
+
+function toLocalDateStr(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+}
+
+async function refreshToken(userId, refreshToken) {
+  const res = await fetch('https://www.strava.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id:     process.env.STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      grant_type:    'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  })
+  const data = await res.json()
+  if (!data.access_token) throw new Error('Token refresh failed')
+  await supabase.from('strava_tokens').update({
+    access_token:  data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at:    data.expires_at,
+  }).eq('user_id', userId)
+  return data.access_token
+}
+
+async function getValidToken(tokenRow) {
+  const nowSec = Math.floor(Date.now() / 1000)
+  if (tokenRow.expires_at > nowSec + 300) return tokenRow.access_token
+  return await refreshToken(tokenRow.user_id, tokenRow.refresh_token)
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
+  let body
+  try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body }
+  catch { return res.status(400).json({ error: 'Invalid JSON' }) }
+
+  const { userId, days = 30 } = body
+  if (!userId) return res.status(400).json({ error: 'userId required' })
+
+  // Fetch token
+  const { data: tokenRow, error: tokenError } = await supabase
+    .from('strava_tokens').select('*').eq('user_id', userId).single()
+
+  if (tokenError || !tokenRow) {
+    return res.status(200).json({ connected: false })
+  }
+
+  let accessToken
+  try { accessToken = await getValidToken(tokenRow) }
+  catch { return res.status(200).json({ connected: false, tokenExpired: true }) }
+
+  // Date range
+  const now      = new Date()
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1), 0, 0, 0)
+  const afterSec = Math.floor(dayStart.getTime() / 1000)
+
+  // Fetch from Strava (max 200 activities — enough for 30-90 days)
+  let stravaActivities
+  try {
+    const r = await fetch(
+      `https://www.strava.com/api/v3/athlete/activities?after=${afterSec}&per_page=200`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+    if (!r.ok) throw new Error(`Strava API ${r.status}`)
+    stravaActivities = await r.json()
+  } catch (err) {
+    console.error('Strava fetch failed:', err)
+    return res.status(200).json({ connected: true, byDate: {}, fetchError: true })
+  }
+
+  // Process into day buckets
+  const byDate = {}
+  const sportBreakdown = {}
+
+  stravaActivities.forEach(a => {
+    const sport      = SPORT_MAP[a.sport_type] || SPORT_MAP[a.type] || 'general'
+    const correction = CALORIE_CORRECTION[sport] || 0.90
+    const calories   = Math.round((a.calories || 0) * correction)
+    const movingSec  = a.moving_time || 0
+
+    // Use local date of activity start
+    const actDate = toLocalDateStr(new Date(a.start_date_local || a.start_date))
+
+    if (!byDate[actDate]) byDate[actDate] = { calories: 0, movingTimeSec: 0, activities: [] }
+    byDate[actDate].calories      += calories
+    byDate[actDate].movingTimeSec += movingSec
+    byDate[actDate].activities.push({
+      id:           a.id,
+      name:         a.name,
+      sport_key:    sport,
+      sport_label:  SPORT_LABEL[sport],
+      calories,
+      movingTimeSec: movingSec,
+      distanceMiles: a.distance ? Math.round((a.distance / 1609.34) * 10) / 10 : null,
+    })
+
+    // Sport breakdown
+    if (!sportBreakdown[sport]) sportBreakdown[sport] = { minutes: 0, calories: 0, label: SPORT_LABEL[sport] }
+    sportBreakdown[sport].minutes  += Math.round(movingSec / 60)
+    sportBreakdown[sport].calories += calories
+  })
+
+  // This week's totals (Mon–Sun)
+  const todayStr  = toLocalDateStr(now)
+  const dayOfWeek = now.getDay() // 0=Sun
+  const weekStart = new Date(now)
+  weekStart.setDate(now.getDate() - ((dayOfWeek + 6) % 7)) // Monday
+  const weekStartStr = toLocalDateStr(weekStart)
+
+  let weekCalories = 0, weekMovingSec = 0, weekActivityCount = 0
+  Object.entries(byDate).forEach(([date, d]) => {
+    if (date >= weekStartStr && date <= todayStr) {
+      weekCalories      += d.calories
+      weekMovingSec     += d.movingTimeSec
+      weekActivityCount += d.activities.length
+    }
+  })
+
+  const trainingDays = Object.keys(byDate).sort()
+
+  return res.status(200).json({
+    connected: true,
+    byDate,
+    trainingDays,
+    weeklyTotals: {
+      calories:      weekCalories,
+      movingTimeSec: weekMovingSec,
+      activityCount: weekActivityCount,
+    },
+    sportBreakdown,
+    athleteName: tokenRow.athlete_name,
+  })
+}
