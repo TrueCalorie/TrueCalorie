@@ -18,6 +18,7 @@ import TabBar from './components/TabBar'
 import Purchases from './Purchases'
 import { usePro } from './hooks/usePro'
 import { useCountUp } from './hooks/useCountUp'
+import { calculateGoalsPro, computeMacros } from './macros'
 import WeightCard from './components/WeightCard'
 import WaterCard from './components/WaterCard'
 import StravaCard from './components/StravaCard'
@@ -25,6 +26,15 @@ import StravaCard from './components/StravaCard'
 function toLocalDateStr(date) {
   const d = new Date(date)
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+function computeTrailingBurn(byDate) {
+  let sum = 0
+  for (let i = 1; i <= 3; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i)
+    sum += byDate?.[toLocalDateStr(d)]?.calories || 0
+  }
+  return Math.round(sum / 3)
 }
 
 function App() {
@@ -47,6 +57,8 @@ function App() {
   const [editingMeal, setEditingMeal]       = useState(null)
   const [stravaCalsBurned, setStravaCalsBurned] = useState(0)
   const [stravaRefreshKey, setStravaRefreshKey] = useState(0)
+  const [trailingBurn, setTrailingBurn]         = useState(0)
+  const [stravaTrainingConnected, setStravaTrainingConnected] = useState(false)
   const lastStravaFetchRef = useRef(0)
   const [toastQueue, setToastQueue]         = useState([])
   const [currentToast, setCurrentToast]     = useState(null)
@@ -107,14 +119,19 @@ function App() {
     if (session) fetchStravaToday()
   }, [session])
 
+  useEffect(() => {
+    if (session) fetchStravaTrailing()
+  }, [session])
+
   // Refetch Strava on app focus / visibility restore, throttled to 60 s
   useEffect(() => {
     if (!session) return
     const THROTTLE_MS = 60_000
     const tryRefresh = () => {
       if (Date.now() - lastStravaFetchRef.current < THROTTLE_MS) return
-      // fetchStravaToday is stable for a given session (only uses session.user.id)
+      // Both fetch fns are stable for a given session (only use session.user.id)
       fetchStravaToday()
+      fetchStravaTrailing()
       setStravaRefreshKey(k => k + 1)
     }
     const onVisibility = () => { if (document.visibilityState === 'visible') tryRefresh() }
@@ -206,8 +223,29 @@ function App() {
     }
   }
 
+  const fetchStravaTrailing = async () => {
+    try {
+      const res = await fetch('/api/strava-training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ userId: session.user.id, days: 7 }),
+      })
+      const data = await res.json()
+      if (data.connected && data.byDate) {
+        setStravaTrainingConnected(true)
+        setTrailingBurn(computeTrailingBurn(data.byDate))
+      } else {
+        setStravaTrainingConnected(false)
+      }
+    } catch {
+      setStravaTrainingConnected(false)
+    }
+  }
+
   const handleStravaSync = () => {
     fetchStravaToday()
+    fetchStravaTrailing()
     setStravaRefreshKey(k => k + 1)
   }
 
@@ -372,11 +410,47 @@ function App() {
   const displayProtein  = useCountUp(Math.round(totalProtein))
   const displayCarbs    = useCountUp(Math.round(totalCarbs))
   const displayFat      = useCountUp(Math.round(totalFat))
-  const calorieGoal  = settings?.calorie_goal  || 2000
-  const effectiveCalorieGoal = calorieGoal + stravaCalsBurned
-  const proteinGoal  = settings?.protein_goal  || 150
-  const carbsGoal    = settings?.carbs_goal    || 250
-  const fatGoal      = settings?.fat_goal      || 65
+  const calorieGoal = settings?.calorie_goal || 2000
+
+  // Adaptive mode: Pro/Founder + sport set + mode = 'adaptive'
+  const isAthletic = (isPro || isFounder) && !!settings?.sport
+  const isAdaptive = isAthletic && settings?.calorie_mode === 'adaptive'
+
+  // Decompose stored settings into rest-day baseline + training estimate
+  let restDayBaseline, estimatedDailyTraining, proteinPerKg, fatPct
+  if (isAdaptive && settings.weight_kg && settings.age && settings.sex && settings.height_cm) {
+    try {
+      const pr = calculateGoalsPro({
+        age:                 settings.age,
+        sex:                 settings.sex,
+        height_cm:           settings.height_cm,
+        weight_kg:           settings.weight_kg,
+        activity_level:      settings.activity_level,
+        goal:                settings.goal,
+        sport:               settings.sport,
+        weekly_mileage:      settings.weekly_mileage      || 0,
+        training_hours_week: settings.training_hours_week || 0,
+      })
+      restDayBaseline       = pr.restDayBaseline
+      estimatedDailyTraining = pr.estimatedDailyTraining
+      proteinPerKg          = pr.proteinPerKg
+      fatPct                = pr.fatPct
+    } catch { /* fall through to fixed */ }
+  }
+  const adaptiveReady = isAdaptive && restDayBaseline !== undefined
+
+  const effectiveCalorieGoal = adaptiveReady
+    ? (stravaTrainingConnected
+        ? restDayBaseline + trailingBurn
+        : restDayBaseline + estimatedDailyTraining)
+    : calorieGoal
+
+  const adaptiveMacros = adaptiveReady
+    ? computeMacros(effectiveCalorieGoal, settings.weight_kg, proteinPerKg, fatPct)
+    : null
+  const proteinGoal = adaptiveMacros?.protein ?? (settings?.protein_goal || 150)
+  const carbsGoal   = adaptiveMacros?.carbs   ?? (settings?.carbs_goal   || 250)
+  const fatGoal     = adaptiveMacros?.fat      ?? (settings?.fat_goal     || 65)
   const circumference = 2 * Math.PI * 62
   const ringPercent   = Math.min(totalCalories / effectiveCalorieGoal, 1)
   const offset        = circumference * (1 - ringPercent)
@@ -500,14 +574,15 @@ function App() {
                   }}>
                     {displayCalories}
                   </span>
-                  <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                  <span style={{
+                    fontSize: 11, color: 'var(--muted)', marginTop: 4,
+                    textAlign: 'center', lineHeight: 1.4, maxWidth: 104,
+                  }}>
                     of {effectiveCalorieGoal.toLocaleString()} cal
+                    {adaptiveReady && stravaTrainingConnected && trailingBurn > 0 && (
+                      <><br/>+{trailingBurn} training</>
+                    )}
                   </span>
-                  {stravaCalsBurned > 0 && (
-                    <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
-                      +{stravaCalsBurned} burned
-                    </span>
-                  )}
                 </div>
               </div>
 
