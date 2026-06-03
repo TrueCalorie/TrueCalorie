@@ -33,6 +33,20 @@ const CALORIE_CORRECTION = {
   strength: 0.88, team: 0.92, general: 0.90,
 }
 
+// ─── Our own calorie estimate (used when Strava returns 0) ────────────────
+function estimateCalories(sport, movingTimeSec, distanceMeters, weightKg) {
+  const hours = movingTimeSec / 3600
+  const km    = (distanceMeters || 0) / 1000
+  switch (sport) {
+    case 'running':  return km * weightKg * 1.0
+    case 'cycling':  return km * weightKg * 0.42
+    case 'swimming': return 7.0 * weightKg * hours
+    case 'strength': return 5.0 * weightKg * hours
+    case 'team':     return 8.0 * weightKg * hours
+    default:         return km > 0 ? km * weightKg * 0.55 : 4.0 * weightKg * hours
+  }
+}
+
 const SPORT_LABEL = {
   running: 'Running', cycling: 'Cycling', swimming: 'Swimming',
   strength: 'Strength', team: 'Team Sports', general: 'Other',
@@ -91,6 +105,11 @@ export default async function handler(req, res) {
   try { accessToken = await getValidToken(tokenRow) }
   catch { return res.status(200).json({ connected: false, tokenExpired: true }) }
 
+  // Fetch user weight for calorie estimation fallback
+  const { data: userSettings } = await supabase
+    .from('user_settings').select('weight_kg').eq('user_id', userId).maybeSingle()
+  const weightKg = userSettings?.weight_kg || 70
+
   // Date range
   const now      = new Date()
   const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1), 0, 0, 0)
@@ -117,9 +136,14 @@ export default async function handler(req, res) {
   stravaActivities.forEach(a => {
     const sport        = SPORT_MAP[a.sport_type] || SPORT_MAP[a.type] || 'general'
     const correction   = CALORIE_CORRECTION[sport] || 0.90
-    const rawCalories  = Math.round(a.calories || 0)
-    const calories     = Math.round(rawCalories * correction)
-    const movingSec  = a.moving_time || 0
+    const movingSec    = a.moving_time || 0
+    const stravaRaw    = Math.round(a.calories || 0)
+    // Prefer Strava's calories (with sport correction); fall back to our own estimate.
+    // When estimated, set rawCalories = calories so the CalorieAccuracy card stays quiet.
+    const calories    = stravaRaw > 0
+      ? Math.round(stravaRaw * correction)
+      : Math.round(estimateCalories(sport, movingSec, a.distance, weightKg))
+    const rawCalories = stravaRaw > 0 ? stravaRaw : calories
 
     // Use local date of activity start
     const actDate = toLocalDateStr(new Date(a.start_date_local || a.start_date))

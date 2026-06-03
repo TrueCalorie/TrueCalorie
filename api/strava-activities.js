@@ -79,6 +79,20 @@ async function refreshToken(userId, refreshToken) {
   return data.access_token
 }
 
+// ─── Our own calorie estimate (used when Strava returns 0) ────────────────
+function estimateCalories(sport, movingTimeSec, distanceMeters, weightKg) {
+  const hours = movingTimeSec / 3600
+  const km    = (distanceMeters || 0) / 1000
+  switch (sport) {
+    case 'running':  return km * weightKg * 1.0
+    case 'cycling':  return km * weightKg * 0.42
+    case 'swimming': return 7.0 * weightKg * hours
+    case 'strength': return 5.0 * weightKg * hours
+    case 'team':     return 8.0 * weightKg * hours
+    default:         return km > 0 ? km * weightKg * 0.55 : 4.0 * weightKg * hours
+  }
+}
+
 // ─── Local date helper (mirrors strava-training.js) ───────────────────────
 function toLocalDateStr(date) {
   const d = new Date(date)
@@ -130,6 +144,11 @@ export default async function handler(req, res) {
     return res.status(200).json({ connected: false, activities: [], totalCalories: 0, tokenExpired: true })
   }
 
+  // Fetch user weight for calorie estimation fallback
+  const { data: userSettings } = await supabase
+    .from('user_settings').select('weight_kg').eq('user_id', userId).maybeSingle()
+  const weightKg = userSettings?.weight_kg || 70
+
   // Use the client's local date string (YYYY-MM-DD) to avoid the UTC midnight
   // boundary bug. Fall back to server UTC date only if the client didn't send one.
   const targetDateStr = date || toLocalDateStr(new Date())
@@ -165,7 +184,7 @@ export default async function handler(req, res) {
       const correction = CALORIE_CORRECTION[sport] || 0.90
       const wasAdjusted = sport === 'cycling'
 
-      let rawCalories = 0
+      let stravaCalories = 0
       try {
         const detailRes = await fetch(
           `https://www.strava.com/api/v3/activities/${a.id}`,
@@ -173,11 +192,16 @@ export default async function handler(req, res) {
         )
         if (detailRes.ok) {
           const detail = await detailRes.json()
-          rawCalories = detail.calories || 0
+          stravaCalories = detail.calories || 0
         }
       } catch {
         // One failed detail fetch doesn't break the whole response
       }
+
+      // Prefer Strava's calories (with sport correction); fall back to our own estimate
+      const calories = stravaCalories > 0
+        ? Math.round(stravaCalories * correction)
+        : Math.round(estimateCalories(sport, a.moving_time, a.distance, weightKg))
 
       return {
         id:               a.id,
@@ -190,8 +214,8 @@ export default async function handler(req, res) {
         distance_meters:  a.distance,
         distance_miles:   a.distance ? Math.round((a.distance / 1609.34) * 100) / 100 : null,
         distance_km:      a.distance ? Math.round((a.distance / 1000) * 100) / 100 : null,
-        calories_raw:     rawCalories,
-        calories:         Math.round(rawCalories * correction),
+        calories_raw:     stravaCalories,
+        calories,
         calories_adjusted: wasAdjusted,
         average_speed:    a.average_speed,
         average_heartrate: a.average_heartrate || null,
