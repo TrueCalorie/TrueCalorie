@@ -191,10 +191,11 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
     setPortalLoading(true)
     setPortalError(null)
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
       const res  = await fetch('/api/create-portal-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: session.user.id }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
+        body: JSON.stringify({}),
       })
       const data = await res.json()
       if (data?.url) window.location.href = data.url

@@ -48,10 +48,11 @@ export default function Purchases({ session, onClose }) {
     setCheckoutLoading(true)
     setCheckoutError(null)
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
       const res  = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: session.user.id, userEmail: session.user.email }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
+        body: JSON.stringify({ userEmail: session.user.email }),
       })
       const data = await res.json()
       if (data?.url) {

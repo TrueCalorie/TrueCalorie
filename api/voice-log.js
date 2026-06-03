@@ -3,7 +3,16 @@
 // Edge Runtime — zero cold start
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { createClient } from '@supabase/supabase-js'
+import { verifyUser } from '../lib/verifyUser.js'
+
 export const config = { runtime: 'edge' }
+
+const supabaseAdmin = createClient(
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
+)
 
 export default async function handler(req) {
   if (req.method !== 'POST') {
@@ -12,11 +21,29 @@ export default async function handler(req) {
     })
   }
 
-  let transcript, isTrialing
+  // Verify JWT — reject spoofed or missing tokens
+  const userId = await verifyUser(req)
+  if (!userId) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Look up trial status server-side — never trust the client-sent isTrialing flag
+  let isTrialing = false
+  try {
+    const { data } = await supabaseAdmin
+      .from('user_settings')
+      .select('is_pro, pro_source')
+      .eq('user_id', userId)
+      .maybeSingle()
+    isTrialing = !!(data?.is_pro && data?.pro_source === 'trial')
+  } catch { /* default false — routes to Claude Haiku */ }
+
+  let transcript
   try {
     const body = await req.json()
     transcript = body?.transcript
-    isTrialing = body?.isTrialing ?? false
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },

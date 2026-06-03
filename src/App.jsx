@@ -208,11 +208,12 @@ function App() {
   const fetchStravaToday = async () => {
     lastStravaFetchRef.current = Date.now()
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
       const res = await fetch('/api/strava-activities', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         cache: 'no-store',
-        body: JSON.stringify({ userId: session.user.id, date: toLocalDateStr(new Date()) }),
+        body: JSON.stringify({ date: toLocalDateStr(new Date()) }),
       })
       const data = await res.json()
       if (data.connected) {
@@ -225,11 +226,12 @@ function App() {
 
   const fetchStravaTrailing = async () => {
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
       const res = await fetch('/api/strava-training', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         cache: 'no-store',
-        body: JSON.stringify({ userId: session.user.id, days: 7 }),
+        body: JSON.stringify({ days: 7 }),
       })
       const data = await res.json()
       if (data.connected && data.byDate) {

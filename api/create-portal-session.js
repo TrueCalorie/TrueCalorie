@@ -7,6 +7,7 @@
 
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import { verifyUser } from '../lib/verifyUser.js'
 
 const stripe   = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-04-22.dahlia' })
 const supabase = createClient(
@@ -24,8 +25,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId } = req.body
-    if (!userId) return res.status(400).json({ error: 'userId is required' })
+    const userId = await verifyUser(req)
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
     // Pull subscription ID from user_settings
     const { data: settings, error: dbErr } = await supabase

@@ -1,4 +1,5 @@
 import Stripe from 'stripe'
+import { verifyUser } from '../lib/verifyUser.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2026-04-22.dahlia',
@@ -11,6 +12,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
+  const userId = await verifyUser(req)
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' })
+
   let body
   try {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
@@ -18,10 +22,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid JSON' })
   }
 
-  const { userId, userEmail } = body
-
-  if (!userId || !userEmail) {
-    return res.status(400).json({ error: 'userId and userEmail are required' })
+  const { userEmail } = body
+  if (!userEmail) {
+    return res.status(400).json({ error: 'userEmail is required' })
   }
 
   try {

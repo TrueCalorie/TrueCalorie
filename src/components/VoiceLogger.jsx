@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { supabase } from '../supabase'
 import { usePro } from '../hooks/usePro'
 
 // ─── State Machine ────────────────────────────────────────────────────────────
@@ -410,10 +411,11 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
     setPhaseSync(PHASE.PROCESSING)
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/voice-log', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: text, isTrialing }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ transcript: text }),
       })
 
       if (!res.ok) throw new Error(`Server error ${res.status}`)
@@ -453,10 +455,11 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
     }`
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/voice-log', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: refinedQuery, isTrialing }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ transcript: refinedQuery }),
       })
 
       if (!res.ok) throw new Error('Refine failed')
