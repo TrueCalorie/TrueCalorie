@@ -382,7 +382,7 @@ function CalorieAccuracy({ weeklyTotals, sportBreakdown }) {
 // ─── Main TrainingSection component ──────────────────────────────────────────
 export default function TrainingSection({ session, range, calByDate, calorieGoal }) {
   const [data, setData]       = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!session?.user?.id) return

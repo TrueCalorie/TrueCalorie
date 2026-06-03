@@ -434,7 +434,7 @@ export default function Trends({ session, settings, isPro, onUpgrade, onClose })
       <div style={{ padding: '20px 16px 48px' }}>
 
         {/* ── Training Section (Strava) — shown only when connected ── */}
-        <TrainingSection calByDate={calByDate} />
+        <TrainingSection session={session} range={range} calByDate={calByDate} calorieGoal={calorieGoal} />
 
         {/* Range toggle — 14d / 30d / 90d (different from Stats' 7d/30d) */}
         <div style={{

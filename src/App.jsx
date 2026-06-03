@@ -500,12 +500,14 @@ function App() {
                   }}>
                     {displayCalories}
                   </span>
-                  <span style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
                     of {effectiveCalorieGoal.toLocaleString()} cal
-                    {stravaCalsBurned > 0 && (
-                      <> · +{stravaCalsBurned} burned</>
-                    )}
                   </span>
+                  {stravaCalsBurned > 0 && (
+                    <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
+                      +{stravaCalsBurned} burned
+                    </span>
+                  )}
                 </div>
               </div>
 
