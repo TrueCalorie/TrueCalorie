@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../supabase'
 
+function toLocalDateStr(date) {
+  const d = new Date(date)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatDuration(seconds) {
   const h = Math.floor(seconds / 3600)
@@ -109,7 +114,7 @@ export default function StravaCard({ session, refreshKey = 0, onSync }) {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         cache:   'no-store',
-        body:    JSON.stringify({ userId: session.user.id }),
+        body:    JSON.stringify({ userId: session.user.id, date: toLocalDateStr(new Date()) }),
       })
       const json = await res.json()
       setData(json)
