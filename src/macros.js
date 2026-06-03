@@ -114,31 +114,44 @@ export function calculateGoalsPro({
   )
 
   // ── Sport-specific macro splits ────────────────────────────────────────────
-  let protein_goal, fat_pct
+  let protein_goal, proteinPerKg, fat_pct
 
   if (sport === 'running' || sport === 'cycling' || sport === 'swimming') {
     // Endurance athletes: glycogen is rate-limiting, so carbs are the priority.
     // Protein at 1.8g/kg is sufficient for muscle maintenance (not hypertrophy focus).
     // Fat at 22% keeps hormones intact without crowding out carbs.
-    protein_goal = Math.round(weight_kg * 1.8)
+    proteinPerKg = 1.8
+    protein_goal = Math.round(weight_kg * proteinPerKg)
     fat_pct      = 0.22
   } else if (sport === 'strength') {
     // Strength athletes: higher protein for hypertrophy, more fat tolerated
     // since they're not glycogen-dependent for competition.
-    protein_goal = Math.round(weight_kg * 2.4)
+    proteinPerKg = 2.4
+    protein_goal = Math.round(weight_kg * proteinPerKg)
     fat_pct      = 0.28
   } else if (sport === 'team') {
     // Team sports (field, court, ice): mixed demands. Moderate protein, balanced split.
-    protein_goal = Math.round(weight_kg * 2.0)
+    proteinPerKg = 2.0
+    protein_goal = Math.round(weight_kg * proteinPerKg)
     fat_pct      = 0.25
   } else {
     // General — same as standard formula
-    protein_goal = Math.round(weight_kg * 2.0)
+    proteinPerKg = 2.0
+    protein_goal = Math.round(weight_kg * proteinPerKg)
     fat_pct      = 0.25
   }
 
   const fat_goal   = Math.round((calorie_goal * fat_pct) / 9)
   const carbs_goal = Math.round((calorie_goal - protein_goal * 4 - fat_goal * 9) / 4)
+
+  // ── Rest-day baseline and training contribution ────────────────────────────
+  // restDayBaseline: what the athlete should eat on a zero-training day.
+  // estimatedDailyTraining: average daily calorie contribution from training load.
+  // Identity: restDayBaseline + estimatedDailyTraining ≈ calorie_goal
+  // (may differ by ±1 cal due to independent rounding; calorie_goal is authoritative).
+  const goalAdjustment        = goal === 'lose' ? -250 : goal === 'gain' ? 200 : 0
+  const restDayBaseline       = Math.round(bmr * 1.35) + goalAdjustment
+  const estimatedDailyTraining = Math.max(0, Math.round(tdee - bmr * 1.35))
 
   return {
     calorie_goal,
@@ -150,6 +163,11 @@ export function calculateGoalsPro({
     bmr:          roundedBmr,
     training_cal: training_cal || 0,
     sport,
+    // Step-2 fields: dynamic daily targets (Strava-aware ring)
+    restDayBaseline,
+    estimatedDailyTraining,
+    proteinPerKg,
+    fatPct: fat_pct,
   }
 }
 
@@ -168,6 +186,17 @@ function getRunnerMultiplier(miles_per_week) {
   if (miles_per_week <= 90)  return 2.05  // ~competitive marathon
   if (miles_per_week <= 110) return 2.20  // ~elite / 100-mile training
   return 2.35                              // ultra-high volume
+}
+
+// ─── Macro calculator for arbitrary calorie target ───────────────────────────
+// Recomputes protein/fat/carbs for any calorie value using the sport-specific
+// ratios returned by calculateGoalsPro (proteinPerKg, fatPct).
+// Used by step-2 dynamic targets: computeMacros(restDayCalories, weightKg, proteinPerKg, fatPct)
+export function computeMacros(calories, weightKg, proteinPerKg, fatPct) {
+  const protein = Math.round(weightKg * proteinPerKg)
+  const fat     = Math.round((calories * fatPct) / 9)
+  const carbs   = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4))
+  return { protein, carbs, fat }
 }
 
 // ─── Preview calculation (used by free users to see what Pro would give) ──────
