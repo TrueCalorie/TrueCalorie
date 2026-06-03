@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../supabase'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -91,33 +91,40 @@ function ActivityRow({ activity }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function StravaCard({ session }) {
+export default function StravaCard({ session, refreshKey = 0, onSync }) {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
   const [error, setError]     = useState(null)
+  const hasLoadedRef          = useRef(false)
 
   const fetchActivities = useCallback(async () => {
     if (!session?.user?.id) return
-    setLoading(true)
+    // Show skeleton only on first load; subsequent refreshes update in-place
+    if (!hasLoadedRef.current) setLoading(true)
+    setSyncing(true)
     setError(null)
     try {
       const res = await fetch('/api/strava-activities', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache:   'no-store',
         body:    JSON.stringify({ userId: session.user.id }),
       })
       const json = await res.json()
       setData(json)
-    } catch (err) {
+      hasLoadedRef.current = true
+    } catch {
       setError('Could not load Strava activities.')
     } finally {
       setLoading(false)
+      setSyncing(false)
     }
   }, [session?.user?.id])
 
   useEffect(() => {
     fetchActivities()
-  }, [fetchActivities])
+  }, [fetchActivities, refreshKey])
 
   // Not connected — don't render anything (Settings has the connect flow)
   if (!loading && data && !data.connected) return null
@@ -161,14 +168,34 @@ export default function StravaCard({ session }) {
             TRAINING TODAY
           </span>
         </div>
-        {activities.length > 0 && totalCalories > 0 && (
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#FC4C02' }}>
-              {totalCalories.toLocaleString()}
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--muted)' }}>cal burned</span>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {activities.length > 0 && totalCalories > 0 && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#FC4C02' }}>
+                {totalCalories.toLocaleString()}
+              </span>
+              <span style={{ fontSize: 10, color: 'var(--muted)' }}>cal burned</span>
+            </div>
+          )}
+          {onSync && (
+            <button
+              onClick={onSync}
+              disabled={syncing}
+              title="Sync Strava"
+              style={{
+                background: 'none', border: 'none', padding: '2px 4px',
+                cursor: syncing ? 'default' : 'pointer',
+                color: 'var(--muted)', fontSize: 16, lineHeight: 1,
+                opacity: syncing ? 0.3 : 0.6,
+                display: 'flex', alignItems: 'center',
+                animation: syncing ? 'spin 1s linear infinite' : 'none',
+                transformOrigin: 'center',
+              }}
+            >
+              ↻
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Activities */}

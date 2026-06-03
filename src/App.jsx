@@ -41,6 +41,8 @@ function App() {
   const [selectedMealTime, setSelectedMealTime] = useState('Lunch')
   const [editingMeal, setEditingMeal]       = useState(null)
   const [stravaCalsBurned, setStravaCalsBurned] = useState(0)
+  const [stravaRefreshKey, setStravaRefreshKey] = useState(0)
+  const lastStravaFetchRef = useRef(0)
   const [toastQueue, setToastQueue]         = useState([])
   const [currentToast, setCurrentToast]     = useState(null)
   const [activeTab, setActiveTab]           = useState('today')
@@ -98,6 +100,26 @@ function App() {
 
   useEffect(() => {
     if (session) fetchStravaToday()
+  }, [session])
+
+  // Refetch Strava on app focus / visibility restore, throttled to 60 s
+  useEffect(() => {
+    if (!session) return
+    const THROTTLE_MS = 60_000
+    const tryRefresh = () => {
+      if (Date.now() - lastStravaFetchRef.current < THROTTLE_MS) return
+      // fetchStravaToday is stable for a given session (only uses session.user.id)
+      fetchStravaToday()
+      setStravaRefreshKey(k => k + 1)
+    }
+    const onVisibility = () => { if (document.visibilityState === 'visible') tryRefresh() }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', tryRefresh)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', tryRefresh)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
   // ── Toast queue ────────────────────────────────────────────────────────────
@@ -162,19 +184,26 @@ function App() {
   }
 
   const fetchStravaToday = async () => {
+    lastStravaFetchRef.current = Date.now()
     try {
       const res = await fetch('/api/strava-activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({ userId: session.user.id }),
       })
       const data = await res.json()
-      if (data.connected && data.totalCalories > 0) {
-        setStravaCalsBurned(data.totalCalories)
+      if (data.connected) {
+        setStravaCalsBurned(data.totalCalories || 0)
       }
     } catch {
       // Strava not connected or fetch failed — silent, non-blocking
     }
+  }
+
+  const handleStravaSync = () => {
+    fetchStravaToday()
+    setStravaRefreshKey(k => k + 1)
   }
 
   const checkAndAwardAchievements = async () => {
@@ -617,7 +646,7 @@ function App() {
               }}>
                 TRAINING
               </div>
-              <StravaCard session={session} />
+              <StravaCard session={session} refreshKey={stravaRefreshKey} onSync={handleStravaSync} />
             </div>
 
             {/* Weight */}
