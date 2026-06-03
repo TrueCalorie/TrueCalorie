@@ -79,6 +79,12 @@ async function refreshToken(userId, refreshToken) {
   return data.access_token
 }
 
+// ─── Local date helper (mirrors strava-training.js) ───────────────────────
+function toLocalDateStr(date) {
+  const d = new Date(date)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
 // ─── Get valid access token (refresh if expired) ───────────────────────────
 async function getValidToken(tokenRow) {
   const nowSec = Math.floor(Date.now() / 1000)
@@ -124,21 +130,17 @@ export default async function handler(req, res) {
     return res.status(200).json({ connected: false, activities: [], totalCalories: 0, tokenExpired: true })
   }
 
-  // Target date — default to today in UTC (activities are stored UTC on Strava)
-  const targetDate = date ? new Date(date) : new Date()
-  const dayStart   = new Date(targetDate)
-  dayStart.setHours(0, 0, 0, 0)
-  const dayEnd = new Date(targetDate)
-  dayEnd.setHours(23, 59, 59, 999)
+  // Use the client's local date string (YYYY-MM-DD) to avoid the UTC midnight
+  // boundary bug. Fall back to server UTC date only if the client didn't send one.
+  const targetDateStr = date || toLocalDateStr(new Date())
 
-  const afterSec  = Math.floor(dayStart.getTime() / 1000)
-  const beforeSec = Math.floor(dayEnd.getTime()   / 1000)
+  // Fetch a wide 48-hour window (no tight UTC day boundary) and filter by local date.
+  const afterSec = Math.floor((Date.now() - 48 * 60 * 60 * 1000) / 1000)
 
-  // Fetch activities from Strava
   let stravaActivities
   try {
     const activitiesRes = await fetch(
-      `https://www.strava.com/api/v3/athlete/activities?after=${afterSec}&before=${beforeSec}&per_page=20`,
+      `https://www.strava.com/api/v3/athlete/activities?after=${afterSec}&per_page=30`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     )
     if (!activitiesRes.ok) {
@@ -150,8 +152,13 @@ export default async function handler(req, res) {
     return res.status(200).json({ connected: true, activities: [], totalCalories: 0, fetchError: true })
   }
 
+  // Keep only activities whose local start date matches the requested date
+  const todayActivities = stravaActivities.filter(a =>
+    toLocalDateStr(new Date(a.start_date_local || a.start_date)) === targetDateStr
+  )
+
   // Process and structure each activity
-  const activities = stravaActivities.map(a => {
+  const activities = todayActivities.map(a => {
     const sport          = SPORT_MAP[a.sport_type] || SPORT_MAP[a.type] || 'general'
     const correction     = CALORIE_CORRECTION[sport] || 0.90
     const rawCalories    = a.calories || 0

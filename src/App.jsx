@@ -22,6 +22,11 @@ import WeightCard from './components/WeightCard'
 import WaterCard from './components/WaterCard'
 import StravaCard from './components/StravaCard'
 
+function toLocalDateStr(date) {
+  const d = new Date(date)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
 function App() {
   const [session, setSession]               = useState(null)
   const [loading, setLoading]               = useState(true)
@@ -190,7 +195,7 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
-        body: JSON.stringify({ userId: session.user.id }),
+        body: JSON.stringify({ userId: session.user.id, date: toLocalDateStr(new Date()) }),
       })
       const data = await res.json()
       if (data.connected) {
