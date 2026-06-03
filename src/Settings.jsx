@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
 import { calculateGoals, calculateGoalsPro } from './macros'
@@ -109,7 +109,16 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
     sport:               settings?.sport               || '',
     weekly_mileage:      settings?.weekly_mileage      || '',
     training_hours_week: settings?.training_hours_week || '',
+    calorie_mode:        settings?.calorie_mode        || 'fixed',
   })
+
+  const [stravaConnected, setStravaConnected] = useState(false)
+
+  // Check Strava connection once on mount (used for adaptive mode inline note)
+  useEffect(() => {
+    supabase.from('strava_tokens').select('user_id').eq('user_id', session.user.id).maybeSingle()
+      .then(({ data }) => setStravaConnected(!!data))
+  }, [session.user.id])
 
   const [saving, setSaving]           = useState(false)
   const [saved, setSaved]             = useState(false)
@@ -124,6 +133,12 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
   )
 
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }))
+
+  const saveCalorieMode = async (val) => {
+    update('calorie_mode', val)
+    await supabase.from('user_settings').update({ calorie_mode: val }).eq('user_id', session.user.id)
+    onUpdate?.()
+  }
 
   const setTheme = (val) => {
     setCurrentThemeState(val)
@@ -160,6 +175,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
         sport:               form.sport || null,
         weekly_mileage:      form.weekly_mileage ? parseFloat(form.weekly_mileage) : null,
         training_hours_week: form.training_hours_week ? parseFloat(form.training_hours_week) : null,
+        calorie_mode:        form.calorie_mode || 'fixed',
       })
       .eq('user_id', session.user.id)
 
@@ -669,6 +685,58 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
                   </Card>
                 )}
               </div>
+
+              {/* ── TRAINING ADJUSTMENT (Pro + sport selected only) ── */}
+              {(isProUser || isFounder) && form.sport && (
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px', marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.09em', textTransform: 'uppercase' }}>
+                      Training Adjustment
+                    </span>
+                  </div>
+                  <Card>
+                    {[
+                      { value: 'fixed',    label: 'Steady',   desc: 'Same target every day. Training is already included.' },
+                      { value: 'adaptive', label: 'Adaptive', desc: 'Your target adjusts to your recent training.' },
+                    ].map((opt, i) => (
+                      <div
+                        key={opt.value}
+                        onClick={() => saveCalorieMode(opt.value)}
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 12,
+                          padding: '13px 16px', cursor: 'pointer',
+                          borderBottom: i === 0 ? '1px solid var(--border)' : 'none',
+                        }}
+                      >
+                        <div style={{
+                          width: 18, height: 18, borderRadius: '50%', flexShrink: 0, marginTop: 2,
+                          border: `2px solid ${form.calorie_mode === opt.value ? 'var(--accent)' : 'var(--border)'}`,
+                          background: form.calorie_mode === opt.value ? 'var(--accent)' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'border-color 0.15s, background 0.15s',
+                        }}>
+                          {form.calorie_mode === opt.value && (
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 15, color: 'var(--text)', marginBottom: 2 }}>{opt.label}</div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{opt.desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                    {form.calorie_mode === 'adaptive' && !stravaConnected && (
+                      <div style={{
+                        padding: '10px 16px', borderTop: '1px solid var(--border)',
+                        fontSize: 12, color: 'var(--muted)', lineHeight: 1.55,
+                        background: 'rgba(245,166,35,0.06)',
+                      }}>
+                        Connect Strava for daily adjustment. Until then your target uses your estimated training.
+                      </div>
+                    )}
+                  </Card>
+                </div>
+              )}
             </div>
           )}
         </div>
