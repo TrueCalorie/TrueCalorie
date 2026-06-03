@@ -157,42 +157,51 @@ export default async function handler(req, res) {
     toLocalDateStr(new Date(a.start_date_local || a.start_date)) === targetDateStr
   )
 
-  // Process and structure each activity
-  const activities = todayActivities.map(a => {
-    const sport          = SPORT_MAP[a.sport_type] || SPORT_MAP[a.type] || 'general'
-    const correction     = CALORIE_CORRECTION[sport] || 0.90
-    const rawCalories    = a.calories || 0
-    const adjustedCalories = Math.round(rawCalories * correction)
-    const wasAdjusted    = sport === 'cycling' // Flag only the most egregious offender
+  // Fetch detailed activity for each — the list endpoint omits calories;
+  // only GET /activities/{id} returns them. Failures fall back to 0.
+  const activities = await Promise.all(
+    todayActivities.map(async (a) => {
+      const sport      = SPORT_MAP[a.sport_type] || SPORT_MAP[a.type] || 'general'
+      const correction = CALORIE_CORRECTION[sport] || 0.90
+      const wasAdjusted = sport === 'cycling'
 
-    return {
-      id:               a.id,
-      name:             a.name,
-      sport_type:       a.sport_type || a.type,
-      sport_key:        sport,
-      start_date:       a.start_date_local,
-      moving_time_sec:  a.moving_time,
-      elapsed_time_sec: a.elapsed_time,
-      distance_meters:  a.distance,
-      // Distance in human units
-      distance_miles:   a.distance ? Math.round((a.distance / 1609.34) * 100) / 100 : null,
-      distance_km:      a.distance ? Math.round((a.distance / 1000) * 100) / 100 : null,
-      // Calories
-      calories_raw:     rawCalories,
-      calories:         adjustedCalories,
-      calories_adjusted: wasAdjusted,
-      // Speed/pace
-      average_speed:    a.average_speed,
-      average_heartrate: a.average_heartrate || null,
-      max_heartrate:    a.max_heartrate || null,
-      // Elevation
-      total_elevation_gain: a.total_elevation_gain || 0,
-      // Kudos/social
-      kudos_count:      a.kudos_count || 0,
-      // Strava URL
-      strava_url:       `https://www.strava.com/activities/${a.id}`,
-    }
-  })
+      let rawCalories = 0
+      try {
+        const detailRes = await fetch(
+          `https://www.strava.com/api/v3/activities/${a.id}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        )
+        if (detailRes.ok) {
+          const detail = await detailRes.json()
+          rawCalories = detail.calories || 0
+        }
+      } catch {
+        // One failed detail fetch doesn't break the whole response
+      }
+
+      return {
+        id:               a.id,
+        name:             a.name,
+        sport_type:       a.sport_type || a.type,
+        sport_key:        sport,
+        start_date:       a.start_date_local,
+        moving_time_sec:  a.moving_time,
+        elapsed_time_sec: a.elapsed_time,
+        distance_meters:  a.distance,
+        distance_miles:   a.distance ? Math.round((a.distance / 1609.34) * 100) / 100 : null,
+        distance_km:      a.distance ? Math.round((a.distance / 1000) * 100) / 100 : null,
+        calories_raw:     rawCalories,
+        calories:         Math.round(rawCalories * correction),
+        calories_adjusted: wasAdjusted,
+        average_speed:    a.average_speed,
+        average_heartrate: a.average_heartrate || null,
+        max_heartrate:    a.max_heartrate || null,
+        total_elevation_gain: a.total_elevation_gain || 0,
+        kudos_count:      a.kudos_count || 0,
+        strava_url:       `https://www.strava.com/activities/${a.id}`,
+      }
+    })
+  )
 
   const totalCalories      = activities.reduce((s, a) => s + a.calories, 0)
   const totalMovingTimeSec = activities.reduce((s, a) => s + a.moving_time_sec, 0)
