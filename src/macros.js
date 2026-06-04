@@ -46,6 +46,13 @@ export function calculateGoalsPro({
   age, sex, height_cm, weight_kg,
   activity_level, goal,
   sport, weekly_mileage, training_hours_week,
+  // Runner refinements
+  training_phase  = 'build',
+  run_type_split  = 'mixed',
+  race_distance   = 'half_marathon',
+  // Strength refinements
+  lifting_days_week = 4,
+  lifting_goal      = 'athletic',
 }) {
   const bmr = sex === 'male'
     ? 10 * weight_kg + 6.25 * height_cm - 5 * age + 5
@@ -56,12 +63,15 @@ export function calculateGoalsPro({
 
   // ── Sport-aware TDEE ───────────────────────────────────────────────────────
   if (sport === 'running' && weekly_mileage > 0) {
-    // Mileage-indexed multiplier. The standard formula caps at 1.725 ("very active")
-    // which is appropriate for a person who exercises ~1 hr/day. At 90mi/week a
-    // runner is putting in 10-15 hrs/week of work. The multiplier must reflect that.
-    const multiplier = getRunnerMultiplier(Number(weekly_mileage))
-    tdee = bmr * multiplier
-    training_cal = Math.round(tdee - bmr * 1.3) // approx training contribution
+    // Cal/mile by workout mix, phase factor scales the whole TDEE.
+    // easy=100 cal/mi (mostly aerobic), mixed=108 (default, ~20% quality), hard=118 (>30% threshold)
+    const calPerMile   = { easy: 100, mixed: 108, hard: 118 }[run_type_split] || 108
+    const phaseFactors = { base: 0.95, build: 1.0, peak: 1.08, taper: 0.88, offseason: 0.90 }
+    const phaseFactor  = phaseFactors[training_phase] || 1.0
+    const base            = bmr * 1.3
+    const dailyTrainingCal = (Number(weekly_mileage) / 7) * calPerMile
+    tdee         = (base + dailyTrainingCal) * phaseFactor
+    training_cal = Math.round(dailyTrainingCal * phaseFactor)
 
   } else if (sport === 'cycling' && weekly_mileage > 0) {
     // Road cycling: ~550 cal/hr, or ~35 cal/mile at moderate pace.
@@ -80,10 +90,13 @@ export function calculateGoalsPro({
     tdee         = base + daily_swim
     training_cal = Math.round(daily_swim)
 
-  } else if (sport === 'strength' && training_hours_week > 0) {
-    // Resistance training + elevated EPOC: ~420 cal/hr of training
-    const daily_strength = (Number(training_hours_week) * 420) / 7
-    const base           = bmr * 1.4  // strength athletes are more active at rest
+  } else if (sport === 'strength' && (training_hours_week > 0 || lifting_days_week > 0)) {
+    // Use training_hours_week if provided; otherwise estimate 1.25 hrs/session from days/week
+    const effectiveHours = Number(training_hours_week) > 0
+      ? Number(training_hours_week)
+      : (lifting_days_week || 4) * 1.25
+    const daily_strength = (effectiveHours * 420) / 7
+    const base           = bmr * 1.4
     tdee         = base + daily_strength
     training_cal = Math.round(daily_strength)
 
@@ -116,29 +129,36 @@ export function calculateGoalsPro({
   // ── Sport-specific macro splits ────────────────────────────────────────────
   let protein_goal, proteinPerKg, fat_pct
 
-  if (sport === 'running' || sport === 'cycling' || sport === 'swimming') {
-    // Endurance athletes: glycogen is rate-limiting, so carbs are the priority.
-    // Protein at 1.8g/kg is sufficient for muscle maintenance (not hypertrophy focus).
-    // Fat at 22% keeps hormones intact without crowding out carbs.
-    proteinPerKg = 1.8
+  if (sport === 'running') {
+    // Race distance shifts carb priority: shorter events tolerate slightly more fat,
+    // ultra runners need fat adaptation and slightly less protein (1.7 g/kg).
+    if (race_distance === 'ultra') {
+      proteinPerKg = 1.7; fat_pct = 0.22
+    } else if (race_distance === 'marathon' || race_distance === '5k_10k') {
+      proteinPerKg = 1.8; fat_pct = 0.20
+    } else { // half_marathon (default)
+      proteinPerKg = 1.8; fat_pct = 0.21
+    }
     protein_goal = Math.round(weight_kg * proteinPerKg)
-    fat_pct      = 0.22
+  } else if (sport === 'cycling' || sport === 'swimming') {
+    proteinPerKg = 1.8; fat_pct = 0.22
+    protein_goal = Math.round(weight_kg * proteinPerKg)
   } else if (sport === 'strength') {
-    // Strength athletes: higher protein for hypertrophy, more fat tolerated
-    // since they're not glycogen-dependent for competition.
-    proteinPerKg = 2.4
+    // Lifting goal shifts protein ceiling and fat tolerance.
+    if (lifting_goal === 'hypertrophy') {
+      proteinPerKg = 2.6; fat_pct = 0.28  // max muscle protein synthesis
+    } else if (lifting_goal === 'strength') {
+      proteinPerKg = 2.2; fat_pct = 0.30  // powerlifting: less protein, more fat tolerance
+    } else { // athletic (default)
+      proteinPerKg = 2.4; fat_pct = 0.28
+    }
     protein_goal = Math.round(weight_kg * proteinPerKg)
-    fat_pct      = 0.28
   } else if (sport === 'team') {
-    // Team sports (field, court, ice): mixed demands. Moderate protein, balanced split.
-    proteinPerKg = 2.0
+    proteinPerKg = 2.0; fat_pct = 0.25
     protein_goal = Math.round(weight_kg * proteinPerKg)
-    fat_pct      = 0.25
   } else {
-    // General — same as standard formula
-    proteinPerKg = 2.0
+    proteinPerKg = 2.0; fat_pct = 0.25
     protein_goal = Math.round(weight_kg * proteinPerKg)
-    fat_pct      = 0.25
   }
 
   const fat_goal   = Math.round((calorie_goal * fat_pct) / 9)
@@ -169,23 +189,6 @@ export function calculateGoalsPro({
     proteinPerKg,
     fatPct: fat_pct,
   }
-}
-
-// ─── Runner mileage → TDEE multiplier ────────────────────────────────────────
-// The standard "very active" multiplier (1.725) is designed for someone training
-// ~1 hr/day. A runner at 90mi/week is at 10-15 hrs/week.
-//
-// These multipliers are derived from doubly-labeled water studies on distance
-// runners and validated against known energy expenditure at various training loads.
-// They represent total energy expenditure relative to BMR.
-function getRunnerMultiplier(miles_per_week) {
-  if (miles_per_week <= 15)  return 1.45  // ~casual runner
-  if (miles_per_week <= 30)  return 1.60  // ~20-30 mi/wk recreational
-  if (miles_per_week <= 50)  return 1.75  // ~half marathon training
-  if (miles_per_week <= 70)  return 1.90  // ~marathon training
-  if (miles_per_week <= 90)  return 2.05  // ~competitive marathon
-  if (miles_per_week <= 110) return 2.20  // ~elite / 100-mile training
-  return 2.35                              // ultra-high volume
 }
 
 // ─── Macro calculator for arbitrary calorie target ───────────────────────────
