@@ -214,20 +214,23 @@ async function handleSubscriptionUpdated(subscription) {
   console.log(`Subscription ${subscriptionId} updated - type: ${type}, status: ${subscription.status}`)
 
   if (type === 'pro_monthly' && userId) {
-    // Pro subscription - update period end and status in user_settings
     const periodEnd = periodEndISO(subscription)
     const isActive = subscription.status === 'active'
+    const cancelingAtPeriodEnd = !!subscription.cancel_at_period_end
 
+    // When cancel_at_period_end is true the user has canceled but retains access
+    // until the period ends — keep is_pro: true and record the expiry date so
+    // the frontend can show "your plan ends on X".
     await supabase
       .from('user_settings')
       .update({
         is_pro: isActive,
         pro_expires_at: isActive ? periodEnd : new Date().toISOString(),
-        cancel_at_period_end: subscription.cancel_at_period_end,
+        cancel_at_period_end: cancelingAtPeriodEnd,
       })
       .eq('user_id', userId)
 
-    console.log(`Updated Pro status for user ${userId}: active=${isActive}, expires=${periodEnd}`)
+    console.log(`Updated Pro status for user ${userId}: active=${isActive}, cancelAtPeriodEnd=${cancelingAtPeriodEnd}, expires=${periodEnd}`)
   } else {
     // Founder subscription - update founders table status only
     await supabase
@@ -252,19 +255,21 @@ async function handleSubscriptionDeleted(subscription) {
   console.log(`Subscription ${subscriptionId} deleted - type: ${type}`)
 
   if (type === 'pro_monthly' && userId) {
-    // Revoke Pro - drop back to free tier
+    // Subscription deleted fires after the period end — use the period end
+    // as the expiry so access was honored for the full paid period.
+    const periodEnd = periodEndISO(subscription)
     await supabase
       .from('user_settings')
       .update({
         is_pro: false,
         pro_source: null,
-        pro_expires_at: new Date().toISOString(),
+        pro_expires_at: periodEnd,
         stripe_subscription_id: null,
         cancel_at_period_end: false,
       })
       .eq('user_id', userId)
 
-    console.log(`Revoked Pro for user ${userId}`)
+    console.log(`Revoked Pro for user ${userId}, expired at ${periodEnd}`)
   } else {
     // Founder subscription canceled
     const { data: founder } = await supabase
