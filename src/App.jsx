@@ -22,6 +22,7 @@ import { calculateGoalsPro, computeMacros } from './macros'
 import WeightCard from './components/WeightCard'
 import WaterCard from './components/WaterCard'
 import StravaCard from './components/StravaCard'
+import BodyFitnessPage from './components/BodyFitnessPage'
 
 function toLocalDateStr(date) {
   const d = new Date(date)
@@ -55,6 +56,7 @@ function App() {
   const [selectedItem, setSelectedItem]     = useState(null)
   const [selectedMealTime, setSelectedMealTime] = useState('Lunch')
   const [editingMeal, setEditingMeal]       = useState(null)
+  const [showBodyFitness, setShowBodyFitness]   = useState(false)
   const [stravaCalsBurned, setStravaCalsBurned] = useState(0)
   const [stravaRefreshKey, setStravaRefreshKey] = useState(0)
   const [trailingBurn, setTrailingBurn]         = useState(0)
@@ -785,9 +787,27 @@ function App() {
             onUpdate={fetchSettings}
             onClose={() => { setShowSettings(false); setActiveTab('today') }}
             onUpgrade={() => setShowPurchasesOverlay(true)}
+            onOpenBodyFitness={() => setShowBodyFitness(true)}
           />
         </div>
       )}
+
+{/* ── Body & Fitness overlay ── */}
+{showBodyFitness && (
+  <div style={{
+    position: 'fixed', inset: 0, background: 'var(--bg)',
+    zIndex: 40, overflowY: 'auto', animation: 'fadeIn 0.2s ease both',
+  }}>
+    <BodyFitnessPage
+      session={session}
+      settings={settings}
+      onUpdate={fetchSettings}
+      onClose={() => setShowBodyFitness(false)}
+      isPro={isPro}
+      isTrialing={isTrialing}
+    />
+  </div>
+)}
 
 {/* ── Trends overlay ── */}
 {activeTab === 'trends' && (

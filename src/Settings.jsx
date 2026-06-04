@@ -3,7 +3,6 @@ import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
 import Purchases from './Purchases'
 import StravaConnect from './components/StravaConnect'
-import BodyFitnessPage from './components/BodyFitnessPage'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function SectionLabel({ children }) {
@@ -68,7 +67,7 @@ function Segmented({ value, onChange, options }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function Settings({ session, settings, onUpdate, onClose, onUpgrade }) {
+export default function Settings({ session, settings, onUpdate, onClose, onUpgrade, onOpenBodyFitness }) {
   const { isPro, isTrialing, trialDaysLeft, loading, source, expiresAt, cancelAtPeriodEnd } = usePro()
   const isProUser    = isPro || isTrialing
   const isFounder    = source === 'founder'
@@ -94,7 +93,6 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
 
   const [saving, setSaving]               = useState(false)
   const [saved, setSaved]                 = useState(false)
-  const [showBodyFitness, setShowBodyFitness] = useState(false)
   const [showPurchases, setShowPurchases] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError]     = useState(null)
@@ -310,7 +308,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
         <div>
           <SectionLabel>Body & Fitness</SectionLabel>
           <Card>
-            <button onClick={() => setShowBodyFitness(true)} style={{
+            <button onClick={() => onOpenBodyFitness?.()} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               width: '100%', padding: '14px 16px', background: 'none', border: 'none',
               cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
@@ -371,18 +369,6 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
         </p>
 
       </div>
-
-      {/* ── Body & Fitness overlay ───────────────────────────────────────── */}
-      {showBodyFitness && (
-        <BodyFitnessPage
-          session={session}
-          settings={settings}
-          onUpdate={onUpdate}
-          onClose={() => setShowBodyFitness(false)}
-          isPro={isPro}
-          isTrialing={isTrialing}
-        />
-      )}
 
       {/* ── Purchases overlay ────────────────────────────────────────────── */}
       {showPurchases && (

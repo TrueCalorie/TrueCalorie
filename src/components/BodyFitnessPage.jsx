@@ -28,25 +28,26 @@ function Row({ label, children, last }) {
   )
 }
 
-// Segmented control — buttons fill available width equally so it works for 2-5 options
+// Segmented control — buttons wrap naturally, no stretching
 function Segmented({ value, onChange, options }) {
   return (
     <div style={{
-      display: 'flex', background: 'var(--surface2)',
-      borderRadius: 8, padding: 2, gap: 2,
+      display: 'flex', flexWrap: 'wrap',
+      background: 'var(--surface2)',
+      borderRadius: 8, padding: 2, gap: 4,
     }}>
       {options.map(o => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           style={{
-            flex: 1, padding: '5px 6px', borderRadius: 6, border: 'none',
+            flex: '0 0 auto', padding: '5px 12px', borderRadius: 6, border: 'none',
             background: value === o.value ? 'var(--text)' : 'transparent',
             color: value === o.value ? 'var(--bg)' : 'var(--muted)',
             fontSize: 12, fontWeight: value === o.value ? 600 : 400,
             cursor: 'pointer', fontFamily: 'inherit',
             transition: 'background 0.15s, color 0.15s',
-            whiteSpace: 'nowrap', textAlign: 'center',
+            whiteSpace: 'nowrap',
           }}
         >{o.label}</button>
       ))}
