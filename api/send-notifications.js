@@ -26,10 +26,10 @@ function localDateStr(tz) {
 }
 
 export default async function handler(req, res) {
-  // const authHeader = req.headers.authorization
-  // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-  //   return res.status(401).json({ error: 'Unauthorized' })
-  // }
+  const authHeader = req.headers.authorization
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
 
   const { data: subs, error } = await supabase
     .from('push_subscriptions')
@@ -45,8 +45,8 @@ export default async function handler(req, res) {
     const { user_id, subscription, reminder_time, timezone } = sub
 
     // Only fire when current local hour matches the user's chosen reminder hour
-    // const reminderHour = parseInt(reminder_time.split(':')[0])
-    // if (localHour(timezone) !== reminderHour) continue
+    const reminderHour = parseInt(reminder_time.split(':')[0])
+    if (localHour(timezone) !== reminderHour) continue
 
     // Check whether the user has already logged anything today (local timezone)
     const todayStr = localDateStr(timezone)
