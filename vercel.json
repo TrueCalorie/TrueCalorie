@@ -4,6 +4,6 @@
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/send-notifications", "schedule": "0 * * * *" }
+    { "path": "/api/send-notifications", "schedule": "0 19 * * *" }
   ]
 }
