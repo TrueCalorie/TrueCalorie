@@ -101,8 +101,8 @@ export default function WaterCard({ session }) {
             </span>
             <span style={{ fontSize: 13, color: 'var(--muted)' }}>oz</span>
           </div>
-          <span style={{ fontSize: 12, color: goalHit ? '#1D9E75' : 'var(--muted)' }}>
-            {goalHit ? 'Goal reached 💧' : `${remaining} oz to go`}
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {goalHit ? '' : `${remaining} oz to go`}
           </span>
         </div>
 
