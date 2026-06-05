@@ -67,8 +67,7 @@ export default function Landing({ onGetStarted }) {
           lineHeight: 1.12, letterSpacing: '-0.03em',
           marginBottom: 28, textAlign: 'center',
         }}>
-          The calorie tracker<br />
-          you talk to.
+          Eating is training.
         </h1>
 
         <p className="fade-up" style={{
@@ -76,7 +75,7 @@ export default function Landing({ onGetStarted }) {
           marginBottom: 40, fontFamily: 'sans-serif',
           maxWidth: 520, margin: '0 auto 40px',
         }}>
-          Speak your meal and it's logged in seconds. Athlete-calibrated targets, 200,000+ restaurant items, and Strava integration for anyone who takes nutrition seriously.
+          Log a meal by talking. Get targets built around your training. The nutrition tracker for people who treat food like part of the work.
         </p>
 
         <div className="fade-up" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -216,7 +215,7 @@ export default function Landing({ onGetStarted }) {
         maxWidth: 760, margin: '0 auto 80px', padding: '0 32px', textAlign: 'center',
       }}>
         <div style={{ fontSize: 13, color: '#444', fontFamily: 'sans-serif' }}>
-          Used by athletes, runners, and fitness enthusiasts who want accurate nutrition data
+          Used by college athletes who train year-round
         </div>
       </div>
 
