@@ -110,11 +110,12 @@ export default function StravaCard({ session, refreshKey = 0, onSync }) {
     setSyncing(true)
     setError(null)
     try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
       const res = await fetch('/api/strava-activities', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         cache:   'no-store',
-        body:    JSON.stringify({ userId: session.user.id, date: toLocalDateStr(new Date()) }),
+        body:    JSON.stringify({ date: toLocalDateStr(new Date()) }),
       })
       const json = await res.json()
       setData(json)
