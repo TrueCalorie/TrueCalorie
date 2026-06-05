@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-vapid": "node -e \"const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log(k)\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
     "@zxing/browser": "^0.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "stripe": "^22.1.1"
+    "stripe": "^22.1.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.0",

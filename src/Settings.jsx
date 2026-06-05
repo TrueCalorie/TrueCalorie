@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
+import { usePushNotifications } from './hooks/usePushNotifications'
 import StravaConnect from './components/StravaConnect'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -65,12 +66,37 @@ function Segmented({ value, onChange, options }) {
   )
 }
 
+function Toggle({ value, onChange }) {
+  return (
+    <div
+      onClick={onChange}
+      style={{
+        width: 44, height: 24, borderRadius: 12, flexShrink: 0,
+        background: value ? '#1D9E75' : 'var(--surface2)',
+        cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+      }}
+    >
+      <div style={{
+        position: 'absolute', top: 2, width: 20, height: 20, borderRadius: 10,
+        background: 'white', transition: 'left 0.2s',
+        left: value ? 22 : 2,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+      }} />
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Settings({ session, settings, onUpdate, onClose, onNavigate }) {
   const { isPro, isTrialing, trialDaysLeft, loading, source, expiresAt, cancelAtPeriodEnd } = usePro()
   const isProUser    = isPro || isTrialing
   const isFounder    = source === 'founder'
   const isMonthlyPro = isPro && !isTrialing && source === 'monthly'
+
+  const {
+    isSupported: pushSupported, isSubscribed, isPromptReady,
+    reminderTime, subscribe, unsubscribe, updateReminderTime,
+  } = usePushNotifications(session)
 
   const [form, setForm] = useState({
     calorie_goal: settings?.calorie_goal || 2000,
@@ -335,6 +361,48 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
             </Row>
           </Card>
         </div>
+
+        {/* ── NOTIFICATIONS ───────────────────────────────────────────────── */}
+        {pushSupported && (
+          <div>
+            <SectionLabel>Notifications</SectionLabel>
+            <Card>
+              {!isPromptReady ? (
+                <div style={{ padding: '13px 16px' }}>
+                  <div style={{ fontSize: 15, color: 'var(--muted)', marginBottom: 2 }}>Enable reminders</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Available after 3 logged days</div>
+                </div>
+              ) : !isSubscribed ? (
+                <button onClick={subscribe} style={{
+                  width: '100%', padding: '13px 16px', background: 'none', border: 'none',
+                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                  cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                }}>
+                  <span style={{ fontSize: 15, color: 'var(--text)', marginBottom: 2 }}>Enable reminders</span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>Get a nudge if you haven't logged by evening</span>
+                </button>
+              ) : (
+                <>
+                  <Row label="Reminder time">
+                    <input
+                      type="time"
+                      value={reminderTime}
+                      onChange={e => updateReminderTime(e.target.value)}
+                      style={{
+                        background: 'none', border: 'none', outline: 'none',
+                        fontSize: 15, color: 'var(--text)', fontFamily: 'inherit',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </Row>
+                  <Row label="Daily reminder" last>
+                    <Toggle value={true} onChange={unsubscribe} />
+                  </Row>
+                </>
+              )}
+            </Card>
+          </div>
+        )}
 
         {/* ── ACCOUNT ──────────────────────────────────────────────────────── */}
         <div>

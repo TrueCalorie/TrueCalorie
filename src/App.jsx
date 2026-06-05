@@ -68,6 +68,13 @@ function App() {
   const { isPro, isTrialing, trialDaysLeft, source } = usePro()
   const isFounder = source === 'founder'
 
+  // Register push SW early so it can receive pushes even before Settings opens
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw-push.js', { scope: '/' }).catch(() => {})
+    }
+  }, [])
+
   // ── Page navigation ────────────────────────────────────────────────────────
   const navigateTo   = (page) => setPageHistory(h => [...h, page])
   const navigateBack = ()     => setPageHistory(h => h.slice(0, -1))

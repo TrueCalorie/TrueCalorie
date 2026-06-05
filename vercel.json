@@ -2,5 +2,8 @@
   "rewrites": [
     { "source": "/.well-known/assetlinks.json", "destination": "/api/assetlinks" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/send-notifications", "schedule": "0 * * * *" }
   ]
 }
