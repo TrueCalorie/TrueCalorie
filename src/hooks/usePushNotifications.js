@@ -71,7 +71,7 @@ export function usePushNotifications(session) {
 
     let reg = await navigator.serviceWorker.getRegistration('/sw-push.js')
     if (!reg) {
-      reg = await navigator.serviceWorker.register('/sw-push.js', { scope: '/' })
+      reg = await navigator.serviceWorker.register('/sw-push.js')
       await navigator.serviceWorker.ready
     }
 
