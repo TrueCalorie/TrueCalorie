@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "generate-vapid": "node -e \"const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log(k)\""
+    "generate-vapid": "node --input-type=module -e \"import webpush from 'web-push'; console.log(webpush.generateVAPIDKeys())\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
