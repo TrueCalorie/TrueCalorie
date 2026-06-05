@@ -26,9 +26,8 @@ function localDateStr(tz) {
 }
 
 export default async function handler(req, res) {
-  // Vercel cron authentication
-  const authHeader = req.headers.authorization || ''
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const authHeader = req.headers.authorization
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
