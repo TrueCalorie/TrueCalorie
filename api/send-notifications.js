@@ -26,9 +26,12 @@ function localDateStr(tz) {
 }
 
 export default async function handler(req, res) {
-  const authHeader = req.headers.authorization
+  const authHeader = req.headers.authorization || req.headers.Authorization || ''
+  console.log('AUTH HEADER RECEIVED:', JSON.stringify(authHeader))
+  console.log('CRON_SECRET SET:', !!process.env.CRON_SECRET)
+  console.log('EXPECTED:', `Bearer ${process.env.CRON_SECRET}`)
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).json({ error: 'Unauthorized' })
+    return res.status(401).json({ error: 'Unauthorized', received: authHeader })
   }
 
   const { data: subs, error } = await supabase
