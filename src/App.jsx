@@ -45,9 +45,7 @@ function App() {
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [meals, setMeals]                   = useState([])
   const [savedFoods, setSavedFoods]         = useState([])
-  const [showSettings, setShowSettings]     = useState(false)
-  const [showHistory, setShowHistory]       = useState(false)
-  const [showPurchasesOverlay, setShowPurchasesOverlay] = useState(false)
+  const [pageHistory, setPageHistory]       = useState([])
   const [showFounders, setShowFounders]     = useState(false)
   const [showPrivacy, setShowPrivacy]       = useState(false)
   const [showTerms, setShowTerms]           = useState(false)
@@ -56,7 +54,6 @@ function App() {
   const [selectedItem, setSelectedItem]     = useState(null)
   const [selectedMealTime, setSelectedMealTime] = useState('Lunch')
   const [editingMeal, setEditingMeal]       = useState(null)
-  const [showBodyFitness, setShowBodyFitness]   = useState(false)
   const [stravaCalsBurned, setStravaCalsBurned] = useState(0)
   const [stravaRefreshKey, setStravaRefreshKey] = useState(0)
   const [trailingBurn, setTrailingBurn]         = useState(0)
@@ -64,13 +61,17 @@ function App() {
   const lastStravaFetchRef = useRef(0)
   const [toastQueue, setToastQueue]         = useState([])
   const [currentToast, setCurrentToast]     = useState(null)
-  const [activeTab, setActiveTab]           = useState('today')
   const [ringFlash, setRingFlash]           = useState(false)
   const [logBtnPressed, setLogBtnPressed]   = useState(false)
   const ringFlashTimer                      = useRef(null)
 
   const { isPro, isTrialing, trialDaysLeft, source } = usePro()
   const isFounder = source === 'founder'
+
+  // ── Page navigation ────────────────────────────────────────────────────────
+  const navigateTo   = (page) => setPageHistory(h => [...h, page])
+  const navigateBack = ()     => setPageHistory(h => h.slice(0, -1))
+  const currentPage  = pageHistory[pageHistory.length - 1] || null
 
   // ── Session ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -108,7 +109,7 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('strava')) {
-      setShowSettings(true)
+      setPageHistory(['settings'])
     }
   }, [])
 
@@ -398,10 +399,9 @@ function App() {
   }
 
   const handleTabChange = (tab) => {
-    setActiveTab(tab)
-    if (tab === 'history')       { setShowHistory(true);  setShowSettings(false) }
-    else if (tab === 'settings') { setShowSettings(true); setShowHistory(false)  }
-    else                         { setShowHistory(false); setShowSettings(false) }
+    if (tab === 'history')       navigateTo('stats')
+    else if (tab === 'settings') navigateTo('settings')
+    else if (tab === 'trends')   navigateTo('trends')
   }
 
   // ── Derived values ─────────────────────────────────────────────────────────
@@ -482,6 +482,35 @@ function App() {
   if (!session) return <Auth />
   if (!settings || !settings.onboarding_complete) return <Onboarding session={session} onComplete={fetchSettings} />
 
+  // ── Page routing ───────────────────────────────────────────────────────────
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'settings':
+        return <Settings session={session} settings={settings} onUpdate={fetchSettings} onClose={navigateBack} onNavigate={navigateTo} />
+      case 'stats':
+        return <Stats session={session} settings={settings} onClose={navigateBack} />
+      case 'trends':
+        return <Trends session={session} settings={settings} isPro={isPro} onUpgrade={() => navigateTo('subscription')} onClose={navigateBack} />
+      case 'body-fitness':
+        return <BodyFitnessPage session={session} settings={settings} onUpdate={fetchSettings} onClose={navigateBack} isPro={isPro} isTrialing={isTrialing} />
+      case 'subscription':
+        return <Purchases session={session} onClose={navigateBack} />
+      default:
+        return null
+    }
+  }
+
+  if (currentPage) {
+    return (
+      <div style={{ fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh' }}>
+        {currentToast && (
+          <AchievementToast achievement={currentToast} onDone={() => setCurrentToast(null)} />
+        )}
+        {renderPage()}
+      </div>
+    )
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ position: 'relative', fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh' }}>
@@ -530,11 +559,11 @@ function App() {
           </div>
           <img src="/logo.png" style={{ height: 28, filter: 'var(--logo-filter)', opacity: 0.7 }} alt="TrueCalorie" />
         </div>
-        <TabBar activeTab={activeTab} onChange={handleTabChange} />
+        <TabBar activeTab="today" onChange={handleTabChange} />
       </div>
 
       {/* ── Main content ── */}
-      <div key={activeTab} style={{ padding: '20px 16px 80px', animation: 'fadeIn 0.2s ease both' }}>
+      <div style={{ padding: '20px 16px 80px', animation: 'fadeIn 0.2s ease both' }}>
 
         {(
           <>
@@ -760,92 +789,6 @@ function App() {
           </>
         )}
       </div>
-
-      {/* ── Stats overlay ── */}
-      {showHistory && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'var(--bg)',
-          zIndex: 30, overflowY: 'auto', animation: 'fadeIn 0.2s ease both',
-        }}>
-          <Stats
-            session={session}
-            settings={settings}
-            onClose={() => { setShowHistory(false); setActiveTab('today') }}
-          />
-        </div>
-      )}
-
-      {/* ── Settings overlay ── */}
-      {showSettings && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'var(--bg)',
-          zIndex: 30, overflowY: 'auto', animation: 'fadeIn 0.2s ease both',
-        }}>
-          <Settings
-            session={session}
-            settings={settings}
-            onUpdate={fetchSettings}
-            onClose={() => { setShowSettings(false); setActiveTab('today') }}
-            onUpgrade={() => setShowPurchasesOverlay(true)}
-            onOpenBodyFitness={() => setShowBodyFitness(true)}
-          />
-        </div>
-      )}
-
-{/* ── Body & Fitness overlay ── */}
-{showBodyFitness && (
-  <div style={{
-    position: 'fixed', inset: 0, background: 'var(--bg)',
-    zIndex: 40, overflowY: 'auto', animation: 'fadeIn 0.2s ease both',
-  }}>
-    <BodyFitnessPage
-      session={session}
-      settings={settings}
-      onUpdate={fetchSettings}
-      onClose={() => setShowBodyFitness(false)}
-      isPro={isPro}
-      isTrialing={isTrialing}
-    />
-  </div>
-)}
-
-{/* ── Trends overlay ── */}
-{activeTab === 'trends' && (
-  <div style={{
-    position: 'fixed', inset: 0, background: 'var(--bg)',
-    zIndex: 30, overflowY: 'auto', animation: 'fadeIn 0.2s ease both',
-  }}>
-    <Trends
-      session={session}
-      settings={settings}
-      isPro={isPro}
-      onUpgrade={() => setShowPurchasesOverlay(true)}
-      onClose={() => setActiveTab('today')}
-    />
-  </div>
-)}
-
-  {/* ── Purchases overlay (from Trends upgrade CTA) ── */}
-  {showPurchasesOverlay && (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'var(--bg)',
-      zIndex: 50, overflowY: 'auto', animation: 'fadeIn 0.2s ease both',
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '16px 16px 14px', borderBottom: '1px solid var(--border)',
-        position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
-      }}>
-        <button onClick={() => setShowPurchasesOverlay(false)} style={{
-          background: 'none', border: 'none', padding: 0,
-          cursor: 'pointer', color: 'var(--text)', fontSize: 20, lineHeight: 1,
-        }}>←</button>
-        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
-          Upgrade to Pro
-        </span>
-      </div>
-      <Purchases session={session} onClose={() => setShowPurchasesOverlay(false)} />    </div>
-  )}
 
       {/* ── Log Food sheet ── */}
       <LogFoodSheet

@@ -276,8 +276,8 @@ export default function BodyFitnessPage({ session, settings, onUpdate, onClose, 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'var(--bg)',
-      zIndex: 40, overflowY: 'auto', fontFamily: 'inherit',
+      minHeight: '100dvh', background: 'var(--bg)',
+      overflowY: 'auto', fontFamily: 'inherit',
     }}>
 
       {/* Sticky header */}

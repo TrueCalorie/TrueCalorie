@@ -425,7 +425,7 @@ export default function Stats({ session, settings, onClose }) {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto' }}>
+    <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100dvh', background: 'var(--bg)' }}>
 
       {/* Sticky header */}
       <div style={{

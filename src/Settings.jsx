@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
-import Purchases from './Purchases'
 import StravaConnect from './components/StravaConnect'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -67,7 +66,7 @@ function Segmented({ value, onChange, options }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function Settings({ session, settings, onUpdate, onClose, onUpgrade, onOpenBodyFitness }) {
+export default function Settings({ session, settings, onUpdate, onClose, onNavigate }) {
   const { isPro, isTrialing, trialDaysLeft, loading, source, expiresAt, cancelAtPeriodEnd } = usePro()
   const isProUser    = isPro || isTrialing
   const isFounder    = source === 'founder'
@@ -93,7 +92,6 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
 
   const [saving, setSaving]               = useState(false)
   const [saved, setSaved]                 = useState(false)
-  const [showPurchases, setShowPurchases] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError]     = useState(null)
   const [currentTheme, setCurrentThemeState] = useState(
@@ -200,7 +198,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
         <div>
           <SectionLabel>Subscription</SectionLabel>
           <Card>
-            <button onClick={() => setShowPurchases(true)} style={{
+            <button onClick={() => onNavigate?.('subscription')} style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
               borderBottom: isMonthlyPro ? '1px solid var(--border)' : 'none',
               opacity: loading ? 0 : 1, transition: 'opacity 0.3s',
@@ -308,7 +306,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
         <div>
           <SectionLabel>Body & Fitness</SectionLabel>
           <Card>
-            <button onClick={() => onOpenBodyFitness?.()} style={{
+            <button onClick={() => onNavigate?.('body-fitness')} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               width: '100%', padding: '14px 16px', background: 'none', border: 'none',
               cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
@@ -370,28 +368,6 @@ export default function Settings({ session, settings, onUpdate, onClose, onUpgra
 
       </div>
 
-      {/* ── Purchases overlay ────────────────────────────────────────────── */}
-      {showPurchases && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 50,
-          background: 'var(--bg)', overflowY: 'auto', fontFamily: 'inherit',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '16px 16px 14px', borderBottom: '1px solid var(--border)',
-            position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
-          }}>
-            <button onClick={() => setShowPurchases(false)} style={{
-              background: 'none', border: 'none', padding: 0,
-              cursor: 'pointer', color: 'var(--text)', fontSize: 20, lineHeight: 1,
-            }}>←</button>
-            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
-              Subscription
-            </span>
-          </div>
-          <Purchases session={session} onClose={() => setShowPurchases(false)} />
-        </div>
-      )}
     </div>
   )
 }

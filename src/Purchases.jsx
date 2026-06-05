@@ -65,13 +65,29 @@ export default function Purchases({ session, onClose }) {
 
   if (loading) return null
 
-  // ── Pro / Founder dashboard ───────────────────────────────────────────────
-  if (hasOwnedPro) {
-    const renewDate = expiresAt
-      ? new Date(expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-      : null
+  const renewDate = expiresAt
+    ? new Date(expiresAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null
 
-    return (
+  return (
+    <div style={{ minHeight: '100dvh', background: 'var(--bg)' }}>
+      {/* ── Sticky header ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '16px 16px 14px', borderBottom: '1px solid var(--border)',
+        position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
+      }}>
+        <button onClick={onClose} style={{
+          background: 'none', border: 'none', padding: 0,
+          cursor: 'pointer', color: 'var(--text)', fontSize: 20, lineHeight: 1,
+        }}>←</button>
+        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
+          Subscription
+        </span>
+      </div>
+
+      {/* ── Pro / Founder dashboard ─────────────────────────────────────────── */}
+      {hasOwnedPro ? (
       <div style={{ padding: '20px 16px 40px', maxWidth: 480, margin: '0 auto' }}>
 
         {/* ── Post-purchase athletic targets prompt ── */}
@@ -213,12 +229,9 @@ export default function Purchases({ session, onClose }) {
           </div>
         )}
       </div>
-    )
-  }
-
-  // ── Purchase screen (free / trialing users) ───────────────────────────────
-  return (
-    <div style={{ padding: '20px 16px 40px', maxWidth: 480, margin: '0 auto' }}>
+      ) : (
+      /* ── Purchase screen (free / trialing users) ─────────────────────────── */
+      <div style={{ padding: '20px 16px 40px', maxWidth: 480, margin: '0 auto' }}>
 
       {/* Trial banner */}
       {isTrialing && (
@@ -349,6 +362,8 @@ export default function Purchases({ session, onClose }) {
           spotsLeft={spotsLeft}
           onClose={() => setShowFoundersModal(false)}
         />
+      )}
+      </div>
       )}
     </div>
   )
