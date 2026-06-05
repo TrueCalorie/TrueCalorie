@@ -1,6 +1,9 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from './supabase'
 
 export default function Landing({ onGetStarted }) {
+
+  const [spotsLeft, setSpotsLeft] = useState(null)
 
   useEffect(() => {
     const els = document.querySelectorAll('.fade-up')
@@ -12,6 +15,12 @@ export default function Landing({ onGetStarted }) {
         el.style.opacity = 1
         el.style.transform = 'translateY(0)'
       }, 50)
+    })
+  }, [])
+
+  useEffect(() => {
+    supabase.rpc('founder_count').then(({ data }) => {
+      if (data != null) setSpotsLeft(100 - data)
     })
   }, [])
 
@@ -78,7 +87,7 @@ export default function Landing({ onGetStarted }) {
           Log a meal by talking. Get targets built around your training. The nutrition tracker for people who treat food like part of the work.
         </p>
 
-        <div className="fade-up" style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
           <button
             onClick={onGetStarted}
             style={{
@@ -95,46 +104,16 @@ export default function Landing({ onGetStarted }) {
           <button
             onClick={goToFounders}
             style={{
-              background: 'none', border: '1px solid #1D9E75', color: '#1D9E75',
-              padding: '14px 32px', borderRadius: 10,
-              fontSize: 15, fontWeight: 500, cursor: 'pointer',
-              fontFamily: 'sans-serif', transition: 'all 0.2s',
+              background: 'none', border: 'none', color: '#1D9E75',
+              fontSize: 13, cursor: 'pointer', fontFamily: 'sans-serif',
+              padding: 0, transition: 'opacity 0.2s',
             }}
-            onMouseEnter={e => { e.target.style.background = 'rgba(29,158,117,0.08)' }}
-            onMouseLeave={e => { e.target.style.background = 'none' }}
+            onMouseEnter={e => e.target.style.opacity = 0.7}
+            onMouseLeave={e => e.target.style.opacity = 1}
           >
-            Founders pricing
+            or see Founders pricing
           </button>
         </div>
-      </div>
-
-      {/* Features */}
-      <div className="fade-up" style={{
-        maxWidth: 760, margin: '0 auto 80px', padding: '0 32px',
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16,
-      }}>
-        {[
-          {
-            title: 'Log a meal in under 10 seconds',
-            desc: 'Say what you ate and TrueCalorie figures out the rest. No searching, no typing, no tapping through menus.',
-          },
-          {
-            title: 'Targets built around you',
-            desc: 'Calorie and macro goals calculated from your body, your activity, and your goals. Including athletic targets for high-volume training.',
-          },
-          {
-            title: 'Any restaurant, instantly',
-            desc: 'Search 800+ restaurant menus before you order. Log a real meal without guessing what is in it.',
-          },
-        ].map((p, i) => (
-          <div key={i} style={{
-            padding: '24px', border: '1px solid #1f1f1f',
-            borderRadius: 14, background: '#111',
-          }}>
-            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 10, fontFamily: 'sans-serif' }}>{p.title}</div>
-            <div style={{ fontSize: 13, color: '#666', lineHeight: 1.6, fontFamily: 'sans-serif' }}>{p.desc}</div>
-          </div>
-        ))}
       </div>
 
       {/* App mockup */}
@@ -210,6 +189,35 @@ export default function Landing({ onGetStarted }) {
         </div>
       </div>
 
+      {/* Features */}
+      <div className="fade-up" style={{
+        maxWidth: 760, margin: '0 auto 80px', padding: '0 32px',
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16,
+      }}>
+        {[
+          {
+            title: 'Log a meal in under 10 seconds',
+            desc: 'Say what you ate and TrueCalorie handles the rest. No searching, no typing. Fuel up and get back to your day.',
+          },
+          {
+            title: 'Targets that match your training',
+            desc: 'Calorie and macro goals built around your sport, your training volume, and your phase. Not a generic activity slider.',
+          },
+          {
+            title: 'Your runs, automatically',
+            desc: 'Connect Strava and your training load adjusts your targets. Burn more, eat more. It stays in sync without you thinking about it.',
+          },
+        ].map((p, i) => (
+          <div key={i} style={{
+            padding: '24px', border: '1px solid #1f1f1f',
+            borderRadius: 14, background: '#111',
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 10, fontFamily: 'sans-serif' }}>{p.title}</div>
+            <div style={{ fontSize: 13, color: '#666', lineHeight: 1.6, fontFamily: 'sans-serif' }}>{p.desc}</div>
+          </div>
+        ))}
+      </div>
+
       {/* Social proof */}
       <div className="fade-up" style={{
         maxWidth: 760, margin: '0 auto 80px', padding: '0 32px', textAlign: 'center',
@@ -246,7 +254,9 @@ export default function Landing({ onGetStarted }) {
               Lock in Pro for $79.99, one time.
             </div>
             <div style={{ fontSize: 13, color: '#888', fontFamily: 'sans-serif' }}>
-              100 spots total. Price locks in permanently when you join.
+              {spotsLeft != null
+                ? `${spotsLeft} of 100 spots left. Price locks in permanently when you join.`
+                : '100 spots total. Price locks in permanently when you join.'}
             </div>
           </div>
           <div style={{ fontSize: 22, color: '#1D9E75', flexShrink: 0 }}>›</div>
