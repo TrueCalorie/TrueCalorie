@@ -70,6 +70,7 @@ function App() {
 
   // Register push SW early so it can receive pushes even before Settings opens
   useEffect(() => {
+    if (window.Capacitor) return
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw-push.js').catch(() => {})
     }
