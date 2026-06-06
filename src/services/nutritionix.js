@@ -388,8 +388,28 @@ export const NUTRITIONIX_HAS_REAL_KEYS = true
 // Used by the restaurant chain picker UI.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Sorted list of all unique chain names in the mock dataset. */
-export const CHAIN_NAMES = [...new Set(MOCK_RESTAURANTS.map(i => i.brand_name))].sort()
+const SUPPORTED_CHAINS = [
+  "Applebee's", "Arby's", "Auntie Anne's", 'Baja Fresh', 'Baskin-Robbins',
+  'Bob Evans', 'Boston Market', "Braum's", "Bruegger's Bagels", 'Buffalo Wild Wings',
+  'Burger King', 'California Pizza Kitchen', "Captain D's", "Carl's Jr.", 'Cava',
+  "Checkers/Rally's", 'Cheesecake Factory', 'Chick-fil-A', "Chili's", 'Chipotle',
+  "Church's Chicken", 'Cinnabon', 'Corner Bakery', 'Costco Food Court', 'Cracker Barrel',
+  "Culver's", 'Dairy Queen', 'Del Taco', "Denny's", "Domino's", 'Dutch Bros',
+  'El Pollo Loco', "Fazoli's", 'Firehouse Subs', 'First Watch', 'Five Guys',
+  'Golden Corral', 'Habit Burger', "Hardee's", 'IHOP', 'In-N-Out Burger',
+  'Jack in the Box', "Jason's Deli", "Jersey Mike's", "Jimmy John's", "Joe's Crab Shack",
+  'KFC', 'Krispy Kreme', 'Little Caesars', "Long John Silver's", "Luby's",
+  "McAlister's Deli", "McDonald's", "Moe's Southwest Grill", 'Noodles & Company',
+  'Olive Garden', 'On the Border', 'Outback Steakhouse', 'Panda Express', 'Panera Bread',
+  "Papa John's", "Papa Murphy's", 'Perkins', 'Pizza Hut', 'Popeyes', 'Port of Subs',
+  'Potbelly', 'Qdoba', "Raising Cane's", 'Red Lobster', 'Red Robin', "Rubio's",
+  'Sbarro', 'Shake Shack', 'Slim Chickens', 'Smoothie King', 'Sonic Drive-In',
+  'Starbucks', "Steak 'n Shake", 'Subway', 'Sweetgreen', 'TGI Fridays', 'Taco Bell',
+  'Tim Hortons', 'Tropical Smoothie Cafe', 'Waffle House', "Wendy's", 'Whataburger',
+  'White Castle', 'Wingstop', "Zaxby's", 'Zoes Kitchen',
+]
+
+export const CHAIN_NAMES = SUPPORTED_CHAINS.sort()
 
 /**
  * Get all menu items for a specific chain.
