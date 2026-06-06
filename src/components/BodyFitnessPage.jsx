@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { supabase } from '../supabase'
 import { calculateGoals, calculateGoalsPro } from '../macros'
+import { requestHealthKitPermissions, syncWeightToHealthKit } from '../hooks/useHealthKit'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function Card({ children, style }) {
@@ -172,6 +174,7 @@ export default function BodyFitnessPage({ session, settings, onUpdate, onClose, 
     if (!error) {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+      if (weight_kg) syncWeightToHealthKit(weight_kg)
       onUpdate?.()
     }
   }
@@ -656,6 +659,18 @@ export default function BodyFitnessPage({ session, settings, onUpdate, onClose, 
               )}
             </Card>
           </div>
+        )}
+
+        {/* ── Apple Health ── */}
+        {Capacitor.isNativePlatform() && (
+          <button onClick={requestHealthKitPermissions} style={{
+            width: '100%', padding: '11px', background: 'none',
+            border: '1px solid var(--border)', borderRadius: 12, fontSize: 13,
+            fontWeight: 500, color: 'var(--text)',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>
+            Connect Apple Health
+          </button>
         )}
 
       </div>

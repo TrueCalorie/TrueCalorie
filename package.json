@@ -10,6 +10,7 @@
     "generate-vapid": "node --input-type=module -e \"import webpush from 'web-push'; console.log(webpush.generateVAPIDKeys())\""
   },
   "dependencies": {
+    "@capacitor/core": "^8.4.0",
     "@supabase/supabase-js": "^2.105.4",
     "@zxing/browser": "^0.2.0",
     "react": "^18.2.0",

@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      external: ['@capgo/capacitor-health'],
+    },
+  },
   plugins: [
     react(),
     VitePWA({
