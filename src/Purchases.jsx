@@ -37,8 +37,10 @@ export default function Purchases({ session, onClose }) {
   }, [])
 
   const fetchFoundersClaimed = async () => {
-    const { data: count } = await supabase.rpc('founder_count')
-    setFoundersClaimed(count ?? 0)
+    try {
+      const { data: count } = await supabase.rpc('founder_count')
+      setFoundersClaimed(count ?? 0)
+    } catch {}
   }
 
   const handleProSubscribe = async () => {

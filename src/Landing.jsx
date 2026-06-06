@@ -21,7 +21,7 @@ export default function Landing({ onGetStarted }) {
   useEffect(() => {
     supabase.rpc('founder_count').then(({ data }) => {
       if (data != null) setSpotsLeft(100 - data)
-    })
+    }).catch(() => {})
   }, [])
 
   const navigateTo = (path) => {

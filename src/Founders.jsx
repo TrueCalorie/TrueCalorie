@@ -29,8 +29,10 @@ export default function Founders({ onBack }) {
   }, [])
 
   const fetchClaimedCount = async () => {
-    const { data, error } = await supabase.rpc('founder_count')
-    if (!error && data !== null) setClaimed(data)
+    try {
+      const { data, error } = await supabase.rpc('founder_count')
+      if (!error && data !== null) setClaimed(data)
+    } catch {}
     setLoading(false)
   }
 

@@ -21,21 +21,23 @@ export default function WaterCard({ session }) {
   }, [session])
 
   const fetchToday = async () => {
-    const now   = new Date()
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
-    const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+    try {
+      const now   = new Date()
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+      const end   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
 
-    const { data } = await supabase
-      .from('water_logs')
-      .select('amount_oz')
-      .eq('user_id', session.user.id)
-      .gte('logged_at', start.toISOString())
-      .lte('logged_at', end.toISOString())
+      const { data } = await supabase
+        .from('water_logs')
+        .select('amount_oz')
+        .eq('user_id', session.user.id)
+        .gte('logged_at', start.toISOString())
+        .lte('logged_at', end.toISOString())
 
-    if (data) {
-      const total = data.reduce((sum, r) => sum + Number(r.amount_oz), 0)
-      setTodayOz(Math.round(total))
-    }
+      if (data) {
+        const total = data.reduce((sum, r) => sum + Number(r.amount_oz), 0)
+        setTodayOz(Math.round(total))
+      }
+    } catch {}
     setLoading(false)
   }
 

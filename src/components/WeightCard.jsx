@@ -104,24 +104,25 @@ export default function WeightCard({ session }) {
   useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
 
   const fetchWeights = async () => {
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - 8)
-    const { data } = await supabase
-      .from('weight_logs')
-      .select('weight_lbs, logged_at')
-      .eq('user_id', session.user.id)
-      .gte('logged_at', cutoff.toISOString())
-      .order('logged_at', { ascending: true })
+    try {
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - 8)
+      const { data } = await supabase
+        .from('weight_logs')
+        .select('weight_lbs, logged_at')
+        .eq('user_id', session.user.id)
+        .gte('logged_at', cutoff.toISOString())
+        .order('logged_at', { ascending: true })
 
-    if (data) {
-      // One entry per day; later entries overwrite earlier ones
-      const grouped = {}
-      data.forEach(row => {
-        const date = toLocalDateStr(row.logged_at)
-        grouped[date] = Number(row.weight_lbs)
-      })
-      setLogs(grouped)
-    }
+      if (data) {
+        const grouped = {}
+        data.forEach(row => {
+          const date = toLocalDateStr(row.logged_at)
+          grouped[date] = Number(row.weight_lbs)
+        })
+        setLogs(grouped)
+      }
+    } catch {}
     setLoaded(true)
   }
 

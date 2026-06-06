@@ -86,7 +86,7 @@ function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setLoading(false)
-    })
+    }).catch(() => { setLoading(false) })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setPasswordResetMode(true)
@@ -180,40 +180,42 @@ function App() {
   // ── Data fetchers ──────────────────────────────────────────────────────────
   const fetchSettings = async () => {
     if (!session) return
-    const { data } = await supabase
-      .from('user_settings').select('*').eq('user_id', session.user.id).single()
-    if (data) {
-      setSettings(data)
-      if (data.theme) document.documentElement.setAttribute('data-theme', data.theme)
-    }
+    try {
+      const { data } = await supabase
+        .from('user_settings').select('*').eq('user_id', session.user.id).single()
+      if (data) {
+        setSettings(data)
+        if (data.theme) document.documentElement.setAttribute('data-theme', data.theme)
+      }
+    } catch {}
     setSettingsLoaded(true)
   }
 
   const fetchMeals = async () => {
     if (!session) return
+    try {
+      const now = new Date()
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+      const endOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
 
-    // Build start/end of the current LOCAL calendar day.
-    // new Date(y, m, d, ...) uses local time, so .toISOString() on it
-    // gives the correct UTC equivalent of local midnight — not UTC midnight.
-    const now = new Date()
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
-    const endOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+      const { data } = await supabase
+        .from('meal_logs').select('*').eq('user_id', session.user.id)
+        .gte('logged_at', startOfDay.toISOString())
+        .lte('logged_at', endOfDay.toISOString())
+        .order('logged_at', { ascending: true })
 
-    const { data } = await supabase
-      .from('meal_logs').select('*').eq('user_id', session.user.id)
-      .gte('logged_at', startOfDay.toISOString())
-      .lte('logged_at', endOfDay.toISOString())
-      .order('logged_at', { ascending: true })
-
-    if (data) setMeals(data)
+      if (data) setMeals(data)
+    } catch {}
   }
 
   const fetchSavedFoods = async () => {
     if (!session) return
-    const { data } = await supabase
-      .from('saved_foods').select('*').eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-    if (data) setSavedFoods(data)
+    try {
+      const { data } = await supabase
+        .from('saved_foods').select('*').eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+      if (data) setSavedFoods(data)
+    } catch {}
   }
 
   const fetchStravaToday = async () => {

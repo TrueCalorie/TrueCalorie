@@ -131,6 +131,7 @@ export default function BodyFitnessPage({ session, settings, onUpdate, onClose, 
   useEffect(() => {
     supabase.from('strava_tokens').select('user_id').eq('user_id', session.user.id).maybeSingle()
       .then(({ data }) => setStravaConnected(!!data))
+      .catch(() => {})
   }, [session.user.id])
 
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }))
