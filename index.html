@@ -22,18 +22,6 @@
     <link rel="icon" href="/favicon.ico" />
   </head>
   <body>
-    <script>
-      function showError(msg) {
-        document.body.style.cssText = 'background:#fff;margin:0;padding:0;';
-        document.body.innerHTML = '<div style="padding:16px;font-size:11px;color:red;font-family:monospace;word-break:break-all;white-space:pre-wrap;overflow-y:auto;height:100vh;">' + msg + '</div>';
-      }
-      window.onerror = function(msg, src, line, col, err) {
-        showError('ERROR: ' + msg + '\n\nSource: ' + src + '\nLine: ' + line + '\n\n' + (err ? err.stack : ''));
-      };
-      window.addEventListener('unhandledrejection', function(e) {
-        showError('UNHANDLED PROMISE:\n\n' + (e.reason ? e.reason.stack || e.reason.message || String(e.reason) : String(e)));
-      });
-    </script>
     <div id="root">
     <!-- Fallback content for crawlers and pre-JS render.
          React replaces this entirely when it mounts. -->

@@ -4,7 +4,7 @@ const isNative = Capacitor.isNativePlatform()
 
 let Health = null
 if (isNative) {
-  import(/* @vite-ignore */ '@capgo/capacitor-health').then(m => { Health = m.Health })
+  import(/* @vite-ignore */ '@capgo/capacitor-health').then(m => { Health = m.Health }).catch(() => {})
 }
 
 export async function requestHealthKitPermissions() {
