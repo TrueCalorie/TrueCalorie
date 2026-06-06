@@ -22,6 +22,19 @@
     <link rel="icon" href="/favicon.ico" />
   </head>
   <body>
+    <script>
+      window.onerror = function(msg, src, line, col, err) {
+        document.body.style.background = '#fff';
+        document.body.innerHTML = '<pre style="padding:20px;font-size:12px;color:red;">' +
+          'ERROR: ' + msg + '\nSource: ' + src + '\nLine: ' + line + '\n' + (err ? err.stack : '') +
+          '</pre>';
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        document.body.style.background = '#fff';
+        document.body.innerHTML = '<pre style="padding:20px;font-size:12px;color:red;">' +
+          'UNHANDLED PROMISE: ' + (e.reason ? e.reason.stack || e.reason : e) + '</pre>';
+      });
+    </script>
     <div id="root">
     <!-- Fallback content for crawlers and pre-JS render.
          React replaces this entirely when it mounts. -->
