@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const isCapacitor = process.env.CAPACITOR_BUILD === 'true'
+
 export default defineConfig({
   build: {
     rollupOptions: {
@@ -10,7 +12,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    VitePWA({
+    !isCapacitor && VitePWA({
       registerType: 'autoUpdate',
       // Disable precaching entirely — service worker only handles manifest
       // This prevents the SW from clearing localStorage on activation
@@ -46,5 +48,5 @@ export default defineConfig({
         ],
       },
     }),
-  ],
+  ].filter(Boolean),
 })
