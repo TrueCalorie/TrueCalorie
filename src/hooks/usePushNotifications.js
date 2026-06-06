@@ -15,8 +15,11 @@ function toLocalDateStr(date) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
+const isCapacitor = typeof window !== 'undefined' && !!(window.Capacitor)
+
 export function usePushNotifications(session) {
-  const isSupported = typeof window !== 'undefined'
+  const isSupported = !isCapacitor
+    && typeof window !== 'undefined'
     && 'Notification' in window
     && 'serviceWorker' in navigator
     && 'PushManager' in window
