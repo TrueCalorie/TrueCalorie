@@ -1,3 +1,5 @@
+import { supabase } from '../supabase'
+
 /**
  * Nutritionix service module.
  *
@@ -13,9 +15,6 @@
  * unless part of the standard item name. Nutritionix will replace these with exact data.
  */
 
-const APP_ID  = import.meta.env.VITE_NUTRITIONIX_APP_ID
-const APP_KEY = import.meta.env.VITE_NUTRITIONIX_APP_KEY
-const HAS_REAL_KEYS = Boolean(APP_ID && APP_KEY)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MOCK DATA — 28 chains, ~250 items
@@ -348,9 +347,11 @@ function scoreResult(item, query) {
  */
 export async function searchRestaurants(query) {
   if (!query?.trim()) return []
-  return HAS_REAL_KEYS
-    ? searchRestaurantsReal(query)
-    : searchRestaurantsMock(query)
+  try {
+    const items = await callRestaurantSearch(query, 'search')
+    if (items) return items
+  } catch {}
+  return searchRestaurantsMock(query)
 }
 
 async function searchRestaurantsMock(query) {
@@ -365,39 +366,22 @@ async function searchRestaurantsMock(query) {
     .map(({ _score, ...item }) => item)  // strip internal _score before returning
 }
 
-async function searchRestaurantsReal(query) {
-  try {
-    const res = await fetch(
-      `https://trackapi.nutritionix.com/v2/search/instant?query=${encodeURIComponent(query)}`,
-      {
-        headers: {
-          'x-app-id':  APP_ID,
-          'x-app-key': APP_KEY,
-        },
-      }
-    )
-    if (!res.ok) throw new Error(`Nutritionix returned ${res.status}`)
-    const data = await res.json()
-
-    // Nutritionix returns { branded: [], common: [] }
-    // Branded items = restaurant chains. Common = generic foods.
-    return (data.branded || []).map(item => ({
-      food_name:             item.food_name,
-      brand_name:            item.brand_name,
-      nf_calories:           item.nf_calories,
-      nf_protein:            item.nf_protein,
-      nf_total_carbohydrate: item.nf_total_carbohydrate,
-      nf_total_fat:          item.nf_total_fat,
-      serving_unit:          item.serving_unit,
-      serving_qty:           item.serving_qty,
-    }))
-  } catch (e) {
-    console.error('Nutritionix search failed:', e)
-    return []
-  }
+async function callRestaurantSearch(query, mode = 'search') {
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch('/api/restaurant-search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session?.access_token}`,
+    },
+    body: JSON.stringify({ query, mode }),
+  })
+  if (!res.ok) return null
+  const data = await res.json()
+  return data.items || []
 }
 
-export const NUTRITIONIX_HAS_REAL_KEYS = HAS_REAL_KEYS
+export const NUTRITIONIX_HAS_REAL_KEYS = true
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CHAIN BROWSER EXPORTS
@@ -414,9 +398,15 @@ export const CHAIN_NAMES = [...new Set(MOCK_RESTAURANTS.map(i => i.brand_name))]
  */
 export async function getChainMenuItems(brandName) {
   if (!brandName) return []
-  if (HAS_REAL_KEYS) {
-    return searchRestaurantsReal(brandName)
-  }
-  await new Promise(r => setTimeout(r, 250))  // simulate latency
+  try {
+    const items = await callRestaurantSearch(brandName, 'chain')
+    if (items && items.length > 0) {
+      return items.filter(i =>
+        i.brand_name?.toLowerCase().includes(brandName.toLowerCase()) ||
+        brandName.toLowerCase().includes(i.brand_name?.toLowerCase())
+      )
+    }
+  } catch {}
+  await new Promise(r => setTimeout(r, 250))
   return MOCK_RESTAURANTS.filter(item => item.brand_name === brandName)
 }

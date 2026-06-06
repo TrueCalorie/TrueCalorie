@@ -124,7 +124,7 @@ export default function Landing({ onGetStarted }) {
         }}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>Hey, Jordan</span>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>Hey, Jimmy</span>
             <span style={{ fontSize: 12, color: '#444' }}>stats</span>
           </div>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getChainMenuItems, CHAIN_NAMES, NUTRITIONIX_HAS_REAL_KEYS } from '../services/nutritionix'
+import { getChainMenuItems, CHAIN_NAMES } from '../services/nutritionix'
 
 // ─── Chain display metadata ───────────────────────────────────────────────────
 const CHAIN_META = {
@@ -302,31 +302,6 @@ function ChainMenu({ chainName, onSelect, onBack }) {
 function ChainPicker({ onSelect }) {
   const [query, setQuery]               = useState('')
   const [recentChains, setRecentChains] = useState(getRecentChains)
-  const [locationState, setLocationState] = useState('idle') // idle | loading | granted | denied
-  const [locationNote, setLocationNote] = useState('')
-
-  const requestLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationNote('Geolocation not supported in this browser.')
-      return
-    }
-    setLocationState('loading')
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        // Coordinates stored for Nutritionix location-aware endpoints when keys arrive.
-        // Full "sort by nearest location" requires a restaurant location DB (e.g. Google Places).
-        localStorage.setItem('tc_user_lat', pos.coords.latitude)
-        localStorage.setItem('tc_user_lng', pos.coords.longitude)
-        setLocationState('granted')
-        setLocationNote('Location saved — nearby sorting activates with Nutritionix.')
-      },
-      (err) => {
-        setLocationState('denied')
-        setLocationNote(err.code === 1 ? 'Location access denied.' : 'Could not get location.')
-      },
-      { timeout: 8000, maximumAge: 300000 }
-    )
-  }
 
   const handleSelect = (chainName) => {
     addRecentChain(chainName)
@@ -334,96 +309,46 @@ function ChainPicker({ onSelect }) {
     onSelect(chainName)
   }
 
-  const allChains = (CHAIN_NAMES.length > 0 ? CHAIN_NAMES : Object.keys(CHAIN_META).sort())
-  const filtered  = allChains.filter(name => name.toLowerCase().includes(query.toLowerCase()))
-  const recent    = recentChains.filter(name => allChains.includes(name))
+  const allChains  = (CHAIN_NAMES.length > 0 ? CHAIN_NAMES : Object.keys(CHAIN_META).sort())
+  const filtered   = allChains.filter(name => name.toLowerCase().includes(query.toLowerCase()))
+  const recent     = recentChains.filter(name => allChains.includes(name))
   const showRecent = recent.length > 0 && !query.trim()
 
   return (
     <div style={{ animation: 'fadeIn 0.2s ease both' }}>
 
-      {/* Preview banner */}
-      {!NUTRITIONIX_HAS_REAL_KEYS && (
-        <div style={{
-          padding: '8px 12px', marginBottom: 14, borderRadius: 10,
-          border: '1px dashed var(--border)', background: 'var(--surface)',
-          fontSize: 12, color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5,
-        }}>
-          Preview — full database of 200k+ items arrives with Nutritionix on June 2
-        </div>
-      )}
-
-      {/* Search + location row */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: locationNote ? 8 : 16 }}>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <span style={{
-            position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)',
-            fontSize: 15, pointerEvents: 'none', opacity: 0.4,
-          }}>🔍</span>
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search restaurants…"
-            autoFocus
-            style={{
-              width: '100%', padding: '10px 12px 10px 34px',
-              borderRadius: 10, boxSizing: 'border-box',
-              border: '1px solid var(--border)',
-              background: 'var(--surface)', color: 'var(--text)',
-              fontSize: 14, fontFamily: 'inherit', outline: 'none',
-            }}
-          />
-          {query && (
-            <button
-              onClick={() => setQuery('')}
-              style={{
-                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 'none', color: 'var(--muted)',
-                cursor: 'pointer', fontSize: 16, lineHeight: 1,
-              }}
-            >×</button>
-          )}
-        </div>
-
-        {/* Location button */}
-        <button
-          onClick={locationState === 'idle' || locationState === 'denied' ? requestLocation : undefined}
-          title={
-            locationState === 'granted' ? 'Location enabled'
-            : locationState === 'denied' ? 'Location denied — tap to retry'
-            : 'Enable location for nearby sorting'
-          }
+      {/* Search input */}
+      <div style={{ position: 'relative', marginBottom: 16 }}>
+        <span style={{
+          position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)',
+          fontSize: 15, pointerEvents: 'none', opacity: 0.4,
+        }}>🔍</span>
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search restaurants…"
+          autoFocus
           style={{
-            width: 42, height: 42, borderRadius: 10,
-            border: `1px solid ${locationState === 'granted' ? 'var(--accent)' : 'var(--border)'}`,
-            background: locationState === 'granted' ? 'rgba(29,158,117,0.1)' : 'var(--surface)',
-            cursor: locationState === 'granted' ? 'default' : 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18, flexShrink: 0, transition: 'all 0.2s',
+            width: '100%', padding: '10px 12px 10px 34px',
+            borderRadius: 10, boxSizing: 'border-box',
+            border: '1px solid var(--border)',
+            background: 'var(--surface)', color: 'var(--text)',
+            fontSize: 14, fontFamily: 'inherit', outline: 'none',
           }}
-        >
-          {locationState === 'loading' ? (
-            <div style={{
-              width: 14, height: 14, borderRadius: '50%',
-              border: '2px solid var(--border)', borderTopColor: 'var(--accent)',
-              animation: 'spin 0.7s linear infinite',
-            }} />
-          ) : '📍'}
-        </button>
+        />
+        {query && (
+          <button
+            onClick={() => setQuery('')}
+            style={{
+              position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+              background: 'none', border: 'none', color: 'var(--muted)',
+              cursor: 'pointer', fontSize: 16, lineHeight: 1,
+            }}
+          >×</button>
+        )}
       </div>
 
-      {/* Location note */}
-      {locationNote && (
-        <div style={{
-          fontSize: 11,
-          color: locationState === 'granted' ? 'var(--accent)' : 'var(--muted)',
-          marginBottom: 14, paddingLeft: 2,
-        }}>
-          {locationNote}
-        </div>
-      )}
-
-      {/* Recently used */}
+      {/* Recently used chips */}
       {showRecent && (
         <div style={{ marginBottom: 18 }}>
           <div style={{
@@ -475,54 +400,34 @@ function ChainPicker({ onSelect }) {
         </p>
       )}
 
-      {/* Restaurant list */}
+      {/* 3-column grid of chain cards */}
       {filtered.length > 0 && (
-        <div style={{
-          border: '1px solid var(--border)', borderRadius: 12,
-          overflow: 'hidden', background: 'var(--surface)',
-        }}>
-          {filtered.map((name, i) => {
-            const meta     = CHAIN_META[name] || { icon: '🍽️', color: '#888' }
-            const isRecent = recent.includes(name) && !query.trim()
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          {filtered.map(name => {
+            const meta = CHAIN_META[name] || { icon: '🍽️', color: '#888' }
             return (
               <button
                 key={name}
                 onClick={() => handleSelect(name)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  width: '100%', padding: '13px 14px',
-                  background: 'transparent', border: 'none',
-                  borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
-                  cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-                  transition: 'background 0.12s',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  padding: '14px 8px 12px', borderRadius: 12,
+                  border: '1px solid var(--border)', background: 'var(--surface)',
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  gap: 6, transition: 'background 0.12s',
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
               >
-                {/* Colored icon bubble */}
-                <div style={{
-                  width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 20,
-                  background: `${meta.color}14`,
-                  border: `1px solid ${meta.color}22`,
+                <span style={{ fontSize: 28, lineHeight: 1 }}>{meta.icon}</span>
+                <span style={{
+                  fontSize: 11, color: 'var(--text)', textAlign: 'center',
+                  lineHeight: 1.3, fontWeight: 500,
+                  display: '-webkit-box', WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}>
-                  {meta.icon}
-                </div>
-
-                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', flex: 1 }}>
                   {name}
                 </span>
-
-                {isRecent && (
-                  <span style={{
-                    fontSize: 10, color: 'var(--accent)', fontWeight: 600,
-                    border: '1px solid var(--accent)', borderRadius: 5,
-                    padding: '2px 6px', opacity: 0.65,
-                  }}>recent</span>
-                )}
-
-                <span style={{ color: 'var(--muted)', fontSize: 18, opacity: 0.35 }}>›</span>
               </button>
             )
           })}
