@@ -23,16 +23,15 @@
   </head>
   <body>
     <script>
+      function showError(msg) {
+        document.body.style.cssText = 'background:#fff;margin:0;padding:0;';
+        document.body.innerHTML = '<div style="padding:16px;font-size:11px;color:red;font-family:monospace;word-break:break-all;white-space:pre-wrap;overflow-y:auto;height:100vh;">' + msg + '</div>';
+      }
       window.onerror = function(msg, src, line, col, err) {
-        document.body.style.background = '#fff';
-        document.body.innerHTML = '<pre style="padding:20px;font-size:12px;color:red;">' +
-          'ERROR: ' + msg + '\nSource: ' + src + '\nLine: ' + line + '\n' + (err ? err.stack : '') +
-          '</pre>';
+        showError('ERROR: ' + msg + '\n\nSource: ' + src + '\nLine: ' + line + '\n\n' + (err ? err.stack : ''));
       };
       window.addEventListener('unhandledrejection', function(e) {
-        document.body.style.background = '#fff';
-        document.body.innerHTML = '<pre style="padding:20px;font-size:12px;color:red;">' +
-          'UNHANDLED PROMISE: ' + (e.reason ? e.reason.stack || e.reason : e) + '</pre>';
+        showError('UNHANDLED PROMISE:\n\n' + (e.reason ? e.reason.stack || e.reason.message || String(e.reason) : String(e)));
       });
     </script>
     <div id="root">
