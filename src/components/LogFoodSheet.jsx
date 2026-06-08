@@ -89,7 +89,11 @@ async function searchOpenFoodFacts(query) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, savedFoods = [], onToggleSave = () => {} }) {
+export default function LogFoodSheet({
+  open, onClose, onSelect, onBatchLog,
+  savedFoods = [], onToggleSave = () => {},
+  recipes = [], onSaveRecipe = () => {}, onDeleteRecipe = () => {},
+}) {
   const { isPro, isTrialing } = usePro()
   const [showUpgrade, setShowUpgrade] = useState(false)
 
@@ -102,6 +106,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
   const [resultPage, setResultPage]   = useState(0)
 
   // ── Recipe state ──────────────────────────────────────────────────────────
+  const [recipeId, setRecipeId]                       = useState(null)
   const [recipeName, setRecipeName]                   = useState('')
   const [recipeIngredients, setRecipeIngredients]     = useState([])
   const [recipeServings, setRecipeServings]           = useState(1)
@@ -134,7 +139,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     return () => clearTimeout(closeTimer.current)
   }, [open])
 
-  // Reset state when sheet closes
+  // Reset all state when sheet closes
   useEffect(() => {
     if (!open) {
       setMode(null)
@@ -142,6 +147,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
       setResults([])
       setHasSearched(false)
       setResultPage(0)
+      setRecipeId(null)
       setRecipeName('')
       setRecipeIngredients([])
       setRecipeServings(1)
@@ -246,6 +252,21 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     onClose()
   }
 
+  // ── Back button: go to mode picker and clear all recipe state ────────────
+  const handleBack = () => {
+    setMode(null)
+    setSearch('')
+    setResults([])
+    setHasSearched(false)
+    setRecipeId(null)
+    setRecipeName('')
+    setRecipeIngredients([])
+    setRecipeServings(1)
+    setRecipeIngSearch('')
+    setRecipeIngResults([])
+    setRecipeIngHasSearched(false)
+  }
+
   // ── Single-item selection (barcode, grocery, restaurant, saved) ──────────
   const handleSelect = (food) => {
     onSelect(food, mealTime)
@@ -274,6 +295,30 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     setRecipeIngHasSearched(false)
   }
 
+  // ── Recipe: open saved recipe for editing ─────────────────────────────────
+  const openRecipeForEdit = (recipe) => {
+    setRecipeId(recipe.id)
+    setRecipeName(recipe.name)
+    setRecipeServings(recipe.servings)
+    setRecipeIngredients(
+      (recipe.recipe_ingredients || [])
+        .slice()
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(ing => ({
+          food_name:             ing.food_name,
+          brand_name:            ing.brand_name || null,
+          nf_calories:           Number(ing.nf_calories)           || 0,
+          nf_protein:            Number(ing.nf_protein)            || 0,
+          nf_total_carbohydrate: Number(ing.nf_total_carbohydrate) || 0,
+          nf_total_fat:          Number(ing.nf_total_fat)          || 0,
+        }))
+    )
+    setRecipeIngSearch('')
+    setRecipeIngResults([])
+    setRecipeIngHasSearched(false)
+    setMode('recipe')
+  }
+
   // ── Recipe: computed totals ───────────────────────────────────────────────
   const recipeTotals = recipeIngredients.reduce((acc, f) => ({
     calories: acc.calories + (f.nf_calories           || 0),
@@ -292,7 +337,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
 
   const canLogRecipe = recipeName.trim().length > 0 && recipeIngredients.length > 0
 
-  // ── Recipe: log one serving ───────────────────────────────────────────────
+  // ── Recipe: log one serving (no save) ────────────────────────────────────
   const handleLogRecipe = () => {
     if (!canLogRecipe) return
     onBatchLog([{
@@ -307,19 +352,31 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     handleClose()
   }
 
-  // ── Recipe: save then log ─────────────────────────────────────────────────
+  // ── Recipe: save to recipes table then log ────────────────────────────────
   const handleSaveAndLogRecipe = () => {
     if (!canLogRecipe) return
-    const perServingFood = {
+    onSaveRecipe({
+      id:          recipeId,
+      name:        recipeName.trim(),
+      servings:    effectiveServings,
+      ingredients: recipeIngredients.map(ing => ({
+        food_name:             ing.food_name,
+        brand_name:            ing.brand_name || null,
+        nf_calories:           Number(ing.nf_calories)           || 0,
+        nf_protein:            Number(ing.nf_protein)            || 0,
+        nf_total_carbohydrate: Number(ing.nf_total_carbohydrate) || 0,
+        nf_total_fat:          Number(ing.nf_total_fat)          || 0,
+      })),
+    })
+    onBatchLog([{
       food_name:             recipeName.trim(),
       brand_name:            null,
       nf_calories:           recipePerServing.calories,
       nf_protein:            recipePerServing.protein,
       nf_total_carbohydrate: recipePerServing.carbs,
       nf_total_fat:          recipePerServing.fat,
-    }
-    onToggleSave(perServingFood)
-    onBatchLog([{ ...perServingFood, meal_time: mealTime }])
+      meal_time:             mealTime,
+    }])
     handleClose()
   }
 
@@ -337,7 +394,19 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     restaurant: 'Restaurant',
     voice:      'Voice Log',
     recipe:     'Recipe Builder',
-    saved:      'Saved Foods',
+    saved:      'Saved',
+  }
+
+  // ── Saved tab: per-serving helper ─────────────────────────────────────────
+  const recipePerServingMacros = (recipe) => {
+    const s = Math.max(1, recipe.servings)
+    const ings = recipe.recipe_ingredients || []
+    return {
+      calories: Math.round(ings.reduce((a, x) => a + Number(x.nf_calories),           0) / s),
+      protein:  Math.round(ings.reduce((a, x) => a + Number(x.nf_protein),            0) / s),
+      carbs:    Math.round(ings.reduce((a, x) => a + Number(x.nf_total_carbohydrate), 0) / s),
+      fat:      Math.round(ings.reduce((a, x) => a + Number(x.nf_total_fat),          0) / s),
+    }
   }
 
   return (
@@ -382,7 +451,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
         }}>
           {mode ? (
             <button
-              onClick={() => { setMode(null); setSearch(''); setResults([]); setHasSearched(false) }}
+              onClick={handleBack}
               style={{
                 background: 'none', border: 'none', padding: '4px 8px 4px 0',
                 fontSize: 13, color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit',
@@ -843,56 +912,135 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
             </>
           )}
 
-          {/* ── Saved Foods ── */}
+          {/* ── Saved tab ── */}
           {mode === 'saved' && (
-            savedFoods.length === 0 ? (
-              <p style={{
-                color: 'var(--muted)', textAlign: 'center',
-                fontSize: 14, marginTop: 40, lineHeight: 1.6,
-              }}>
-                No saved foods yet. Save a food or recipe from the detail screen.
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {savedFoods.map((food, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'flex', alignItems: 'center',
-                      borderBottom: i < savedFoods.length - 1 ? '1px solid var(--border)' : 'none',
-                      borderRadius: 8, transition: 'background 0.12s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <button
-                      onClick={() => handleSelect(food)}
-                      style={{
-                        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        padding: '10px 4px 10px 12px', fontFamily: 'inherit', textAlign: 'left',
-                      }}
-                    >
-                      <div style={{ fontSize: 14, color: 'var(--text)' }}>{food.food_name}</div>
-                      {food.brand_name && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{food.brand_name}</div>
-                      )}
-                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                        {Math.round(food.nf_calories)} cal · {Math.round(food.nf_protein)}p · {Math.round(food.nf_total_carbohydrate)}c · {Math.round(food.nf_total_fat)}f
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => onToggleSave(food)}
-                      style={{
-                        background: 'none', border: 'none', padding: '4px 12px',
-                        color: 'var(--muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1,
-                        flexShrink: 0,
-                      }}
-                    >×</button>
+            <>
+              {recipes.length === 0 && savedFoods.length === 0 && (
+                <p style={{
+                  color: 'var(--muted)', textAlign: 'center',
+                  fontSize: 14, marginTop: 40, lineHeight: 1.6,
+                }}>
+                  No saved foods yet. Save a food or recipe from the detail screen.
+                </p>
+              )}
+
+              {/* Recipes section */}
+              {recipes.length > 0 && (
+                <div style={{ marginBottom: savedFoods.length > 0 ? 24 : 0 }}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+                    letterSpacing: '0.08em', marginBottom: 8,
+                  }}>RECIPES</div>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {recipes.map((recipe, i) => {
+                      const ps = recipePerServingMacros(recipe)
+                      return (
+                        <div
+                          key={recipe.id}
+                          style={{
+                            display: 'flex', alignItems: 'center',
+                            borderBottom: i < recipes.length - 1 ? '1px solid var(--border)' : 'none',
+                            borderRadius: 8, transition: 'background 0.12s',
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <button
+                            onClick={() => {
+                              onBatchLog([{
+                                food_name:             recipe.name,
+                                brand_name:            null,
+                                nf_calories:           ps.calories,
+                                nf_protein:            ps.protein,
+                                nf_total_carbohydrate: ps.carbs,
+                                nf_total_fat:          ps.fat,
+                                meal_time:             mealTime,
+                              }])
+                              handleClose()
+                            }}
+                            style={{
+                              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              padding: '10px 4px 10px 12px', fontFamily: 'inherit', textAlign: 'left',
+                            }}
+                          >
+                            <div style={{ fontSize: 14, color: 'var(--text)' }}>{recipe.name}</div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                              {ps.calories} cal · {ps.protein}p · {ps.carbs}c · {ps.fat}f per serving
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => openRecipeForEdit(recipe)}
+                            style={{
+                              background: 'none', border: 'none', padding: '4px 8px',
+                              color: 'var(--muted)', cursor: 'pointer', fontSize: 15, lineHeight: 1,
+                              flexShrink: 0,
+                            }}
+                          >✎</button>
+                          <button
+                            onClick={() => onDeleteRecipe(recipe.id)}
+                            style={{
+                              background: 'none', border: 'none', padding: '4px 12px',
+                              color: 'var(--muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1,
+                              flexShrink: 0,
+                            }}
+                          >×</button>
+                        </div>
+                      )
+                    })}
                   </div>
-                ))}
-              </div>
-            )
+                </div>
+              )}
+
+              {/* Saved foods section */}
+              {savedFoods.length > 0 && (
+                <>
+                  <div style={{
+                    fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+                    letterSpacing: '0.08em', marginBottom: 8,
+                  }}>SAVED FOODS</div>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {savedFoods.map((food, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: 'flex', alignItems: 'center',
+                          borderBottom: i < savedFoods.length - 1 ? '1px solid var(--border)' : 'none',
+                          borderRadius: 8, transition: 'background 0.12s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <button
+                          onClick={() => handleSelect(food)}
+                          style={{
+                            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            padding: '10px 4px 10px 12px', fontFamily: 'inherit', textAlign: 'left',
+                          }}
+                        >
+                          <div style={{ fontSize: 14, color: 'var(--text)' }}>{food.food_name}</div>
+                          {food.brand_name && (
+                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{food.brand_name}</div>
+                          )}
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                            {Math.round(food.nf_calories)} cal · {Math.round(food.nf_protein)}p · {Math.round(food.nf_total_carbohydrate)}c · {Math.round(food.nf_total_fat)}f
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => onToggleSave(food)}
+                          style={{
+                            background: 'none', border: 'none', padding: '4px 12px',
+                            color: 'var(--muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1,
+                            flexShrink: 0,
+                          }}
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
           )}
 
         </div>

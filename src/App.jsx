@@ -45,6 +45,7 @@ function App() {
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [meals, setMeals]                   = useState([])
   const [savedFoods, setSavedFoods]         = useState([])
+  const [recipes, setRecipes]               = useState([])
   const [pageHistory, setPageHistory]       = useState([])
   const [showFounders, setShowFounders]     = useState(false)
   const [showPrivacy, setShowPrivacy]       = useState(false)
@@ -123,7 +124,7 @@ function App() {
 
   // ── Fetch on session ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (session) { fetchSettings(); fetchMeals(); fetchSavedFoods() }
+    if (session) { fetchSettings(); fetchMeals(); fetchSavedFoods(); fetchRecipes() }
   }, [session])
 
   useEffect(() => {
@@ -215,6 +216,18 @@ function App() {
         .from('saved_foods').select('*').eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
       if (data) setSavedFoods(data)
+    } catch {}
+  }
+
+  const fetchRecipes = async () => {
+    if (!session) return
+    try {
+      const { data: recipeRows } = await supabase
+        .from('recipes')
+        .select('*, recipe_ingredients(*)')
+        .eq('user_id', session.user.id)
+        .order('updated_at', { ascending: false })
+      if (recipeRows) setRecipes(recipeRows)
     } catch {}
   }
 
@@ -400,6 +413,36 @@ function App() {
 
   const isFoodSaved = (item) =>
     savedFoods.some(f => f.food_name === item.food_name && f.brand_name === item.brand_name)
+
+  // ── Recipes ────────────────────────────────────────────────────────────────
+  const saveRecipe = async ({ id, name, servings, ingredients }) => {
+    if (id) {
+      await supabase.from('recipes').update({ name, servings, updated_at: new Date().toISOString() }).eq('id', id)
+      await supabase.from('recipe_ingredients').delete().eq('recipe_id', id)
+      if (ingredients.length > 0) {
+        await supabase.from('recipe_ingredients').insert(
+          ingredients.map((ing, i) => ({ recipe_id: id, ...ing, sort_order: i }))
+        )
+      }
+    } else {
+      const { data: newRecipe } = await supabase
+        .from('recipes')
+        .insert({ user_id: session.user.id, name, servings })
+        .select()
+        .maybeSingle()
+      if (newRecipe && ingredients.length > 0) {
+        await supabase.from('recipe_ingredients').insert(
+          ingredients.map((ing, i) => ({ recipe_id: newRecipe.id, ...ing, sort_order: i }))
+        )
+      }
+    }
+    fetchRecipes()
+  }
+
+  const deleteRecipe = async (id) => {
+    await supabase.from('recipes').delete().eq('id', id)
+    fetchRecipes()
+  }
 
   // ── Navigation ─────────────────────────────────────────────────────────────
   const handleFoodSelect = (item, mealTime) => {
@@ -808,6 +851,9 @@ function App() {
         onBatchLog={handleBatchLog}
         savedFoods={savedFoods}
         onToggleSave={toggleSaveFood}
+        recipes={recipes}
+        onSaveRecipe={saveRecipe}
+        onDeleteRecipe={deleteRecipe}
       />
 
       {/* ── Food detail modal ── */}
