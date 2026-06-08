@@ -89,7 +89,7 @@ async function searchOpenFoodFacts(query) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, savedFoods = [] }) {
+export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, savedFoods = [], onToggleSave = () => {} }) {
   const { isPro, isTrialing } = usePro()
   const [showUpgrade, setShowUpgrade] = useState(false)
 
@@ -100,6 +100,17 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
   const [searching, setSearching]     = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [resultPage, setResultPage]   = useState(0)
+
+  // ── Recipe state ──────────────────────────────────────────────────────────
+  const [recipeName, setRecipeName]                   = useState('')
+  const [recipeIngredients, setRecipeIngredients]     = useState([])
+  const [recipeServings, setRecipeServings]           = useState(1)
+  const [recipeIngSearch, setRecipeIngSearch]         = useState('')
+  const [recipeIngResults, setRecipeIngResults]       = useState([])
+  const [recipeIngSearching, setRecipeIngSearching]   = useState(false)
+  const [recipeIngHasSearched, setRecipeIngHasSearched] = useState(false)
+  const recipeDebounceTimer = useRef(null)
+  const recipeSearchIdRef   = useRef(0)
 
   // ── Sheet animation state ──────────────────────────────────────────────────
   const [visible, setVisible]     = useState(false)
@@ -123,7 +134,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     return () => clearTimeout(closeTimer.current)
   }, [open])
 
-  // Reset mode when sheet closes
+  // Reset state when sheet closes
   useEffect(() => {
     if (!open) {
       setMode(null)
@@ -131,10 +142,16 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
       setResults([])
       setHasSearched(false)
       setResultPage(0)
+      setRecipeName('')
+      setRecipeIngredients([])
+      setRecipeServings(1)
+      setRecipeIngSearch('')
+      setRecipeIngResults([])
+      setRecipeIngHasSearched(false)
     }
   }, [open])
 
-  // ── Debounced auto-search ─────────────────────────────────────────────────
+  // ── Debounced auto-search (grocery) ──────────────────────────────────────
   useEffect(() => {
     if (!search.trim()) {
       setResults([])
@@ -150,6 +167,21 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     return () => clearTimeout(debounceTimer.current)
   }, [search, mode])
 
+  // ── Debounced auto-search (recipe ingredients) ────────────────────────────
+  useEffect(() => {
+    if (!recipeIngSearch.trim()) {
+      setRecipeIngResults([])
+      setRecipeIngHasSearched(false)
+      clearTimeout(recipeDebounceTimer.current)
+      return
+    }
+    clearTimeout(recipeDebounceTimer.current)
+    recipeDebounceTimer.current = setTimeout(() => {
+      if (mode === 'recipe') searchRecipeIngredient(recipeIngSearch.trim())
+    }, DEBOUNCE_MS)
+    return () => clearTimeout(recipeDebounceTimer.current)
+  }, [recipeIngSearch, mode])
+
   // ── Parallel grocery search: USDA + Open Food Facts ───────────────────────
   const searchFoods = async (query) => {
     setSearching(true)
@@ -163,7 +195,7 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
         searchOpenFoodFacts(query).catch(() => []),
       ])
 
-      if (myId !== searchIdRef.current) return  // stale — a newer search has started
+      if (myId !== searchIdRef.current) return
 
       const combined = [
         ...usdaResults.map(f => ({ ...f, verified: true })),
@@ -180,12 +212,41 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     }
   }
 
+  // ── Parallel ingredient search: USDA + Open Food Facts ───────────────────
+  const searchRecipeIngredient = async (query) => {
+    setRecipeIngSearching(true)
+    setRecipeIngResults([])
+    const myId = ++recipeSearchIdRef.current
+
+    try {
+      const [usdaResults, offResults] = await Promise.all([
+        searchUSDA(query).catch(() => []),
+        searchOpenFoodFacts(query).catch(() => []),
+      ])
+
+      if (myId !== recipeSearchIdRef.current) return
+
+      const combined = [
+        ...usdaResults.map(f => ({ ...f, verified: true })),
+        ...offResults,
+      ]
+      setRecipeIngResults(combined.slice(0, RESULTS_PER_PAGE))
+    } catch {
+      if (myId === recipeSearchIdRef.current) setRecipeIngResults([])
+    } finally {
+      if (myId === recipeSearchIdRef.current) {
+        setRecipeIngSearching(false)
+        setRecipeIngHasSearched(true)
+      }
+    }
+  }
+
   // ── Close + reset ─────────────────────────────────────────────────────────
   const handleClose = () => {
     onClose()
   }
 
-  // ── Single-item selection (barcode, grocery, restaurant) ─────────────────
+  // ── Single-item selection (barcode, grocery, restaurant, saved) ──────────
   const handleSelect = (food) => {
     onSelect(food, mealTime)
     handleClose()
@@ -205,6 +266,63 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     handleClose()
   }
 
+  // ── Recipe: add ingredient ────────────────────────────────────────────────
+  const addIngredient = (food) => {
+    setRecipeIngredients(prev => [...prev, food])
+    setRecipeIngSearch('')
+    setRecipeIngResults([])
+    setRecipeIngHasSearched(false)
+  }
+
+  // ── Recipe: computed totals ───────────────────────────────────────────────
+  const recipeTotals = recipeIngredients.reduce((acc, f) => ({
+    calories: acc.calories + (f.nf_calories           || 0),
+    protein:  acc.protein  + (f.nf_protein            || 0),
+    carbs:    acc.carbs    + (f.nf_total_carbohydrate  || 0),
+    fat:      acc.fat      + (f.nf_total_fat           || 0),
+  }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
+
+  const effectiveServings = Math.max(1, Number(recipeServings) || 1)
+  const recipePerServing = {
+    calories: Math.round(recipeTotals.calories / effectiveServings),
+    protein:  Math.round(recipeTotals.protein  / effectiveServings),
+    carbs:    Math.round(recipeTotals.carbs    / effectiveServings),
+    fat:      Math.round(recipeTotals.fat      / effectiveServings),
+  }
+
+  const canLogRecipe = recipeName.trim().length > 0 && recipeIngredients.length > 0
+
+  // ── Recipe: log one serving ───────────────────────────────────────────────
+  const handleLogRecipe = () => {
+    if (!canLogRecipe) return
+    onBatchLog([{
+      food_name:             recipeName.trim(),
+      brand_name:            null,
+      nf_calories:           recipePerServing.calories,
+      nf_protein:            recipePerServing.protein,
+      nf_total_carbohydrate: recipePerServing.carbs,
+      nf_total_fat:          recipePerServing.fat,
+      meal_time:             mealTime,
+    }])
+    handleClose()
+  }
+
+  // ── Recipe: save then log ─────────────────────────────────────────────────
+  const handleSaveAndLogRecipe = () => {
+    if (!canLogRecipe) return
+    const perServingFood = {
+      food_name:             recipeName.trim(),
+      brand_name:            null,
+      nf_calories:           recipePerServing.calories,
+      nf_protein:            recipePerServing.protein,
+      nf_total_carbohydrate: recipePerServing.carbs,
+      nf_total_fat:          recipePerServing.fat,
+    }
+    onToggleSave(perServingFood)
+    onBatchLog([{ ...perServingFood, meal_time: mealTime }])
+    handleClose()
+  }
+
   if (!visible) return null
 
   const pagedResults = results.slice(
@@ -218,6 +336,8 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
     grocery:    'Grocery Search',
     restaurant: 'Restaurant',
     voice:      'Voice Log',
+    recipe:     'Recipe Builder',
+    saved:      'Saved Foods',
   }
 
   return (
@@ -315,74 +435,40 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
 
           {/* ── Mode picker ── */}
           {!mode && (
-            <>
-              {/* Saved foods */}
-              {savedFoods.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{
-                    fontSize: 11, fontWeight: 600, color: 'var(--muted)',
-                    letterSpacing: '0.08em', marginBottom: 8,
-                  }}>SAVED FOODS</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {savedFoods.map((food, i) => (
-                      <button
-                        key={i}
-                        onClick={() => handleSelect(food)}
-                        style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '10px 12px', borderRadius: 10,
-                          border: 'none', background: 'transparent',
-                          cursor: 'pointer', width: '100%', textAlign: 'left', fontFamily: 'inherit',
-                          borderBottom: i < savedFoods.length - 1 ? '1px solid var(--border)' : 'none',
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
-                            {food.food_name}
-                          </div>
-                          {food.brand_name && (
-                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>{food.brand_name}</div>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 13, color: 'var(--muted)', flexShrink: 0 }}>
-                          {Math.round(food.nf_calories)} cal
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Mode tiles */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                <ModeTile
-                  icon="📷" label="Scan Barcode" animDelay={0}
-                  onClick={() => setMode('barcode')}
-                />
-                <ModeTile
-                  icon="🔍" label="Grocery Search" animDelay={0.05}
-                  onClick={() => setMode('grocery')}
-                />
-                <ModeTile
-                  icon="🍽️" label="Restaurant" animDelay={0.1}
-                  badge={!isPro && !isTrialing ? 'PRO' : undefined}
-                  onClick={() => {
-                    if (!isPro && !isTrialing) { setShowUpgrade(true); return }
-                    setMode('restaurant')
-                  }}
-                />
-                <ModeTile
-                  icon="🎙️" label="Voice Log" animDelay={0.15}
-                  badge={!isPro && !isTrialing ? 'PRO' : undefined}
-                  onClick={() => {
-                    if (!isPro && !isTrialing) { setShowUpgrade(true); return }
-                    setMode('voice')
-                  }}
-                />
-              </div>
-            </>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              <ModeTile
+                icon="📷" label="Scan Barcode" animDelay={0}
+                onClick={() => setMode('barcode')}
+              />
+              <ModeTile
+                icon="🔍" label="Grocery Search" animDelay={0.05}
+                onClick={() => setMode('grocery')}
+              />
+              <ModeTile
+                icon="🍽️" label="Restaurant" animDelay={0.1}
+                badge={!isPro && !isTrialing ? 'PRO' : undefined}
+                onClick={() => {
+                  if (!isPro && !isTrialing) { setShowUpgrade(true); return }
+                  setMode('restaurant')
+                }}
+              />
+              <ModeTile
+                icon="🎙️" label="Voice Log" animDelay={0.15}
+                badge={!isPro && !isTrialing ? 'PRO' : undefined}
+                onClick={() => {
+                  if (!isPro && !isTrialing) { setShowUpgrade(true); return }
+                  setMode('voice')
+                }}
+              />
+              <ModeTile
+                icon="🥣" label="Recipe" animDelay={0.2}
+                onClick={() => setMode('recipe')}
+              />
+              <ModeTile
+                icon="🔖" label="Saved" animDelay={0.25}
+                onClick={() => setMode('saved')}
+              />
+            </div>
           )}
 
           {/* ── Barcode ── */}
@@ -536,6 +622,277 @@ export default function LogFoodSheet({ open, onClose, onSelect, onBatchLog, save
               onLogAll={handleLogAll}
               onBack={() => setMode(null)}
             />
+          )}
+
+          {/* ── Recipe Builder ── */}
+          {mode === 'recipe' && (
+            <>
+              {/* Recipe name */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Recipe name</div>
+                <input
+                  value={recipeName}
+                  onChange={e => setRecipeName(e.target.value)}
+                  placeholder="e.g. Chicken rice bowl"
+                  style={{
+                    width: '100%', padding: '10px 14px',
+                    borderRadius: 10, boxSizing: 'border-box',
+                    border: '1px solid var(--border)', fontSize: 14, outline: 'none',
+                    background: 'var(--surface)', color: 'var(--text)',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              {/* Ingredient search */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Search ingredient</div>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    value={recipeIngSearch}
+                    onChange={e => setRecipeIngSearch(e.target.value)}
+                    placeholder="e.g. chicken breast"
+                    style={{
+                      width: '100%', padding: '10px 40px 10px 14px',
+                      borderRadius: 10, boxSizing: 'border-box',
+                      border: '1px solid var(--border)', fontSize: 14, outline: 'none',
+                      background: 'var(--surface)', color: 'var(--text)',
+                      fontFamily: 'inherit',
+                    }}
+                  />
+                  {recipeIngSearching && (
+                    <div style={{
+                      position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                      width: 16, height: 16, borderRadius: '50%',
+                      border: '2px solid var(--border)', borderTopColor: 'var(--accent)',
+                      animation: 'spin 0.7s linear infinite',
+                    }} />
+                  )}
+                  {!recipeIngSearching && recipeIngSearch && (
+                    <button
+                      onClick={() => { setRecipeIngSearch(''); setRecipeIngResults([]); setRecipeIngHasSearched(false) }}
+                      style={{
+                        position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                        background: 'none', border: 'none', color: 'var(--muted)',
+                        cursor: 'pointer', fontSize: 16, lineHeight: 1,
+                      }}
+                    >×</button>
+                  )}
+                </div>
+              </div>
+
+              {/* Ingredient search results */}
+              {recipeIngResults.length > 0 && (
+                <div style={{
+                  marginBottom: 16,
+                  border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden',
+                }}>
+                  {recipeIngResults.map((food, i) => (
+                    <button
+                      key={i}
+                      onClick={() => addIngredient(food)}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '10px 12px', width: '100%', textAlign: 'left',
+                        border: 'none',
+                        borderBottom: i < recipeIngResults.length - 1 ? '1px solid var(--border)' : 'none',
+                        background: 'var(--surface)', cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
+                    >
+                      <div style={{ flex: 1, paddingRight: 8 }}>
+                        <div style={{ fontSize: 14, color: 'var(--text)' }}>{food.food_name}</div>
+                        {food.brand_name && (
+                          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{food.brand_name}</div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          {Math.round(food.nf_calories)} cal
+                        </span>
+                        <span style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1 }}>+</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {recipeIngHasSearched && !recipeIngSearching && recipeIngResults.length === 0 && recipeIngSearch.trim() && (
+                <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>
+                  No results found.
+                </p>
+              )}
+
+              {/* Added ingredients list */}
+              {recipeIngredients.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Ingredients</div>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                    {recipeIngredients.map((food, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: 'flex', alignItems: 'center', padding: '10px 12px',
+                          borderBottom: i < recipeIngredients.length - 1 ? '1px solid var(--border)' : 'none',
+                          background: 'var(--surface)',
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 14, color: 'var(--text)',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          }}>
+                            {food.food_name}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                            {Math.round(food.nf_calories)} cal · {Math.round(food.nf_protein)}p · {Math.round(food.nf_total_carbohydrate)}c · {Math.round(food.nf_total_fat)}f
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setRecipeIngredients(prev => prev.filter((_, idx) => idx !== i))}
+                          style={{
+                            background: 'none', border: 'none', padding: '4px 8px',
+                            color: 'var(--muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1,
+                            flexShrink: 0,
+                          }}
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Servings */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Servings this recipe makes</div>
+                <input
+                  type="number"
+                  min="1"
+                  value={recipeServings}
+                  onChange={e => setRecipeServings(e.target.value)}
+                  style={{
+                    width: 80, padding: '10px 14px',
+                    borderRadius: 10, boxSizing: 'border-box',
+                    border: '1px solid var(--border)', fontSize: 14, outline: 'none',
+                    background: 'var(--surface)', color: 'var(--text)',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              {/* Totals summary */}
+              {recipeIngredients.length > 0 && (
+                <div style={{
+                  background: 'var(--surface)', borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  padding: '12px 14px', marginBottom: 20,
+                }}>
+                  <div style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid var(--border)',
+                  }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Total</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      {recipeTotals.calories} cal · {recipeTotals.protein}p · {recipeTotals.carbs}c · {recipeTotals.fat}f
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text)' }}>Per serving</span>
+                    <span style={{ fontSize: 13, color: 'var(--text)' }}>
+                      {recipePerServing.calories} cal · {recipePerServing.protein}p · {recipePerServing.carbs}c · {recipePerServing.fat}f
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={handleLogRecipe}
+                  disabled={!canLogRecipe}
+                  style={{
+                    flex: 1, padding: '13px 0', borderRadius: 12, border: 'none',
+                    background: canLogRecipe ? 'var(--text)' : 'var(--surface)',
+                    color: canLogRecipe ? 'var(--bg)' : 'var(--muted)',
+                    fontSize: 14, fontWeight: 600,
+                    cursor: canLogRecipe ? 'pointer' : 'default',
+                    fontFamily: 'inherit', transition: 'background 0.15s',
+                  }}
+                >
+                  Log 1 Serving
+                </button>
+                <button
+                  onClick={handleSaveAndLogRecipe}
+                  disabled={!canLogRecipe}
+                  style={{
+                    flex: 1, padding: '13px 0', borderRadius: 12,
+                    border: '1px solid var(--border)',
+                    background: 'transparent',
+                    color: canLogRecipe ? 'var(--text)' : 'var(--muted)',
+                    fontSize: 14, fontWeight: 500,
+                    cursor: canLogRecipe ? 'pointer' : 'default',
+                    fontFamily: 'inherit', transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { if (canLogRecipe) e.currentTarget.style.background = 'var(--surface)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  Save Recipe
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ── Saved Foods ── */}
+          {mode === 'saved' && (
+            savedFoods.length === 0 ? (
+              <p style={{
+                color: 'var(--muted)', textAlign: 'center',
+                fontSize: 14, marginTop: 40, lineHeight: 1.6,
+              }}>
+                No saved foods yet. Save a food or recipe from the detail screen.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {savedFoods.map((food, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex', alignItems: 'center',
+                      borderBottom: i < savedFoods.length - 1 ? '1px solid var(--border)' : 'none',
+                      borderRadius: 8, transition: 'background 0.12s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <button
+                      onClick={() => handleSelect(food)}
+                      style={{
+                        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        padding: '10px 4px 10px 12px', fontFamily: 'inherit', textAlign: 'left',
+                      }}
+                    >
+                      <div style={{ fontSize: 14, color: 'var(--text)' }}>{food.food_name}</div>
+                      {food.brand_name && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{food.brand_name}</div>
+                      )}
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                        {Math.round(food.nf_calories)} cal · {Math.round(food.nf_protein)}p · {Math.round(food.nf_total_carbohydrate)}c · {Math.round(food.nf_total_fat)}f
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => onToggleSave(food)}
+                      style={{
+                        background: 'none', border: 'none', padding: '4px 12px',
+                        color: 'var(--muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1,
+                        flexShrink: 0,
+                      }}
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )
           )}
 
         </div>

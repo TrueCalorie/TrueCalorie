@@ -807,6 +807,7 @@ function App() {
         onSelect={handleFoodSelect}
         onBatchLog={handleBatchLog}
         savedFoods={savedFoods}
+        onToggleSave={toggleSaveFood}
       />
 
       {/* ── Food detail modal ── */}
