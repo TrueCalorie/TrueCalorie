@@ -96,13 +96,13 @@ body {
 }
 
 /* NAV */
-.nav { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; }
+.nav { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20; padding-top: env(safe-area-inset-top); }
 .nt { flex: 1; padding: 10px 4px; text-align: center; cursor: pointer; font-size: 11px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: color .15s; background: none; border-left: none; border-right: none; border-top: none; font-family: inherit; }
 .nt i { font-size: 20px; }
 .nt.active { color: var(--text); border-bottom-color: var(--text); }
 
 /* TODAY */
-.today-wrap { padding: 18px 16px 80px; flex: 1; overflow-y: auto; }
+.today-wrap { padding: 18px 16px calc(80px + env(safe-area-inset-bottom)); flex: 1; overflow-y: auto; }
 .greeting { font-size: 22px; font-weight: 600; margin-bottom: 2px; }
 .greeting em { color: var(--accent); font-style: italic; }
 .date-line { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
@@ -339,3 +339,5 @@ input[type="number"] {
   0%   { height: 6px;  }
   100% { height: 22px; }
 }
+
+.safe-scroll { padding-bottom: env(safe-area-inset-bottom); }

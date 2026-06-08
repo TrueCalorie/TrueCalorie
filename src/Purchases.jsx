@@ -76,7 +76,7 @@ export default function Purchases({ session, onClose }) {
       {/* ── Sticky header ── */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12,
-        padding: '16px 16px 14px', borderBottom: '1px solid var(--border)',
+        paddingTop: 'calc(16px + env(safe-area-inset-top))', paddingRight: 16, paddingBottom: 14, paddingLeft: 16, borderBottom: '1px solid var(--border)',
         position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
       }}>
         <button onClick={onClose} style={{

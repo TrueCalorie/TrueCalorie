@@ -286,7 +286,7 @@ export default function BodyFitnessPage({ session, settings, onUpdate, onClose, 
 
       {/* Sticky header */}
       <div style={{
-        display: 'flex', alignItems: 'center', padding: '16px 16px 14px',
+        display: 'flex', alignItems: 'center', paddingTop: 'calc(16px + env(safe-area-inset-top))', paddingRight: 16, paddingBottom: 14, paddingLeft: 16,
         borderBottom: '1px solid var(--border)', position: 'sticky', top: 0,
         background: 'var(--bg)', zIndex: 1,
       }}>

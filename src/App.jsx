@@ -578,7 +578,7 @@ function App() {
         borderBottom: '1px solid var(--pro-border, var(--border))',
         position: 'sticky', top: 0, zIndex: 20,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px 10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 'calc(14px + env(safe-area-inset-top))', paddingRight: 16, paddingBottom: 10, paddingLeft: 16 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em' }}>
               Hey, {settings.display_name}
