@@ -10,7 +10,7 @@ const inputStyle = {
   border: '1px solid #2a2a2a',
   borderRadius: 8,
   color: '#fff',
-  fontSize: 14,
+  fontSize: 16,
   fontFamily: 'sans-serif',
   outline: 'none',
   boxSizing: 'border-box',
