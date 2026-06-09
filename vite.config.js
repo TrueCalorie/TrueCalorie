@@ -7,7 +7,7 @@ const isCapacitor = process.env.CAPACITOR_BUILD === 'true'
 export default defineConfig({
   build: {
     rollupOptions: {
-      external: ['@capgo/capacitor-health'],
+      external: ['@capgo/capacitor-health', '@capacitor-community/speech-recognition'],
     },
   },
   plugins: [

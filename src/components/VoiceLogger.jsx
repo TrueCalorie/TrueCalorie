@@ -2,7 +2,8 @@ import { useState, useRef } from 'react'
 import { supabase } from '../supabase'
 import { usePro } from '../hooks/usePro'
 import { Capacitor } from '@capacitor/core'
-import { SpeechRecognition as NativeSpeech } from '@capacitor-community/speech-recognition'
+
+let NativeSpeech = null
 
 // ─── State Machine ────────────────────────────────────────────────────────────
 const PHASE = {
@@ -316,6 +317,10 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
 export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
   const { isTrialing } = usePro()
   const isNative = Capacitor.isNativePlatform()
+  if (isNative) {
+    import(/* @vite-ignore */ '@capacitor-community/speech-recognition')
+      .then(m => { NativeSpeech = m.SpeechRecognition })
+  }
 
   const [phase, setPhase]             = useState(PHASE.IDLE)
   const [transcript, setTranscript]   = useState('')
