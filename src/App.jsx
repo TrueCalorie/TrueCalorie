@@ -70,8 +70,10 @@ function App() {
   const ringFlashTimer                      = useRef(null)
   const appOpenedRef                        = useRef(false)
 
-  const { isPro, isTrialing, trialDaysLeft, source } = usePro()
+  const { isPro, isTrialing, trialDaysLeft, source, refresh: refreshPro } = usePro()
   const isFounder = source === 'founder'
+  const refreshProRef = useRef(refreshPro)
+  refreshProRef.current = refreshPro
 
   // Register push SW early so it can receive pushes even before Settings opens
   useEffect(() => {
@@ -130,6 +132,22 @@ function App() {
         } catch (e) {
           console.error('[OAuth] exchange failed:', e)
         }
+      })
+    }
+    setup()
+    return () => { handle?.remove() }
+  }, [])
+
+  // ── Native: refresh Pro on foreground ──────────────────────────────────────
+  // A user who completes Stripe payment in the in-app browser sheet and taps
+  // Done re-activates the app. Re-check Pro status so it reflects immediately.
+  useEffect(() => {
+    if (!window.Capacitor?.isNativePlatform?.()) return
+    let handle
+    const setup = async () => {
+      const { App: CapApp } = await import(/* @vite-ignore */ '@capacitor/app')
+      handle = await CapApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) refreshProRef.current?.()
       })
     }
     setup()

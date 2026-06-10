@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { openExternal } from './lib/openExternal'
 
 // Stripe Payment Link — $79.99 one-time lifetime founders price
 // To set up: Stripe Dashboard → Products → Add product → $79.99 one-time
@@ -41,7 +42,7 @@ export default function Founders({ onBack }) {
       alert('Stripe checkout is not configured yet. Please contact us.')
       return
     }
-    window.location.href = STRIPE_PAYMENT_LINK
+    openExternal(STRIPE_PAYMENT_LINK)
   }
 
   const spotsLeft  = Math.max(0, FOUNDER_CAP - claimed)

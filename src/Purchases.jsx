@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
 import { capture } from './analytics'
+import { openExternal } from './lib/openExternal'
 
 const FOUNDERS_PAYMENT_LINK = import.meta.env.VITE_STRIPE_FOUNDERS_LINK || ''
 const FOUNDER_CAP = 100
@@ -60,7 +61,7 @@ export default function Purchases({ session, onClose }) {
       const data = await res.json()
       if (data?.url) {
         capture('checkout_started', { plan: billingPeriod })
-        window.location.href = data.url
+        openExternal(data.url)
       } else {
         setCheckoutError(data?.error || 'Something went wrong. Please try again.')
       }
@@ -81,7 +82,7 @@ export default function Purchases({ session, onClose }) {
         body: JSON.stringify({}),
       })
       const data = await res.json()
-      if (data?.url) window.location.href = data.url
+      if (data?.url) openExternal(data.url)
       else setPortalError(data?.error || 'Something went wrong. Try again.')
     } catch {
       setPortalError('Something went wrong. Try again.')
@@ -513,7 +514,7 @@ function FoundersModal({ spotsLeft, onClose }) {
           onClick={() => {
             if (!FOUNDERS_PAYMENT_LINK) { alert('Checkout is not configured yet'); return }
             capture('checkout_started', { plan: 'founders' })
-            window.open(FOUNDERS_PAYMENT_LINK, '_blank')
+            openExternal(FOUNDERS_PAYMENT_LINK, { target: '_blank' })
           }}
           disabled={isFull}
           style={{

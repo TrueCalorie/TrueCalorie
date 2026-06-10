@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { usePro } from '../hooks/usePro'
 import { supabase } from '../supabase'
 import { capture } from '../analytics'
+import { openExternal } from '../lib/openExternal'
 
 const FEATURES = [
   'Full macros for 200,000+ restaurant menu items',
@@ -69,7 +70,7 @@ export default function UpgradeModal({ open, onClose }) {
       if (!res.ok) throw new Error(data.error || 'Checkout failed')
 
       capture('checkout_started', { plan: billingPeriod })
-      window.location.href = data.url
+      openExternal(data.url)
     } catch (err) {
       console.error('Checkout error:', err)
       setError('Something went wrong. Please try again.')

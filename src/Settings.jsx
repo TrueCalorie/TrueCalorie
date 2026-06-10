@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import StravaConnect from './components/StravaConnect'
+import { openExternal } from './lib/openExternal'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function SectionLabel({ children }) {
@@ -170,7 +171,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
         body: JSON.stringify({}),
       })
       const data = await res.json()
-      if (data?.url) window.location.href = data.url
+      if (data?.url) openExternal(data.url)
       else setPortalError(data?.error || 'Something went wrong. Try again.')
     } catch {
       setPortalError('Something went wrong. Try again.')
