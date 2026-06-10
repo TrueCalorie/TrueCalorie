@@ -106,13 +106,17 @@ function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
     let handle
-    import(/* @vite-ignore */ '@capacitor/app').then(({ App: CapApp }) => {
-      CapApp.addListener('appUrlOpen', async ({ url }) => {
+    const setup = async () => {
+      const { App: CapApp } = await import(/* @vite-ignore */ '@capacitor/app')
+      const { Browser } = await import(/* @vite-ignore */ '@capacitor/browser')
+      handle = await CapApp.addListener('appUrlOpen', async ({ url }) => {
         if (url.startsWith('truecalorie://')) {
           await supabase.auth.exchangeCodeForSession(url)
+          await Browser.close()
         }
-      }).then(h => { handle = h })
-    })
+      })
+    }
+    setup()
     return () => { handle?.remove() }
   }, [])
 
