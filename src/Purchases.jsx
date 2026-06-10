@@ -20,6 +20,8 @@ export default function Purchases({ session, onClose }) {
   const [showFoundersModal, setShowFoundersModal] = useState(false)
   const [checkoutLoading, setCheckoutLoading]     = useState(false)
   const [checkoutError, setCheckoutError]         = useState(null)
+  const [portalLoading, setPortalLoading]         = useState(false)
+  const [portalError, setPortalError]             = useState(null)
   const [foundersClaimed, setFoundersClaimed]     = useState(null)
 
   // Show athletic targets prompt only when landing from Stripe checkout
@@ -63,6 +65,26 @@ export default function Purchases({ session, onClose }) {
       setCheckoutError('Something went wrong. Please try again.')
     }
     setCheckoutLoading(false)
+  }
+
+  const openPortal = async () => {
+    setPortalLoading(true)
+    setPortalError(null)
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const res  = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      if (data?.url) window.location.href = data.url
+      else setPortalError(data?.error || 'Something went wrong. Try again.')
+    } catch {
+      setPortalError('Something went wrong. Try again.')
+    } finally {
+      setPortalLoading(false)
+    }
   }
 
   if (loading) return null
@@ -210,23 +232,26 @@ export default function Purchases({ session, onClose }) {
         {/* ── Manage billing (paid pro only) ── */}
         {isPaidPro && (
           <div style={{ textAlign: 'center' }}>
+            {portalError && (
+              <div style={{
+                background: 'rgba(226,75,74,0.1)', border: '1px solid rgba(226,75,74,0.3)',
+                color: '#E24B4A', borderRadius: 8, padding: '10px 12px',
+                fontSize: 13, marginBottom: 10,
+              }}>
+                {portalError}
+              </div>
+            )}
             <button
-              onClick={async () => {
-                const res  = await fetch('/api/create-portal-session', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ userId: session.user.id }),
-                })
-                const data = await res.json()
-                if (data?.url) window.location.href = data.url
-              }}
+              onClick={openPortal}
+              disabled={portalLoading}
               style={{
-                background: 'none', border: 'none', cursor: 'pointer',
+                background: 'none', border: 'none', cursor: portalLoading ? 'default' : 'pointer',
                 fontSize: 13, color: 'var(--muted)', textDecoration: 'underline',
                 textUnderlineOffset: 3, fontFamily: 'inherit',
+                opacity: portalLoading ? 0.6 : 1,
               }}
             >
-              Manage billing →
+              {portalLoading ? 'Opening…' : 'Manage billing →'}
             </button>
           </div>
         )}

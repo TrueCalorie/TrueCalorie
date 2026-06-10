@@ -218,15 +218,6 @@ export default function Landing({ onGetStarted }) {
         ))}
       </div>
 
-      {/* Social proof */}
-      <div className="fade-up" style={{
-        maxWidth: 760, margin: '0 auto 80px', padding: '0 32px', textAlign: 'center',
-      }}>
-        <div style={{ fontSize: 13, color: '#444', fontFamily: 'sans-serif' }}>
-          Used by college athletes who train year-round
-        </div>
-      </div>
-
       {/* Founders banner */}
       <div className="fade-up" style={{ maxWidth: 760, margin: '0 auto 60px', padding: '0 32px' }}>
         <div
