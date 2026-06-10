@@ -354,27 +354,37 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
     setError(null)
 
     if (isNative) {
-      const { available } = await NativeSpeech.available()
-      if (!available) {
-        setError('Speech recognition is not available on this device.')
+      if (!NativeSpeech) {
+        setError('Speech recognition failed to load. Try closing and reopening the app.')
         setPhaseSync(PHASE.ERROR)
         return
       }
-      await NativeSpeech.requestPermission()
-      setPhaseSync(PHASE.RECORDING)
-      await NativeSpeech.addListener('partialResults', (data) => {
-        if (data.matches?.[0]) {
-          finalTranscriptRef.current = data.matches[0]
-          setTranscript(data.matches[0])
+      try {
+        const { available } = await NativeSpeech.available()
+        if (!available) {
+          setError('Speech recognition is not available on this device.')
+          setPhaseSync(PHASE.ERROR)
+          return
         }
-      })
-      await NativeSpeech.addListener('listeningState', (data) => {
-        if (data.status === 'stopped' && phaseRef.current === PHASE.RECORDING) {
-          NativeSpeech.removeAllListeners()
-          processTranscript()
-        }
-      })
-      await NativeSpeech.start({ language: 'en-US', maxResults: 1, partialResults: true, popup: false })
+        await NativeSpeech.requestPermission()
+        setPhaseSync(PHASE.RECORDING)
+        await NativeSpeech.addListener('partialResults', (data) => {
+          if (data.matches?.[0]) {
+            finalTranscriptRef.current = data.matches[0]
+            setTranscript(data.matches[0])
+          }
+        })
+        await NativeSpeech.addListener('listeningState', (data) => {
+          if (data.status === 'stopped' && phaseRef.current === PHASE.RECORDING) {
+            NativeSpeech.removeAllListeners()
+            processTranscript()
+          }
+        })
+        await NativeSpeech.start({ language: 'en-US', maxResults: 1, partialResults: true, popup: false })
+      } catch (e) {
+        setError('Microphone error: ' + (e.message || 'Unknown error'))
+        setPhaseSync(PHASE.ERROR)
+      }
       return
     }
 
