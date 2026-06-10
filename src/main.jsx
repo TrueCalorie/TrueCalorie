@@ -3,6 +3,11 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import { initPostHog } from './analytics'
+
+if (import.meta.env.VITE_POSTHOG_KEY) {
+  initPostHog(import.meta.env.VITE_POSTHOG_KEY)
+}
 
 const savedTheme = localStorage.getItem('tc-theme')
 if (savedTheme) {

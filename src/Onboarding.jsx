@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { calculateGoals, calculateGoalsPro } from './macros'
+import { capture } from './analytics'
 
 const ACTIVITY_LEVELS = [
   { key: 'sedentary', label: 'Sedentary',         desc: 'Little or no exercise' },
@@ -35,6 +36,8 @@ export default function Onboarding({ session, onComplete }) {
   const [calculated, setCalculated]       = useState(null)
   const [saving, setSaving]               = useState(false)
   const [error, setError]                 = useState('')
+
+  useEffect(() => { capture('onboarding_started') }, [])
 
   const update = (key, value) => setData(d => ({ ...d, [key]: value }))
 
@@ -94,6 +97,7 @@ export default function Onboarding({ session, onComplete }) {
       return
     }
     setSaving(false)
+    capture('onboarding_completed')
     onComplete()
   }
 

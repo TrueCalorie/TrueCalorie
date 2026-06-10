@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import { PostHog } from 'posthog-node'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2026-04-22.dahlia',
@@ -133,6 +134,12 @@ async function handleProCheckoutCompleted(session) {
   }
 
   console.log(`Granted Pro to user ${userId} until ${periodEnd}`)
+
+  try {
+    const ph = new PostHog(process.env.POSTHOG_KEY, { host: 'https://us.i.posthog.com', flushAt: 1, flushInterval: 0 })
+    ph.capture({ distinctId: userId, event: 'subscription_activated', properties: { plan: 'monthly', source: 'monthly' } })
+    await ph.shutdown()
+  } catch {}
 }
 
 // ── Founder one-time checkout (unchanged) ─────────────────────────
@@ -198,6 +205,12 @@ async function handleFounderCheckoutCompleted(session) {
 
     if (settingsError) throw settingsError
     console.log(`Granted founder Pro to user ${userId}`)
+
+    try {
+      const ph = new PostHog(process.env.POSTHOG_KEY, { host: 'https://us.i.posthog.com', flushAt: 1, flushInterval: 0 })
+      ph.capture({ distinctId: userId, event: 'subscription_activated', properties: { plan: 'founders', source: 'founder' } })
+      await ph.shutdown()
+    } catch {}
   }
 }
 

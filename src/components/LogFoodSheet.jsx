@@ -268,8 +268,8 @@ export default function LogFoodSheet({
   }
 
   // ── Single-item selection (barcode, grocery, restaurant, saved) ──────────
-  const handleSelect = (food) => {
-    onSelect(food, mealTime)
+  const handleSelect = (food, method = 'search') => {
+    onSelect(food, mealTime, method)
     handleClose()
   }
 
@@ -283,7 +283,7 @@ export default function LogFoodSheet({
   // bypassing FoodDetailModal entirely.
   const handleLogAll = (scaledFoods) => {
     const itemsWithMealTime = scaledFoods.map(food => ({ ...food, meal_time: mealTime }))
-    onBatchLog(itemsWithMealTime)
+    onBatchLog(itemsWithMealTime, 'voice')
     handleClose()
   }
 
@@ -348,7 +348,7 @@ export default function LogFoodSheet({
       nf_total_carbohydrate: recipePerServing.carbs,
       nf_total_fat:          recipePerServing.fat,
       meal_time:             mealTime,
-    }])
+    }], 'recipe')
     handleClose()
   }
 
@@ -376,7 +376,7 @@ export default function LogFoodSheet({
       nf_total_carbohydrate: recipePerServing.carbs,
       nf_total_fat:          recipePerServing.fat,
       meal_time:             mealTime,
-    }])
+    }], 'recipe')
     handleClose()
   }
 
@@ -543,7 +543,7 @@ export default function LogFoodSheet({
           {/* ── Barcode ── */}
           {mode === 'barcode' && (
             <BarcodeScanner
-              onResult={(food) => handleSelect(food)}
+              onResult={(food) => handleSelect(food, 'barcode')}
               onClose={() => setMode(null)}
             />
           )}
@@ -593,7 +593,7 @@ export default function LogFoodSheet({
                     {pagedResults.map((food, i) => (
                       <button
                         key={i}
-                        onClick={() => handleSelect(food)}
+                        onClick={() => handleSelect(food, 'search')}
                         style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           padding: '10px 12px', borderRadius: 10,
@@ -680,7 +680,7 @@ export default function LogFoodSheet({
 
           {/* ── Restaurant ── */}
           {mode === 'restaurant' && (
-            <RestaurantSearch onSelect={handleSelect} />
+            <RestaurantSearch onSelect={(food) => handleSelect(food, 'restaurant')} />
           )}
 
           {/* ── Voice ── */}
@@ -955,7 +955,7 @@ export default function LogFoodSheet({
                                 nf_total_carbohydrate: ps.carbs,
                                 nf_total_fat:          ps.fat,
                                 meal_time:             mealTime,
-                              }])
+                              }], 'recipe')
                               handleClose()
                             }}
                             style={{
@@ -1012,7 +1012,7 @@ export default function LogFoodSheet({
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
                         <button
-                          onClick={() => handleSelect(food)}
+                          onClick={() => handleSelect(food, 'saved')}
                           style={{
                             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
                             background: 'none', border: 'none', cursor: 'pointer',

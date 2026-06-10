@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 import { Capacitor } from '@capacitor/core'
+import { capture, identify, reset } from './analytics'
 import Auth from './Auth'
 import Onboarding from './Onboarding'
 import Settings from './Settings'
@@ -65,7 +66,9 @@ function App() {
   const [currentToast, setCurrentToast]     = useState(null)
   const [ringFlash, setRingFlash]           = useState(false)
   const [logBtnPressed, setLogBtnPressed]   = useState(false)
+  const [selectedMethod, setSelectedMethod] = useState('search')
   const ringFlashTimer                      = useRef(null)
+  const appOpenedRef                        = useRef(false)
 
   const { isPro, isTrialing, trialDaysLeft, source } = usePro()
   const isFounder = source === 'founder'
@@ -98,6 +101,12 @@ function App() {
         if (event !== 'INITIAL_SESSION') {
           setPasswordResetMode(false)
         }
+      }
+      if (event === 'SIGNED_IN' && session?.user) {
+        identify(session.user.id, { email: session.user.email })
+      }
+      if (event === 'SIGNED_OUT') {
+        reset()
       }
     })
     return () => subscription.unsubscribe()
@@ -148,6 +157,13 @@ function App() {
   }, [])
 
   // ── Fetch on session ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (session && !appOpenedRef.current) {
+      appOpenedRef.current = true
+      capture('app_opened')
+    }
+  }, [session])
+
   useEffect(() => {
     if (session) { fetchSettings(); fetchMeals(); fetchSavedFoods(); fetchRecipes() }
   }, [session])
@@ -344,6 +360,7 @@ function App() {
       fat:      (item.nf_total_fat           || 0) * servings,
       meal_time: mealTime,
     })
+    capture('meal_logged', { method: selectedMethod })
     setSelectedItem(null)
     await fetchMeals()
     checkAndAwardAchievements()
@@ -352,7 +369,7 @@ function App() {
     ringFlashTimer.current = setTimeout(() => setRingFlash(false), 900)
   }
 
-  const handleBatchLog = async (items) => {
+  const handleBatchLog = async (items, method = 'search') => {
     for (const item of items) {
       await supabase.from('meal_logs').insert({
         user_id:    session.user.id,
@@ -364,6 +381,7 @@ function App() {
         fat:        item.nf_total_fat            || 0,
         meal_time:  item.meal_time,
       })
+      capture('meal_logged', { method })
     }
     await fetchMeals()
     checkAndAwardAchievements()
@@ -470,9 +488,10 @@ function App() {
   }
 
   // ── Navigation ─────────────────────────────────────────────────────────────
-  const handleFoodSelect = (item, mealTime) => {
+  const handleFoodSelect = (item, mealTime, method = 'search') => {
     setSelectedMealTime(mealTime)
     setSelectedItem(item)
+    setSelectedMethod(method)
     setShowLogFood(false)
   }
 

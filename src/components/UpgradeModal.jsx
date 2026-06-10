@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { usePro } from '../hooks/usePro'
 import { supabase } from '../supabase'
+import { capture } from '../analytics'
 
 const FEATURES = [
   'Full macros for 200,000+ restaurant menu items',
@@ -66,7 +67,7 @@ export default function UpgradeModal({ open, onClose }) {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Checkout failed')
 
-      // Redirect to Stripe
+      capture('checkout_started', { plan: 'monthly' })
       window.location.href = data.url
     } catch (err) {
       console.error('Checkout error:', err)
