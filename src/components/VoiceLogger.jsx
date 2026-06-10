@@ -412,7 +412,7 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/voice-log', {
+      const res = await fetch((window.Capacitor?.isNativePlatform?.() ? 'https://truecalorie.net' : '') + '/api/voice-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ transcript: text }),
@@ -456,7 +456,7 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/voice-log', {
+      const res = await fetch((window.Capacitor?.isNativePlatform?.() ? 'https://truecalorie.net' : '') + '/api/voice-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ transcript: refinedQuery }),
