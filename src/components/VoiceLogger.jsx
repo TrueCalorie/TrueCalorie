@@ -1,9 +1,6 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../supabase'
 import { usePro } from '../hooks/usePro'
-import { Capacitor } from '@capacitor/core'
-
-let NativeSpeech = null
 
 // ─── State Machine ────────────────────────────────────────────────────────────
 const PHASE = {
@@ -316,11 +313,6 @@ function FoodCard({ food, index, onRemove, onMultiplierChange, onClarify }) {
 // onLog(food)       — kept for single-item fallback / future use.
 export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
   const { isTrialing } = usePro()
-  const isNative = Capacitor.isNativePlatform()
-  if (isNative) {
-    import(/* @vite-ignore */ '@capacitor-community/speech-recognition')
-      .then(m => { NativeSpeech = m.SpeechRecognition })
-  }
 
   const [phase, setPhase]             = useState(PHASE.IDLE)
   const [transcript, setTranscript]   = useState('')
@@ -336,8 +328,8 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
 
   const setPhaseSync = (p) => { phaseRef.current = p; setPhase(p) }
 
-  const supported = isNative || (typeof window !== 'undefined' &&
-    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window))
+  const supported = typeof window !== 'undefined' &&
+    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
 
   // ── Start recording ──────────────────────────────────────────────────────
   const startRecording = async () => {
@@ -352,41 +344,6 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
     setTranscript('')
     setInterimText('')
     setError(null)
-
-    if (isNative) {
-      if (!NativeSpeech) {
-        setError('Speech recognition failed to load. Try closing and reopening the app.')
-        setPhaseSync(PHASE.ERROR)
-        return
-      }
-      try {
-        const { available } = await NativeSpeech.available()
-        if (!available) {
-          setError('Speech recognition is not available on this device.')
-          setPhaseSync(PHASE.ERROR)
-          return
-        }
-        await NativeSpeech.requestPermission()
-        setPhaseSync(PHASE.RECORDING)
-        await NativeSpeech.addListener('partialResults', (data) => {
-          if (data.matches?.[0]) {
-            finalTranscriptRef.current = data.matches[0]
-            setTranscript(data.matches[0])
-          }
-        })
-        await NativeSpeech.addListener('listeningState', (data) => {
-          if (data.status === 'stopped' && phaseRef.current === PHASE.RECORDING) {
-            NativeSpeech.removeAllListeners()
-            processTranscript()
-          }
-        })
-        await NativeSpeech.start({ language: 'en-US', maxResults: 1, partialResults: true, popup: false })
-      } catch (e) {
-        setError('Microphone error: ' + (e.message || 'Unknown error'))
-        setPhaseSync(PHASE.ERROR)
-      }
-      return
-    }
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     const recognition = new SR()
@@ -432,12 +389,6 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
 
   // ── Stop + process ───────────────────────────────────────────────────────
   const stopRecording = () => {
-    if (isNative) {
-      NativeSpeech.removeAllListeners()
-      NativeSpeech.stop()
-      processTranscript()
-      return
-    }
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
