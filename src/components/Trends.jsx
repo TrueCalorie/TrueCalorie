@@ -413,7 +413,7 @@ export default function Trends({ session, settings, isPro, onUpgrade, onClose })
       {/* Sticky header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 12,
-        padding: '18px 16px 14px',
+        paddingTop: 'calc(18px + env(safe-area-inset-top))', paddingRight: 16, paddingBottom: 14, paddingLeft: 16,
         borderBottom: '1px solid var(--border)',
         position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
       }}>
