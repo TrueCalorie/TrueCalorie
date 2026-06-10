@@ -62,22 +62,13 @@ export default function Auth({ resetMode = false }) {
   // ── Google OAuth ──────────────────────────────────────────────────────────
   const handleGoogle = async () => {
     const { Capacitor } = await import('@capacitor/core')
-    if (Capacitor.isNativePlatform()) {
-      const { Browser } = await import('@capacitor/browser')
-      const { data } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: 'truecalorie://auth/callback',
-          skipBrowserRedirect: true,
-        },
-      })
-      if (data?.url) await Browser.open({ url: data.url, windowName: '_self' })
-    } else {
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin },
-      })
-    }
+    const redirectTo = Capacitor.isNativePlatform()
+      ? 'truecalorie://auth/callback'
+      : window.location.origin
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    })
   }
 
   // ── Send reset email ──────────────────────────────────────────────────────
