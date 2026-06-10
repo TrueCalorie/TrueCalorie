@@ -61,9 +61,13 @@ export default function Auth({ resetMode = false }) {
 
   // ── Google OAuth ──────────────────────────────────────────────────────────
   const handleGoogle = async () => {
+    const { Capacitor } = await import('@capacitor/core')
+    const redirectTo = Capacitor.isNativePlatform()
+      ? 'truecalorie://auth/callback'
+      : window.location.origin
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo },
     })
   }
 

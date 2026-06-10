@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
+import { Capacitor } from '@capacitor/core'
 import Auth from './Auth'
 import Onboarding from './Onboarding'
 import Settings from './Settings'
@@ -100,6 +101,19 @@ function App() {
       }
     })
     return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    let handle
+    import(/* @vite-ignore */ '@capacitor/app').then(({ App: CapApp }) => {
+      CapApp.addListener('appUrlOpen', async ({ url }) => {
+        if (url.startsWith('truecalorie://')) {
+          await supabase.auth.exchangeCodeForSession(url)
+        }
+      }).then(h => { handle = h })
+    })
+    return () => { handle?.remove() }
   }, [])
 
   // ── Routing ────────────────────────────────────────────────────────────────
