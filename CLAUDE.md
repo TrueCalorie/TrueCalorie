@@ -3,7 +3,8 @@
 Project context for Claude Code. Read this before making any changes.
 
 ## What this is
-TrueCalorie: a calorie and macro tracking PWA for athletes. Live at truecalorie.net.
+TrueCalorie: a calorie and macro tracking PWA for athletes, also shipped as native iOS
+and Android apps via Capacitor (iOS on TestFlight). Live at truecalorie.net.
 Positioning: voice-first logging ("talk to log your meal"), athlete-calibrated targets,
 Strava intelligence. Voice logging is the strategic centerpiece; weigh new features against it.
 
@@ -15,6 +16,33 @@ Strava intelligence. Voice logging is the strategic centerpiece; weigh new featu
 - Food data: Open Food Facts + USDA (free: grocery/barcode), Nutritionix (Pro: restaurant + primary voice NLP)
 - Voice: Web Speech API (STT) -> /api/voice-log (Nutritionix NLP primary, Claude Haiku fallback)
 - Strava: OAuth + activities API
+
+## Native / Capacitor — do not violate
+- The PWA is wrapped with Capacitor for iOS (TestFlight) and Android. `ios/` and
+  `android/` are in `.gitignore` and are never committed. The iOS project is
+  regenerated on the cloud Mac with `npx cap add ios && npx cap sync`. Never create,
+  modify, or commit anything under `ios/` from this machine.
+- Native detection: use `window.Capacitor?.isNativePlatform?.()` — the safe
+  window-property form used in `src/App.jsx` and `src/components/VoiceLogger.jsx`.
+  Do not invent alternatives. (`import { Capacitor }` from `@capacitor/core` is only
+  safe inside async dynamic-import contexts as in `src/Auth.jsx`.)
+- Relative fetches to `/api/*` resolve to `capacitor://localhost/api/*` on native and
+  break silently. Prepend `https://truecalorie.net` when running native. Follow the
+  pattern already in `src/components/VoiceLogger.jsx`:
+  ```js
+  (window.Capacitor?.isNativePlatform?.() ? 'https://truecalorie.net' : '') + '/api/voice-log'
+  ```
+- Deep-link returns use the custom scheme `truecalorie://`. There is exactly one
+  `appUrlOpen` listener in `src/App.jsx` that handles OAuth code exchange. New native
+  return flows must reuse that listener; never add a parallel one.
+- Voice logging uses `window.webkitSpeechRecognition` (Web Speech API) in WKWebView,
+  supported on iOS 16.4+. There is no native speech recognition plugin. Do not add one:
+  `@capacitor-community/speech-recognition` was removed because it has no `Package.swift`
+  and is incompatible with Capacitor 8 SPM.
+- On the cloud Mac, all `VITE_*` env vars and `CAPACITOR_BUILD=true` must be exported
+  manually before running `npm run build && npx cap sync`. Vercel env injection does not
+  exist there; a missing `VITE_*` var fails silently as a black screen. `CAPACITOR_BUILD`
+  is read in `vite.config.js` to disable the PWA service-worker plugin for native builds.
 
 ## Commands
 - Install deps: `npm install`
