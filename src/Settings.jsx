@@ -120,6 +120,10 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
   const [saved, setSaved]                 = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError]     = useState(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError]     = useState(null)
   const [currentTheme, setCurrentThemeState] = useState(
     () => localStorage.getItem('tc-theme') || 'system'
   )
@@ -172,6 +176,30 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
       setPortalError('Something went wrong. Try again.')
     } finally {
       setPortalLoading(false)
+    }
+  }
+
+  const deleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') return
+    setDeleteLoading(true)
+    setDeleteError(null)
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const res = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        await supabase.auth.signOut()
+      } else {
+        setDeleteError(data?.error || 'Something went wrong. Try again.')
+      }
+    } catch {
+      setDeleteError('Something went wrong. Try again.')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -427,6 +455,61 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
                 <span style={{ color: 'var(--muted)', fontSize: 16, opacity: 0.4 }}>›</span>
               </button>
             ))}
+
+            {!showDeleteConfirm ? (
+              <button onClick={() => setShowDeleteConfirm(true)} style={{
+                width: '100%', padding: '13px 16px', background: 'none', border: 'none',
+                borderTop: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+                <span style={{ fontSize: 15, color: '#E24B4A' }}>Delete account</span>
+              </button>
+            ) : (
+              <div style={{ padding: 16, borderTop: '1px solid var(--border)' }}>
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 }}>
+                  This permanently deletes your account and all your data. This cannot be undone.
+                </p>
+                <input
+                  type="text"
+                  placeholder="Type DELETE to confirm"
+                  value={deleteConfirmText}
+                  onChange={e => setDeleteConfirmText(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 12px', marginBottom: 10,
+                    background: 'var(--surface2)', border: '1px solid var(--border)',
+                    borderRadius: 8, color: 'var(--text)', fontSize: 16,
+                    fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                  }}
+                />
+                <button
+                  onClick={deleteAccount}
+                  disabled={deleteConfirmText !== 'DELETE' || deleteLoading}
+                  style={{
+                    width: '100%', padding: 11, marginBottom: 8,
+                    background: deleteConfirmText === 'DELETE' && !deleteLoading ? '#E24B4A' : 'var(--surface2)',
+                    border: 'none', borderRadius: 8,
+                    color: deleteConfirmText === 'DELETE' && !deleteLoading ? '#fff' : 'var(--muted)',
+                    fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
+                    cursor: deleteConfirmText === 'DELETE' && !deleteLoading ? 'pointer' : 'default',
+                  }}
+                >
+                  {deleteLoading ? 'Deleting...' : 'Permanently delete account'}
+                </button>
+                {deleteError && (
+                  <p style={{ fontSize: 12, color: '#E24B4A', marginBottom: 8 }}>{deleteError}</p>
+                )}
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setDeleteError(null) }}
+                  style={{
+                    width: '100%', padding: '8px', background: 'none', border: 'none',
+                    cursor: 'pointer', fontSize: 13, color: 'var(--muted)', fontFamily: 'inherit',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </Card>
         </div>
 
