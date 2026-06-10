@@ -10,7 +10,9 @@
     "generate-vapid": "node --input-type=module -e \"import webpush from 'web-push'; console.log(webpush.generateVAPIDKeys())\""
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/core": "^8.4.0",
+    "@capgo/capacitor-health": "^8.6.2",
     "@supabase/supabase-js": "^2.105.4",
     "@tabler/icons-webfont": "^3.44.0",
     "@zxing/browser": "^0.2.0",
