@@ -1,0 +1,11 @@
+{
+  "appId": "net.truecalorie.app",
+  "appName": "TrueCalorie",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SpeechRecognition": {}
+  }
+}
