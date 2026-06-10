@@ -5,8 +5,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2026-04-22.dahlia',
 })
 
-const PRO_MONTHLY_PRICE_ID = 'price_1TcCMTRz19liVCNXQmgD2VVM'
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -22,9 +20,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid JSON' })
   }
 
-  const { userEmail } = body
+  const { userEmail, plan } = body
   if (!userEmail) {
     return res.status(400).json({ error: 'userEmail is required' })
+  }
+
+  const planNorm = plan === 'annual' ? 'annual' : 'monthly'
+  const priceId = planNorm === 'annual'
+    ? process.env.STRIPE_PRICE_ID_ANNUAL
+    : process.env.STRIPE_PRICE_ID_MONTHLY
+
+  if (!priceId) {
+    return res.status(500).json({ error: `Price ID for plan '${planNorm}' is not configured.` })
   }
 
   try {
@@ -34,18 +41,16 @@ export default async function handler(req, res) {
       customer_email: userEmail,
       line_items: [
         {
-          price: PRO_MONTHLY_PRICE_ID,
+          price: priceId,
           quantity: 1,
         },
       ],
-      // Pass userId through so the webhook can grant Pro to the right user
       client_reference_id: userId,
       subscription_data: {
         metadata: {
           user_id: userId,
-          type: 'pro_monthly',
+          type: planNorm === 'annual' ? 'pro_annual' : 'pro_monthly',
         },
-
       },
       success_url: `${process.env.VITE_APP_URL || 'https://truecalorie.net'}/?checkout=success`,
       cancel_url: `${process.env.VITE_APP_URL || 'https://truecalorie.net'}/?checkout=canceled`,

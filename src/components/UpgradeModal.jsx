@@ -14,6 +14,7 @@ const FEATURES = [
 
 export default function UpgradeModal({ open, onClose }) {
   const { isTrialing, trialDaysLeft, source } = usePro()
+  const [billingPeriod, setBillingPeriod] = useState('annual')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -61,13 +62,13 @@ export default function UpgradeModal({ open, onClose }) {
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, userEmail: user.email }),
+        body: JSON.stringify({ userId: user.id, userEmail: user.email, plan: billingPeriod }),
       })
 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Checkout failed')
 
-      capture('checkout_started', { plan: 'monthly' })
+      capture('checkout_started', { plan: billingPeriod })
       window.location.href = data.url
     } catch (err) {
       console.error('Checkout error:', err)
@@ -137,14 +138,54 @@ export default function UpgradeModal({ open, onClose }) {
           ))}
         </div>
 
+        {/* Billing period selector */}
+        <div style={{
+          display: 'inline-flex', background: 'var(--surface2)',
+          borderRadius: 8, padding: 3, marginBottom: 14,
+        }}>
+          {[
+            { value: 'annual',  label: 'Annual' },
+            { value: 'monthly', label: 'Monthly' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setBillingPeriod(opt.value)}
+              style={{
+                padding: '5px 14px', borderRadius: 6, border: 'none',
+                background: billingPeriod === opt.value ? 'var(--text)' : 'transparent',
+                color: billingPeriod === opt.value ? 'var(--bg)' : 'var(--muted)',
+                fontSize: 12, fontWeight: billingPeriod === opt.value ? 700 : 400,
+                cursor: 'pointer', fontFamily: 'inherit',
+                transition: 'background 0.15s',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
         {/* Price + CTA */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: 12,
         }}>
           <div>
-            <span style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>$9.99</span>
-            <span style={{ fontSize: 13, color: 'var(--muted)', marginLeft: 6 }}>/ month</span>
+            {billingPeriod === 'annual' ? (
+              <>
+                <div>
+                  <span style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>$59.99</span>
+                  <span style={{ fontSize: 13, color: 'var(--muted)', marginLeft: 6 }}>/ year</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
+                  $5.00 a month. Save 50%.
+                </div>
+              </>
+            ) : (
+              <div>
+                <span style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>$9.99</span>
+                <span style={{ fontSize: 13, color: 'var(--muted)', marginLeft: 6 }}>/ month</span>
+              </div>
+            )}
           </div>
           <button
             onClick={handleCheckout}

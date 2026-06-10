@@ -115,15 +115,16 @@ async function handleProCheckoutCompleted(session) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
   const periodEnd = periodEndISO(subscription)
 
+  const proSource = subscription.metadata?.type === 'pro_annual' ? 'annual' : 'monthly'
+
   const { error } = await supabase
     .from('user_settings')
     .update({
       is_pro: true,
-      pro_source: 'monthly',
+      pro_source: proSource,
       pro_activated_at: new Date().toISOString(),
       pro_expires_at: periodEnd,
       cancel_at_period_end: false,
-      // Store stripe subscription ID so we can update it later
       stripe_subscription_id: subscriptionId,
     })
     .eq('user_id', userId)
@@ -133,11 +134,11 @@ async function handleProCheckoutCompleted(session) {
     throw error
   }
 
-  console.log(`Granted Pro to user ${userId} until ${periodEnd}`)
+  console.log(`Granted Pro to user ${userId} (${proSource}) until ${periodEnd}`)
 
   try {
     const ph = new PostHog(process.env.POSTHOG_KEY, { host: 'https://us.i.posthog.com', flushAt: 1, flushInterval: 0 })
-    ph.capture({ distinctId: userId, event: 'subscription_activated', properties: { plan: 'monthly', source: 'monthly' } })
+    ph.capture({ distinctId: userId, event: 'subscription_activated', properties: { plan: proSource, source: proSource } })
     await ph.shutdown()
   } catch {}
 }
@@ -226,7 +227,7 @@ async function handleSubscriptionUpdated(subscription) {
 
   console.log(`Subscription ${subscriptionId} updated - type: ${type}, status: ${subscription.status}`)
 
-  if (type === 'pro_monthly' && userId) {
+  if ((type === 'pro_monthly' || type === 'pro_annual') && userId) {
     const periodEnd = periodEndISO(subscription)
     const isActive = subscription.status === 'active'
     const cancelingAtPeriodEnd = !!subscription.cancel_at_period_end
@@ -267,7 +268,7 @@ async function handleSubscriptionDeleted(subscription) {
 
   console.log(`Subscription ${subscriptionId} deleted - type: ${type}`)
 
-  if (type === 'pro_monthly' && userId) {
+  if ((type === 'pro_monthly' || type === 'pro_annual') && userId) {
     // Subscription deleted fires after the period end — use the period end
     // as the expiry so access was honored for the full paid period.
     const periodEnd = periodEndISO(subscription)

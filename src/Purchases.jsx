@@ -18,6 +18,7 @@ const PRO_FEATURES = [
 
 export default function Purchases({ session, onClose }) {
   const { isPro, isTrialing, trialDaysLeft, source, expiresAt, loading, cancelAtPeriodEnd } = usePro()
+  const [billingPeriod, setBillingPeriod]         = useState('annual')
   const [showFoundersModal, setShowFoundersModal] = useState(false)
   const [checkoutLoading, setCheckoutLoading]     = useState(false)
   const [checkoutError, setCheckoutError]         = useState(null)
@@ -54,11 +55,11 @@ export default function Purchases({ session, onClose }) {
       const res  = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
-        body: JSON.stringify({ userEmail: session.user.email }),
+        body: JSON.stringify({ userEmail: session.user.email, plan: billingPeriod }),
       })
       const data = await res.json()
       if (data?.url) {
-        capture('checkout_started', { plan: 'monthly' })
+        capture('checkout_started', { plan: billingPeriod })
         window.location.href = data.url
       } else {
         setCheckoutError(data?.error || 'Something went wrong. Please try again.')
@@ -279,19 +280,59 @@ export default function Purchases({ session, onClose }) {
         <div style={{
           background: 'var(--text)', color: 'var(--bg)',
           padding: '16px 18px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
         }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.5, marginBottom: 6 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.5, marginBottom: 10 }}>
               Pro Plan
             </div>
-            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1 }}>
-              $9.99
-              <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.55 }}> / month</span>
+
+            {/* Billing period selector */}
+            <div style={{
+              display: 'inline-flex', background: 'rgba(0,0,0,0.18)',
+              borderRadius: 8, padding: 3, marginBottom: 12,
+            }}>
+              {[
+                { value: 'annual',  label: 'Annual' },
+                { value: 'monthly', label: 'Monthly' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setBillingPeriod(opt.value)}
+                  style={{
+                    padding: '5px 14px', borderRadius: 6, border: 'none',
+                    background: billingPeriod === opt.value ? 'var(--bg)' : 'transparent',
+                    color: billingPeriod === opt.value ? 'var(--text)' : 'var(--bg)',
+                    opacity: billingPeriod === opt.value ? 1 : 0.55,
+                    fontSize: 12, fontWeight: billingPeriod === opt.value ? 700 : 400,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'background 0.15s, opacity 0.15s',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
+
+            {billingPeriod === 'annual' ? (
+              <>
+                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1 }}>
+                  $59.99
+                  <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.55 }}> / year</span>
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.65, marginTop: 5 }}>
+                  $5.00 a month. Save 50%.
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 1 }}>
+                $9.99
+                <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.55 }}> / month</span>
+              </div>
+            )}
           </div>
           {isTrialing && (
-            <div style={{ fontSize: 11, color: '#f5a623', fontWeight: 600 }}>{trialDaysLeft}d trial left</div>
+            <div style={{ fontSize: 11, color: '#f5a623', fontWeight: 600, marginTop: 2 }}>{trialDaysLeft}d trial left</div>
           )}
         </div>
 
