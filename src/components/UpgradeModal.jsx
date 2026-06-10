@@ -56,13 +56,13 @@ export default function UpgradeModal({ open, onClose }) {
     setError(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not signed in')
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      if (!authSession?.user) throw new Error('Not signed in')
 
       const res = await fetch('/api/create-checkout-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, userEmail: user.email, plan: billingPeriod }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
+        body: JSON.stringify({ userEmail: authSession.user.email, plan: billingPeriod }),
       })
 
       const data = await res.json()
