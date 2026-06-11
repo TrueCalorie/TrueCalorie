@@ -14,6 +14,14 @@ const supabaseAdmin = createClient(
   { auth: { persistSession: false } }
 )
 
+// UTC date string (YYYY-MM-DD) for the rate-limit reset window. Deliberately UTC and
+// server-deterministic — this is an abuse cap, not user-facing day grouping, so the
+// local-date helper used for meal logs does not apply here.
+function utcDateStr() {
+  const d = new Date()
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -29,7 +37,10 @@ export default async function handler(req) {
     })
   }
 
-  // Look up trial status server-side — never trust the client-sent isTrialing flag
+  // Look up Pro status server-side — never trust the client. This endpoint can route
+  // to the PAID Nutritionix path, so a non-Pro caller must be rejected here, not just
+  // in the UI. Deny on uncertainty (cost-bearing endpoint).
+  let isPro = false
   let isTrialing = false
   try {
     const { data } = await supabaseAdmin
@@ -37,8 +48,54 @@ export default async function handler(req) {
       .select('is_pro, pro_source')
       .eq('user_id', userId)
       .maybeSingle()
-    isTrialing = !!(data?.is_pro && data?.pro_source === 'trial')
-  } catch { /* default false — routes to Claude Haiku */ }
+    isPro = !!(data?.is_pro)
+    isTrialing = isPro && data?.pro_source === 'trial'
+  } catch {
+    isPro = false
+  }
+
+  if (!isPro) {
+    return new Response(JSON.stringify({ error: 'Pro subscription required' }), {
+      status: 403, headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Per-user daily cap — guards against runaway loops and abuse driving Nutritionix
+  // cost. SELECT then UPDATE/INSERT (Supabase upsert cannot atomically increment).
+  // If the rate-limit DB ops fail for any reason, log and continue: never block a
+  // paying user on a rate-limit failure.
+  const today = utcDateStr()
+  try {
+    const { data: rl } = await supabaseAdmin
+      .from('api_rate_limits')
+      .select('call_count')
+      .eq('user_id', userId)
+      .eq('date', today)
+      .eq('endpoint', 'voice-log')
+      .maybeSingle()
+
+    const current = rl?.call_count || 0
+    if (current >= 25) {
+      return new Response(JSON.stringify({ error: 'Daily voice log limit reached' }), {
+        status: 429, headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (rl) {
+      await supabaseAdmin
+        .from('api_rate_limits')
+        .update({ call_count: current + 1 })
+        .eq('user_id', userId)
+        .eq('date', today)
+        .eq('endpoint', 'voice-log')
+    } else {
+      await supabaseAdmin
+        .from('api_rate_limits')
+        .insert({ user_id: userId, date: today, endpoint: 'voice-log', call_count: 1 })
+    }
+  } catch (err) {
+    console.error('[voice-log] rate limit check failed:', err)
+  }
 
   let transcript
   try {
