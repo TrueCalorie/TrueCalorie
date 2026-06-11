@@ -1,5 +1,5 @@
 # TrueCalorie Context Document
-Last updated: June 11, 2026 (repo at 6ba2d8f). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
+Last updated: June 11, 2026 (repo at b55079b). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
 
 This is the canonical context document. Any Claude chat working on TrueCalorie should treat this as the source of truth for project state, decisions, and conventions. Search project knowledge (this doc, CLAUDE.md, and the synced repo) before making assumptions about current file contents. When this doc and the repo disagree, the repo wins; flag the discrepancy.
 
@@ -36,9 +36,18 @@ Calorie and macro tracking built for serious athletes, particularly runners and 
 
 ---
 
-## 3. Current state (end of day, June 10, 2026)
+## 3. Current state (end of day, June 11, 2026)
 
-### Shipped to production today (session log, all merged to main)
+### Shipped to production June 11, 2026
+
+| Change | Hash | Notes |
+|---|---|---|
+| Server-side Pro gate + daily cap on Nutritionix endpoints | 74adc61 | voice-log.js and restaurant-search.js now enforce is_pro server-side (403 for non-Pro); per-user daily caps via the new api_rate_limits table (voice-log 25/day, restaurant-search 75/day). Closes P0 #1. Details below. |
+| Privacy policy + Terms updated | 43017ad, 4ad37ad | Privacy: PostHog and Apple sign-in added to service providers. Privacy + Terms contact email switched from personal Gmail to support@truecalorie.net (all instances: prose, mailto href, link text). "Last updated" bumped to June 10. Closes P0 #2 except support@ inbox routing. |
+
+**api_rate_limits (new Supabase table, migration run manually June 11 before deploy):** PRIMARY KEY (user_id, date, endpoint), call_count integer, RLS enabled with a service-role-only ALL policy (USING true / WITH CHECK true). Both endpoints derive isPro from user_settings (deny on lookup error), then SELECT-then-UPDATE/INSERT the counter (Supabase upsert cannot atomically increment). UTC reset window (server-deterministic; an abuse cap, not user-facing day grouping, so the local-date helper deliberately does not apply). Rate-limit DB ops are fail-open: any error logs and continues, so a DB hiccup never blocks a paying user. The is_pro 403 gate is separate and hard-fails. voice-log routing unchanged (trial -> Haiku, paying Pro -> Nutritionix); isTrialing now = isPro && pro_source === 'trial'. Grep confirmed these two files are the only direct callers of trackapi.nutritionix.com; the client service routes through /api/restaurant-search.
+
+### Shipped to production June 10 (session log, all merged to main)
 
 | Change | Hash | Notes |
 |---|---|---|
@@ -101,8 +110,8 @@ api/delete-account.js: verifyUser Bearer token only; cancels Stripe subscription
 
 ### P0, fix before the TikTok reveal makes the app visible
 
-1. **Server-side Pro gate missing on Nutritionix endpoints.** voice-log.js checks auth and trial status but never is_pro; a free user whose trial expired routes to the PAID Nutritionix path (isTrialing=false). restaurant-search.js has no Pro check at all. The CLAUDE.md invariant "free users generate zero Nutritionix cost" is currently enforced only by hiding buttons in the UI. Any authenticated user calling the endpoints directly generates real API costs. Fix: server-side is_pro check returning 403 on both endpoints, plus a cheap per-user daily cap (these are the only endpoints where abuse converts directly to money, and there is no rate limiting anywhere).
-2. **Privacy policy outdated.** Missing PostHog (policy explicitly promises to list new analytics tools) and Apple as a sign-in provider. Legal contact is a personal Gmail; switch to support@truecalorie.net (Resend/Namecheap already configured). Apple reviewers sometimes cross-check privacy labels against the policy. One prompt, do before App Store submission.
+1. **RESOLVED June 11 (74adc61): server-side Pro gate on Nutritionix endpoints.** Both voice-log.js and restaurant-search.js now enforce is_pro server-side (403 for non-Pro, deny-on-uncertainty) plus per-user daily caps (25 voice / 75 restaurant) via the new api_rate_limits table; rate-limit ops fail open. Original gap: voice-log checked only trial status, restaurant-search had no Pro check, and the "free users generate zero Nutritionix cost" invariant was enforced only by hiding UI buttons; any authenticated token could call the endpoints directly and incur cost.
+2. **RESOLVED June 11 (43017ad, 4ad37ad): privacy policy + Terms updated.** PostHog and Apple sign-in added to the privacy policy service-provider list; contact email switched from personal Gmail to support@truecalorie.net in both Privacy.jsx and Terms.jsx; "Last updated" bumped to June 10. **Remaining sub-item (still P0 before App Store submission):** route support@truecalorie.net to a monitored inbox. Resend/Namecheap is configured but the address must actually deliver before it goes in front of reviewers. Note: the new service-provider entries use em-dash separators to match the existing list, which technically conflicts with the no-em-dash copy rule; the whole list predates the rule and was left consistent rather than rewritten.
 
 ### P1, soon after launch
 
@@ -122,7 +131,7 @@ api/delete-account.js: verifyUser Bearer token only; cancels Stripe subscription
 
 ## 5. Immediate roadmap (ordered, native launch track)
 
-1. **Batched prompt: P0 items 1 and 2** (server-side Pro gate + rate cap, privacy policy update). Web-only, deploys via Vercel.
+1. **DONE June 11: P0 items 1 and 2** (server-side Pro gate + rate cap 74adc61; privacy policy + Terms update 43017ad/4ad37ad). Web-only, deployed via Vercel. Only the support@ inbox routing remains (see P0 #2).
 2. **MacinCloud session** (batch everything Xcode-related):
    - Master paste block now needs a fourth export: `export VITE_POSTHOG_KEY="phc_..."` alongside VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, CAPACITOR_BUILD=true. Missing it ships native with analytics silently disabled.
    - npm install pulls posthog-js and @capacitor/browser; cap sync registers the Browser plugin automatically.
@@ -183,6 +192,10 @@ api/delete-account.js: verifyUser Bearer token only; cancels Stripe subscription
 
 ## 9. Key learnings and principles (cumulative)
 
+New from June 11:
+- **Rate limiting is fail-open by design.** A cost/abuse cap must log-and-continue if its own DB read/write fails, never block a paying user. The gate that protects revenue (is_pro 403) is a separate, hard-failing check. Keep the two concerns distinct.
+- **Rate-limit reset windows use UTC deliberately** (server-deterministic). This is the one place the local-date rule does not apply: a reset window is an abuse cap, not user-facing day grouping. Compute it with an explicit getUTC* helper so the banned toISOString().split idiom is never used.
+
 New from June 10:
 - **Merge vs push:** feature branches are scratch paper; local merge folds them into local main; push sends main to GitHub, which is what triggers Vercel. CLAUDE.md's "never push to main without go-ahead" is the checkpoint, and Claude Code merging locally then waiting for push approval is the correct flow.
 - **The stale-caller bug class:** when a server contract changes, grep for and update EVERY caller in the same commit; two production bugs came from exactly this during the June 4 security pass. Tests are the systematic fix.
@@ -241,5 +254,7 @@ export VITE_POSTHOG_KEY="phc_..."
 **Stripe reference:** old hardcoded monthly price was price_1TcCMTRz19liVCNXQmgD2VVM (now STRIPE_PRICE_ID_MONTHLY). Founders is a Stripe Payment Link (VITE_STRIPE_FOUNDERS_LINK).
 
 **Key new files since June 8:** src/analytics.js, src/lib/openExternal.js, api/delete-account.js, scripts/gen-apple-secret.mjs.
+
+**Supabase tables (rate limiting):** api_rate_limits, added June 11. PK (user_id, date, endpoint), call_count int, RLS on with a service-role-only ALL policy. Backs the daily caps on /api/voice-log (25/user/day) and /api/restaurant-search (75/user/day); UTC reset window; fail-open on DB error. SQL migrations are still run manually in the Supabase SQL editor before deploy.
 
 **Calendar items:** Nov 10 2026 Apple secret regen; close Founders at 100 spots or 30 days post-launch; watch Nutritionix MAU count monthly.
