@@ -1,5 +1,5 @@
 # TrueCalorie Context Document
-Last updated: June 11, 2026 (repo at a838a0c). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
+Last updated: June 11, 2026 (repo at 6ba2d8f). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
 
 This is the canonical context document. Any Claude chat working on TrueCalorie should treat this as the source of truth for project state, decisions, and conventions. Search project knowledge (this doc, CLAUDE.md, and the synced repo) before making assumptions about current file contents. When this doc and the repo disagree, the repo wins; flag the discrepancy.
 
@@ -108,7 +108,7 @@ api/delete-account.js: verifyUser Bearer token only; cancels Stripe subscription
 
 3. **No error monitoring.** PostHog shows what users do; nothing reports when code breaks. A failing webhook is silent until a customer complains. Sentry free tier, one session.
 4. **No automated tests.** Today's two stale-caller bugs are the recurring cost. Mitigation that fits the workflow: a Claude Code-written smoke-test suite for API endpoints (auth rejection, checkout returns URL, webhook parses sample event), run before every merge.
-5. **2FA audit on founder accounts.** GitHub, Vercel, Supabase, Stripe, Apple, Google. One phished GitHub credential = attacker pushes to main = production compromised. Thirty minutes, highest-ROI security action available.
+5. **Account security audit (IN PROGRESS, started June 11).** GitHub complete: passkey + 2FA, recovery codes stored in the password manager. Scope expanded from 6 to 9 accounts; remaining in priority order: Google (recovery skeleton key, highest priority), Vercel (env vars = all secrets), Stripe, Supabase, Apple, Namecheap (DNS + truecalorie.net email), the password-manager vault itself, and the Anthropic account. Standing rule: prefer passkeys/TOTP, remove SMS fallbacks where allowed. Original rationale stands: one phished credential on a write-access account = production compromised. Highest-ROI security action available.
 
 ### P2, cleanup list (do not let these jump the queue)
 
@@ -217,6 +217,7 @@ Carried forward (still binding):
 - Code changes for Windows and Xcode/Info.plist steps for MacinCloud stay clearly separated; all Xcode-requiring work batches into single MacinCloud sessions.
 - This doc is updated surgically via /wrap-session at the end of each significant session; git history is the version record. CLAUDE.md gets targeted passes (Pass 2 pending, see roadmap item 6).
 - **Sector-allocated chats (new):** Jackson is splitting work across dedicated chats per sector (e.g., native/build, marketing, business). Every sector chat should read this document first, search project knowledge before assuming file state, and keep the analytics schema and pricing decisions locked unless this doc is superseded.
+- **Project knowledge is now sourced solely from the synced repo (June 11).** The standalone context upload was deleted; CONTEXT.md and the wrap-session skill reach claude.ai only via repo sync. Loop verified end to end: a sector chat retrieved CONTEXT.md (June 11 header) and the wrap-session skill from synced knowledge. Implication: this doc must be pushed and "Sync now" clicked for chat-side knowledge to update; there is no second source to fall back on.
 - Feature prioritization is business-impact ordered: revenue/retention blockers first, then polish. Currently: store launch track outranks all features.
 
 ---
