@@ -94,7 +94,7 @@ export default function Terms({ onBack }) {
           <p>
             You are responsible for maintaining the confidentiality of your
             account credentials and for all activity that occurs under your
-            account. Notify us promptly at triguy805@gmail.com if you suspect
+            account. Notify us promptly at support@truecalorie.net if you suspect
             unauthorized access.
           </p>
           <p>
@@ -226,7 +226,7 @@ export default function Terms({ onBack }) {
         <Section title="Contact">
           <p>
             Questions about these Terms?
-            Email <a href="mailto:triguy805@gmail.com" style={{ color: '#1D9E75' }}>triguy805@gmail.com</a>.
+            Email <a href="mailto:support@truecalorie.net" style={{ color: '#1D9E75' }}>support@truecalorie.net</a>.
           </p>
           <p style={{ marginTop: 16, fontSize: 13, color: '#777' }}>
             TrueCalorie LLC<br />
