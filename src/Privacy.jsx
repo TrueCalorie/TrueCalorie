@@ -68,7 +68,7 @@ export default function Privacy({ onBack }) {
             Privacy Policy
           </h1>
           <p style={{ fontSize: 13, color: '#666', marginBottom: 40 }}>
-            Last updated: May 26, 2026
+            Last updated: June 10, 2026
           </p>
         </div>
 
@@ -137,7 +137,9 @@ export default function Privacy({ onBack }) {
             <li><strong style={{ color: '#fff' }}>Vercel</strong> — website hosting and serverless functions</li>
             <li><strong style={{ color: '#fff' }}>Stripe</strong> — payment processing</li>
             <li><strong style={{ color: '#fff' }}>Google</strong> — sign-in (if you choose to use Google authentication)</li>
+            <li><strong style={{ color: '#fff' }}>Apple</strong> — sign-in (if you choose to use Apple authentication)</li>
             <li><strong style={{ color: '#fff' }}>Open Food Facts and Nutritionix</strong> — nutrition data lookup (we send your search queries; they do not receive your account information)</li>
+            <li><strong style={{ color: '#fff' }}>PostHog</strong> — product analytics. We use PostHog to understand how users interact with the app (for example, which features are used and where users encounter errors). PostHog does not receive your food log data or health information.</li>
           </ul>
           <p>
             We may use additional analytics or operational tools in the
@@ -167,7 +169,7 @@ export default function Privacy({ onBack }) {
           </ul>
           <p>
             To exercise any of these rights, contact us at
-            triguy805@gmail.com. We will respond within 30 days.
+            support@truecalorie.net. We will respond within 30 days.
           </p>
         </Section>
 
@@ -202,7 +204,7 @@ export default function Privacy({ onBack }) {
         <Section title="Contact">
           <p>
             Questions about this Privacy Policy?
-            Email <a href="mailto:triguy805@gmail.com" style={{ color: '#1D9E75' }}>triguy805@gmail.com</a>.
+            Email <a href="mailto:support@truecalorie.net" style={{ color: '#1D9E75' }}>support@truecalorie.net</a>.
           </p>
           <p style={{ marginTop: 16, fontSize: 13, color: '#777' }}>
             TrueCalorie LLC<br />
