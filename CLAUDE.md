@@ -8,6 +8,9 @@ and Android apps via Capacitor (iOS on TestFlight). Live at truecalorie.net.
 Positioning: voice-first logging ("talk to log your meal"), athlete-calibrated targets,
 Strava intelligence. Voice logging is the strategic centerpiece; weigh new features against it.
 
+## Project-state doc
+CONTEXT.md at repo root is the canonical project-state document. End every significant session with /wrap-session. Never edit CONTEXT.md outside /wrap-session without explicit instruction.
+
 ## Stack
 - Frontend: React + Vite (PWA, installable on mobile)
 - Hosting: Vercel — auto-deploys on push to `main`
