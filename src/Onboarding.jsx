@@ -103,7 +103,7 @@ export default function Onboarding({ session, onComplete }) {
 
   // ── Styles ──────────────────────────────────────────────────────────────────
   const c = {
-    maxWidth: 480, margin: '0 auto', padding: '60px 24px 24px',
+    maxWidth: 480, margin: '0 auto', paddingTop: 'calc(60px + env(safe-area-inset-top))', paddingRight: 24, paddingBottom: 24, paddingLeft: 24,
     fontFamily: 'sans-serif', minHeight: '100vh', background: 'var(--bg)',
   }
   const heading    = { fontSize: 26, fontWeight: 600, marginBottom: 8, color: 'var(--text)' }

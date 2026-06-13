@@ -29,7 +29,7 @@ export default function Privacy({ onBack }) {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '24px 32px',
+        paddingTop: 'calc(24px + env(safe-area-inset-top))', paddingRight: 32, paddingBottom: 24, paddingLeft: 32,
         borderBottom: '1px solid #1f1f1f',
       }}>
         <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', fontFamily: 'Georgia, serif' }}>
