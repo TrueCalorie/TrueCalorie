@@ -122,17 +122,13 @@ function App() {
       const { App: CapApp } = await import(/* @vite-ignore */ '@capacitor/app')
       handle = await CapApp.addListener('appUrlOpen', async ({ url }) => {
         if (!url.startsWith('truecalorie://')) return
-        try {
-          const { error } = await supabase.auth.exchangeCodeForSession(url)
-          if (!error) {
-            const { data } = await supabase.auth.getSession()
-            if (data?.session) {
-              setSession(data.session)
-            }
-          }
-        } catch (e) {
-          console.error('[OAuth] exchange failed:', e)
-        }
+        const code = new URL(url).searchParams.get('code')
+        if (!code) { window.alert('[OAuth] no code in callback: ' + url); return } // TODO: remove before release
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) { window.alert('[OAuth] exchange error: ' + error.message); return } // TODO: remove before release
+        const { data } = await supabase.auth.getSession()
+        if (data?.session) setSession(data.session)
+        else window.alert('[OAuth] exchanged but no session returned') // TODO: remove before release
       })
     }
     setup()
