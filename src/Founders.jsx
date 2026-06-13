@@ -61,7 +61,7 @@ export default function Founders({ onBack }) {
       {/* Nav */}
       <nav className="fade-up" style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '24px 32px', borderBottom: '1px solid #1f1f1f',
+        paddingTop: 'calc(24px + env(safe-area-inset-top))', paddingRight: 32, paddingBottom: 24, paddingLeft: 32, borderBottom: '1px solid #1f1f1f',
       }}>
         <button onClick={onBack} style={{
           background: 'none', border: 'none', color: '#666',
