@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { verifyUser } from '../lib/verifyUser.js'
+import { applyCors } from '../lib/cors.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-04-22.dahlia' })
 const supabase = createClient(
@@ -10,6 +11,7 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
+  if (applyCors(req, res)) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const userId = await verifyUser(req)

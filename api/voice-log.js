@@ -5,6 +5,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { verifyUser } from '../lib/verifyUser.js'
+import { CORS_HEADERS } from '../lib/cors.js'
 
 export const config = { runtime: 'edge' }
 
@@ -23,9 +24,13 @@ function utcDateStr() {
 }
 
 export default async function handler(req) {
+  // CORS preflight — Edge runtime has no res object, so we mirror lib/cors.js by hand.
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS })
+  }
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { 'Content-Type': 'application/json' },
+      status: 405, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
@@ -33,7 +38,7 @@ export default async function handler(req) {
   const userId = await verifyUser(req)
   if (!userId) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { 'Content-Type': 'application/json' },
+      status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
@@ -56,7 +61,7 @@ export default async function handler(req) {
 
   if (!isPro) {
     return new Response(JSON.stringify({ error: 'Pro subscription required' }), {
-      status: 403, headers: { 'Content-Type': 'application/json' },
+      status: 403, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
@@ -77,7 +82,7 @@ export default async function handler(req) {
     const current = rl?.call_count || 0
     if (current >= 25) {
       return new Response(JSON.stringify({ error: 'Daily voice log limit reached' }), {
-        status: 429, headers: { 'Content-Type': 'application/json' },
+        status: 429, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
     }
 
@@ -103,13 +108,13 @@ export default async function handler(req) {
     transcript = body?.transcript
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400, headers: { 'Content-Type': 'application/json' },
+      status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
   if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
     return new Response(JSON.stringify({ error: 'transcript is required' }), {
-      status: 400, headers: { 'Content-Type': 'application/json' },
+      status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
@@ -123,12 +128,12 @@ export default async function handler(req) {
       : await parseWithClaude(transcript)
 
     return new Response(JSON.stringify({ foods }), {
-      status: 200, headers: { 'Content-Type': 'application/json' },
+      status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     console.error('[voice-log] NLP error:', err)
     return new Response(JSON.stringify({ error: 'Failed to parse meal' }), {
-      status: 500, headers: { 'Content-Type': 'application/json' },
+      status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 }

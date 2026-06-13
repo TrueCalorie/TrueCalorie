@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import { apiUrl } from '../lib/apiUrl'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatHours(seconds) {
@@ -394,7 +395,7 @@ export default function TrainingSection({ session, range, calByDate, calorieGoal
     setLoading(true)
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession()
-      const res  = await fetch('/api/strava-training', {
+      const res  = await fetch(apiUrl('/api/strava-training'), {
         method:  'POST',
         headers: {
           'Content-Type': 'application/json',

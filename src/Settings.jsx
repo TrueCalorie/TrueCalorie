@@ -4,6 +4,7 @@ import { usePro } from './hooks/usePro'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import StravaConnect from './components/StravaConnect'
 import { openExternal } from './lib/openExternal'
+import { apiUrl } from './lib/apiUrl'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function SectionLabel({ children }) {
@@ -165,7 +166,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
     setPortalError(null)
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      const res  = await fetch('/api/create-portal-session', {
+      const res  = await fetch(apiUrl('/api/create-portal-session'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         body: JSON.stringify({}),
@@ -186,7 +187,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
     setDeleteError(null)
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      const res = await fetch('/api/delete-account', {
+      const res = await fetch(apiUrl('/api/delete-account'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         body: JSON.stringify({}),

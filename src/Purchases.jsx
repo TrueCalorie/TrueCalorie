@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
 import { capture } from './analytics'
 import { openExternal } from './lib/openExternal'
+import { apiUrl } from './lib/apiUrl'
 
 const FOUNDERS_PAYMENT_LINK = import.meta.env.VITE_STRIPE_FOUNDERS_LINK || ''
 const FOUNDER_CAP = 100
@@ -53,7 +54,7 @@ export default function Purchases({ session, onClose }) {
     setCheckoutError(null)
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      const res  = await fetch('/api/create-checkout-session', {
+      const res  = await fetch(apiUrl('/api/create-checkout-session'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         body: JSON.stringify({ userEmail: session.user.email, plan: billingPeriod }),
@@ -76,7 +77,7 @@ export default function Purchases({ session, onClose }) {
     setPortalError(null)
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      const res  = await fetch('/api/create-portal-session', {
+      const res  = await fetch(apiUrl('/api/create-portal-session'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         body: JSON.stringify({}),

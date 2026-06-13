@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import { apiUrl } from '../lib/apiUrl'
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
 
@@ -84,7 +85,7 @@ export function usePushNotifications(session) {
     })
 
     const { data: { session: authSession } } = await supabase.auth.getSession()
-    await fetch('/api/save-push-subscription', {
+    await fetch(apiUrl('/api/save-push-subscription'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -108,7 +109,7 @@ export function usePushNotifications(session) {
     }
 
     const { data: { session: authSession } } = await supabase.auth.getSession()
-    await fetch('/api/save-push-subscription', {
+    await fetch(apiUrl('/api/save-push-subscription'), {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${authSession?.access_token}` },
     })
@@ -119,7 +120,7 @@ export function usePushNotifications(session) {
   const updateReminderTime = async (time) => {
     setReminderTime(time)
     const { data: { session: authSession } } = await supabase.auth.getSession()
-    await fetch('/api/save-push-subscription', {
+    await fetch(apiUrl('/api/save-push-subscription'), {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

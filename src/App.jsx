@@ -19,6 +19,7 @@ import LoadingScreen from './components/LoadingScreen'
 import TabBar from './components/TabBar'
 import Purchases from './Purchases'
 import { usePro } from './hooks/usePro'
+import { apiUrl } from './lib/apiUrl'
 import { useCountUp } from './hooks/useCountUp'
 import { calculateGoalsPro, computeMacros } from './macros'
 import WeightCard from './components/WeightCard'
@@ -294,7 +295,7 @@ function App() {
     lastStravaFetchRef.current = Date.now()
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      const res = await fetch('/api/strava-activities', {
+      const res = await fetch(apiUrl('/api/strava-activities'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         cache: 'no-store',
@@ -312,7 +313,7 @@ function App() {
   const fetchStravaTrailing = async () => {
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      const res = await fetch('/api/strava-training', {
+      const res = await fetch(apiUrl('/api/strava-training'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         cache: 'no-store',

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../supabase'
+import { apiUrl } from '../lib/apiUrl'
 
 function toLocalDateStr(date) {
   const d = new Date(date)
@@ -111,7 +112,7 @@ export default function StravaCard({ session, refreshKey = 0, onSync }) {
     setError(null)
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
-      const res = await fetch('/api/strava-activities', {
+      const res = await fetch(apiUrl('/api/strava-activities'), {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         cache:   'no-store',

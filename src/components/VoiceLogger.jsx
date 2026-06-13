@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../supabase'
 import { usePro } from '../hooks/usePro'
+import { apiUrl } from '../lib/apiUrl'
 
 // ─── State Machine ────────────────────────────────────────────────────────────
 const PHASE = {
@@ -412,7 +413,7 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch((window.Capacitor?.isNativePlatform?.() ? 'https://truecalorie.net' : '') + '/api/voice-log', {
+      const res = await fetch(apiUrl('/api/voice-log'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ transcript: text }),
@@ -456,7 +457,7 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch((window.Capacitor?.isNativePlatform?.() ? 'https://truecalorie.net' : '') + '/api/voice-log', {
+      const res = await fetch(apiUrl('/api/voice-log'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify({ transcript: refinedQuery }),

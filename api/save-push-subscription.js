@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { verifyUser } from '../lib/verifyUser.js'
+import { applyCors } from '../lib/cors.js'
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -8,6 +9,7 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
+  if (applyCors(req, res)) return
   const userId = await verifyUser(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
 
