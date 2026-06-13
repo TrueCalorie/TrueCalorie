@@ -122,13 +122,17 @@ function App() {
       const { App: CapApp } = await import(/* @vite-ignore */ '@capacitor/app')
       handle = await CapApp.addListener('appUrlOpen', async ({ url }) => {
         if (!url.startsWith('truecalorie://')) return
-        const code = new URL(url).searchParams.get('code')
-        if (!code) { window.alert('[OAuth] no code in callback: ' + url); return } // TODO: remove before release
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) { window.alert('[OAuth] exchange error: ' + error.message); return } // TODO: remove before release
-        const { data } = await supabase.auth.getSession()
-        if (data?.session) setSession(data.session)
-        else window.alert('[OAuth] exchanged but no session returned') // TODO: remove before release
+        try {
+          const code = new URL(url).searchParams.get('code')
+          if (!code) { window.alert('[OAuth] no code in callback: ' + url); return } // TODO: remove before release
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) { window.alert('[OAuth] exchange error: ' + error.message); return } // TODO: remove before release
+          const { data } = await supabase.auth.getSession()
+          if (data?.session) setSession(data.session)
+          else { window.alert('[OAuth] exchanged but no session returned') } // TODO: remove before release
+        } catch (e) {
+          window.alert('[OAuth] exception: ' + (e?.message || e)) // TODO: remove before release
+        }
       })
     }
     setup()
