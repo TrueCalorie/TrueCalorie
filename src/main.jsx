@@ -14,6 +14,12 @@ if (savedTheme) {
   document.documentElement.setAttribute('data-theme', savedTheme)
 }
 
+// TODO: remove before submission build — on-device debug console (native only).
+// Dynamic import keeps eruda out of the web bundle; native guard keeps it off the website.
+if (window.Capacitor?.isNativePlatform?.()) {
+  import('eruda').then(({ default: eruda }) => eruda.init())
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />

@@ -121,6 +121,7 @@ function App() {
     const setup = async () => {
       const { App: CapApp } = await import(/* @vite-ignore */ '@capacitor/app')
       handle = await CapApp.addListener('appUrlOpen', async ({ url }) => {
+        console.log('[appUrlOpen fired] url =', url) // TODO: remove before release
         if (!url.startsWith('truecalorie://')) return
         try {
           const code = new URL(url).searchParams.get('code')
@@ -134,6 +135,7 @@ function App() {
           window.alert('[OAuth] exception: ' + (e?.message || e)) // TODO: remove before release
         }
       })
+      console.log('[appUrlOpen listener registered]') // TODO: remove before release
     }
     setup()
     return () => { handle?.remove() }
