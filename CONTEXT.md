@@ -1,5 +1,5 @@
 # TrueCalorie Context Document
-Last updated: June 11, 2026 (repo at b55079b). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
+Last updated: June 12, 2026 (repo at c8920b4). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
 
 This is the canonical context document. Any Claude chat working on TrueCalorie should treat this as the source of truth for project state, decisions, and conventions. Search project knowledge (this doc, CLAUDE.md, and the synced repo) before making assumptions about current file contents. When this doc and the repo disagree, the repo wins; flag the discrepancy.
 
@@ -45,7 +45,12 @@ Calorie and macro tracking built for serious athletes, particularly runners and 
 | Server-side Pro gate + daily cap on Nutritionix endpoints | 74adc61 | voice-log.js and restaurant-search.js now enforce is_pro server-side (403 for non-Pro); per-user daily caps via the new api_rate_limits table (voice-log 25/day, restaurant-search 75/day). Closes P0 #1. Details below. |
 | Privacy policy + Terms updated | 43017ad, 4ad37ad | Privacy: PostHog and Apple sign-in added to service providers. Privacy + Terms contact email switched from personal Gmail to support@truecalorie.net (all instances: prose, mailto href, link text). "Last updated" bumped to June 10. Closes P0 #2 except support@ inbox routing. |
 
-**api_rate_limits (new Supabase table, migration run manually June 11 before deploy):** PRIMARY KEY (user_id, date, endpoint), call_count integer, RLS enabled with a service-role-only ALL policy (USING true / WITH CHECK true). Both endpoints derive isPro from user_settings (deny on lookup error), then SELECT-then-UPDATE/INSERT the counter (Supabase upsert cannot atomically increment). UTC reset window (server-deterministic; an abuse cap, not user-facing day grouping, so the local-date helper deliberately does not apply). Rate-limit DB ops are fail-open: any error logs and continues, so a DB hiccup never blocks a paying user. The is_pro 403 gate is separate and hard-fails. voice-log routing unchanged (trial -> Haiku, paying Pro -> Nutritionix); isTrialing now = isPro && pro_source === 'trial'. Grep confirmed these two files are the only direct callers of trackapi.nutritionix.com; the client service routes through /api/restaurant-search.
+**api_rate_limits (new Supabase table, migration run manually June 11 before deploy):** PRIMARY KEY (user_id, date, endpoint), call_count integer, RLS enabled with NO client-facing policy (the June 11 RLS audit removed the original USING(true)/WITH CHECK(true) ALL policy; the service role bypasses RLS and no client code touches this table, so no policy is the more restrictive, correct config). Both endpoints derive isPro from user_settings (deny on lookup error), then SELECT-then-UPDATE/INSERT the counter (Supabase upsert cannot atomically increment). UTC reset window (server-deterministic; an abuse cap, not user-facing day grouping, so the local-date helper deliberately does not apply). Rate-limit DB ops are fail-open: any error logs and continues, so a DB hiccup never blocks a paying user. The is_pro 403 gate is separate and hard-fails. voice-log routing unchanged (trial -> Haiku, paying Pro -> Nutritionix); isTrialing now = isPro && pro_source === 'trial'. Grep confirmed these two files are the only direct callers of trackapi.nutritionix.com; the client service routes through /api/restaurant-search.
+
+### Operational actions (no git record), June 11
+
+- **2FA enabled on all six core founder accounts:** GitHub, Vercel, Supabase, Stripe, Apple Developer, Google. Authenticator app (TOTP) on each, not SMS. The expanded audit scope in Known Gaps also lists three lower-priority accounts still pending: Namecheap, the password-manager vault, and Anthropic.
+- **Supabase RLS audit completed and verified clean:** all tables rowsecurity=true; every INSERT policy has with_check auth.uid() = user_id; all SELECT/UPDATE/DELETE policies are user-scoped. api_rate_limits has RLS enabled with no client-facing policy (service role bypasses RLS; no client code touches the table), more restrictive than the original USING(true) policy.
 
 ### Shipped to production June 10 (session log, all merged to main)
 
@@ -110,28 +115,27 @@ api/delete-account.js: verifyUser Bearer token only; cancels Stripe subscription
 
 ### P0, fix before the TikTok reveal makes the app visible
 
-1. **RESOLVED June 11 (74adc61): server-side Pro gate on Nutritionix endpoints.** Both voice-log.js and restaurant-search.js now enforce is_pro server-side (403 for non-Pro, deny-on-uncertainty) plus per-user daily caps (25 voice / 75 restaurant) via the new api_rate_limits table; rate-limit ops fail open. Original gap: voice-log checked only trial status, restaurant-search had no Pro check, and the "free users generate zero Nutritionix cost" invariant was enforced only by hiding UI buttons; any authenticated token could call the endpoints directly and incur cost.
-2. **RESOLVED June 11 (43017ad, 4ad37ad): privacy policy + Terms updated.** PostHog and Apple sign-in added to the privacy policy service-provider list; contact email switched from personal Gmail to support@truecalorie.net in both Privacy.jsx and Terms.jsx; "Last updated" bumped to June 10. **Remaining sub-item (still P0 before App Store submission):** route support@truecalorie.net to a monitored inbox. Resend/Namecheap is configured but the address must actually deliver before it goes in front of reviewers. Note: the new service-provider entries use em-dash separators to match the existing list, which technically conflicts with the no-em-dash copy rule; the whole list predates the rule and was left consistent rather than rewritten.
+_P0 is clear as of June 11, 2026._ Both prior items (server-side Pro gate on Nutritionix endpoints, 74adc61; privacy policy + Terms update, 43017ad/4ad37ad) shipped this session and are recorded in the Section 3 shipped table. One residual from the privacy item, routing support@truecalorie.net to a monitored inbox, is now tracked under App Store submission in the roadmap (Section 5, item 4).
 
 ### P1, soon after launch
 
-3. **No error monitoring.** PostHog shows what users do; nothing reports when code breaks. A failing webhook is silent until a customer complains. Sentry free tier, one session.
-4. **No automated tests.** Today's two stale-caller bugs are the recurring cost. Mitigation that fits the workflow: a Claude Code-written smoke-test suite for API endpoints (auth rejection, checkout returns URL, webhook parses sample event), run before every merge.
-5. **Account security audit (IN PROGRESS, started June 11).** GitHub complete: passkey + 2FA, recovery codes stored in the password manager. Scope expanded from 6 to 9 accounts; remaining in priority order: Google (recovery skeleton key, highest priority), Vercel (env vars = all secrets), Stripe, Supabase, Apple, Namecheap (DNS + truecalorie.net email), the password-manager vault itself, and the Anthropic account. Standing rule: prefer passkeys/TOTP, remove SMS fallbacks where allowed. Original rationale stands: one phished credential on a write-access account = production compromised. Highest-ROI security action available.
+1. **No error monitoring.** PostHog shows what users do; nothing reports when code breaks. A failing webhook is silent until a customer complains. Sentry free tier, one session. (Top priority now that P0 is clear.)
+2. **No automated tests.** Today's two stale-caller bugs are the recurring cost. Mitigation that fits the workflow: a Claude Code-written smoke-test suite for API endpoints (auth rejection, checkout returns URL, webhook parses sample event), run before every merge.
+3. **Account security audit (mostly done, June 11).** 2FA (authenticator app, not SMS) now enabled on all six core accounts: GitHub, Vercel, Supabase, Stripe, Apple, Google; GitHub also has a passkey and recovery codes in the password manager. Supabase RLS audit completed and verified clean (see Section 3 operational actions). Remaining (lower priority): Namecheap (DNS + truecalorie.net email), the password-manager vault itself, and the Anthropic account. Standing rule: prefer passkeys/TOTP, remove SMS fallbacks where allowed. Original rationale stands: one phished credential on a write-access account = production compromised.
 
 ### P2, cleanup list (do not let these jump the queue)
 
-6. Trial copy inconsistency: Purchases CTA for post-trial users says "Start 7-day free trial, no card charged until trial ends" but the trial was already granted at signup. Watch in PostHog for confusion, then fix copy or flow.
-7. Auth.jsx uses hardcoded hex colors (#0a0a0a, #111, #ef4444) instead of design-system CSS variables.
-8. App.jsx is a god component (ring, bars, log, all overlays). Rule going forward: new features go in components, not App.jsx. Full refactor is not currently worth the risk.
-9. Emoji icons (feature lists, Trends) read cheap vs the otherwise premium system; Tabler icons are already bundled. Cosmetic.
-10. Some text at 10 to 11px is below comfortable readability.
+4. Trial copy inconsistency: Purchases CTA for post-trial users says "Start 7-day free trial, no card charged until trial ends" but the trial was already granted at signup. Watch in PostHog for confusion, then fix copy or flow.
+5. Auth.jsx uses hardcoded hex colors (#0a0a0a, #111, #ef4444) instead of design-system CSS variables.
+6. App.jsx is a god component (ring, bars, log, all overlays). Rule going forward: new features go in components, not App.jsx. Full refactor is not currently worth the risk.
+7. Emoji icons (feature lists, Trends) read cheap vs the otherwise premium system; Tabler icons are already bundled. Cosmetic.
+8. Some text at 10 to 11px is below comfortable readability.
 
 ---
 
 ## 5. Immediate roadmap (ordered, native launch track)
 
-1. **DONE June 11: P0 items 1 and 2** (server-side Pro gate + rate cap 74adc61; privacy policy + Terms update 43017ad/4ad37ad). Web-only, deployed via Vercel. Only the support@ inbox routing remains (see P0 #2).
+1. **DONE June 11: P0 items 1 and 2** (server-side Pro gate + rate cap 74adc61; privacy policy + Terms update 43017ad/4ad37ad). Web-only, deployed via Vercel. Only the support@ inbox routing remains, now tracked under App Store submission (item 4 below).
 2. **MacinCloud session** (batch everything Xcode-related):
    - Master paste block now needs a fourth export: `export VITE_POSTHOG_KEY="phc_..."` alongside VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, CAPACITOR_BUILD=true. Missing it ships native with analytics silently disabled.
    - npm install pulls posthog-js and @capacitor/browser; cap sync registers the Browser plugin automatically.
@@ -139,6 +143,7 @@ api/delete-account.js: verifyUser Bearer token only; cancels Stripe subscription
    - In Xcode: uncheck iPad under Deployment Info (iPhone-only = no iPad screenshots, smaller review surface). Recreate App.entitlements manually as usual (no new entitlements needed; Apple sign-in is browser-flow). Increment build number. Archive, upload to TestFlight.
 3. **Device verification checklist (physical iPhone, in order):** fresh install; Google sign-in survives force-quit; sign out, Apple sign-in same checks; voice log a real meal and confirm meal_logged {voice} in PostHog Activity; inputs do not zoom, no notch overlap; Pro checkout opens a Safari sheet (not in-app); **the money test:** buy monthly on own card, confirm Pro activates on resume, confirm subscription_activated in PostHog, open Manage billing from the Purchases page specifically (regression test for the portal fix), cancel via portal, refund in Stripe dashboard. One $9.99 round trip validates checkout, webhook, source mapping, resume refresh, and the portal fix. Then delete-account on a throwaway.
 4. **App Store submission:**
+   - Confirm support@truecalorie.net delivers to a monitored inbox before submitting. It is now the privacy policy and Terms legal contact; Resend/Namecheap is configured but end-to-end delivery is unverified. A reviewer emailing a dead contact address is an avoidable rejection risk.
    - Name: "TrueCalorie - Macro Tracker". Subtitle: "Calorie tracking for athletes". Keywords (100 chars, no spaces, no title-word repeats): counter,running,strava,protein,nutrition,marathon,weightlifting,food,log,voice,runner,fuel
    - Screenshots (6.9" set, order is the argument): 1 voice logging mid-parse, 2 adaptive target raised after a synced run, 3 daily ring, 4 Trends, 5 fueling gauge
    - Privacy labels: Contact Info (email), Health & Fitness, Identifiers (User ID), Usage Data (Product Interaction); linked to user, NOT used for tracking (no ATT needed)
@@ -153,14 +158,44 @@ api/delete-account.js: verifyUser Bearer token only; cancels Stripe subscription
 
 ## 6. Marketing and growth (week 2 and beyond)
 
-- **Mines athletic department pilot: the highest-leverage move, costs one conversation, send the pitch THIS WEEK in parallel with the build work, not after.** Mechanics: comp accounts for the team (pro_source 'comp' plumbing exists), defined 4-week window, midpoint check-in, two asks at the end: honest testimonial and an App Store review from anyone who genuinely liked it (asking is allowed, incentivizing is not). Pitch angle: the fueling-adequacy / RED-S-aware framing; coaches and athletic trainers care deeply. Summer base-building is good timing.
-- **Channel concentration risk, named explicitly:** the friend's TikTok account is the single greatest marketing asset and it is not owned. It is a relationship dependency (interest, graduation, bans, future payment expectations). Mitigation: build owned channels in parallel. Jackson's own account documenting the founder journey (an actual collegiate distance runner building the tool for his own training is the most credible possible source), and email capture on the landing page (Resend is configured and building no list; every non-signup visitor is currently lost forever).
-- **Landing page, highest-converting missing element:** a 10 to 15 second autoplaying loop of voice logging actually parsing a spoken meal, above the fold. Film once on a phone; doubles as the best TikTok clip.
-- **Post-onboarding voice prompt:** end onboarding with "Log your first meal right now. Just say it." Magic moment by design in minute two of account life, not by accident whenever.
-- **Talk to the one Founder customer.** Fifteen minutes on why they bought and what almost stopped them is worth more than any further analysis.
-- **Headline note:** "Eating is training." is brand-led; the documented positioning decision says lead with product quality (voice). Current resolution: keep the tagline as kicker, test a voice-led headline once there is traffic to test with. Not a pre-launch priority.
-- Parked until stores are live: Stats weight history, water achievement notifications, SEO/prerendered marketing pages (post-launch compounding asset: "calorie calculator for runners," "MacroFactor alternative for athletes"), X/Instagram (low-priority background under "truecalorie").
-- Standing rules: no paid acquisition until organic conversion is proven; no social features until 500+ DAU.
+**Marketing plan v1 adopted (June 12).** A one-pager was drafted; recommend committing it to the repo as MARKETING.md so it syncs into project knowledge alongside this doc (NOT yet created). Two framing reforms govern everything below:
+- **All external comms are trigger-based on "store link live," never dated.** Nothing posts on a calendar; everything posts off the event that "Download on the App Store" is a live link. This extends the HARD GATE in Section 5.
+- **Two-tier bet structure:** the Mines pilot is the launch FLOOR (controllable, high-trust, costs one conversation); the friend's TikTok is the high-variance UPSIDE experiment (uncontrollable, not owned). Plan to the floor; treat the upside as upside.
+
+**Mines athletic department pilot (the launch floor, pitch THIS WEEK in parallel with the build, not after):**
+- Remote pitch call this week + follow-up email. Assets drafted: a half-page pitch doc and a pre-written coach announcement.
+- Two doors: the coach (primary) and the athletic trainer (parallel/fallback).
+- Biggest objection to preempt is disordered-eating / RED-S risk. Pilot design answers it directly: shame-free opt-out, the trainer quietly exempts at-risk athletes, sports med invited to review. Consistent with the eat-enough brand stance (Section 1); coaches and athletic trainers care deeply. Summer base-building is good timing.
+- Mechanics (carried): comp accounts (pro_source 'comp' plumbing exists), defined 4-week window, midpoint check-in, two asks at the end (honest testimonial; an App Store review from anyone who genuinely liked it, asking allowed, incentivizing not).
+- Fallback: no official yes by ~July 1 means run an informal pilot anyway, Jackson invites 10 to 12 teammates directly.
+
+**Friend TikTok partnership (formalize BEFORE launch revenue exists):**
+- Compensation: 15% of net revenue for days 1 to 60, then 25% of attributed first-year revenue via a unique promo code, paid monthly with transparent numbers shown.
+- No equity. 7-day no-fault exit either side.
+- Disclosure: FTC disclosure on every compensated post; if he is an NCAA athlete, NIL disclosure routed through his school's compliance office.
+- One-page agreement drafted. The flat early share knowingly overpays (it includes pilot and Founders revenue he did not drive); accepted for simplicity.
+- Channel concentration risk still stands: this is the single greatest marketing asset and it is not owned (relationship dependency: interest, graduation, bans, future payment expectations). Mitigation is the owned channels below.
+
+**Owned channels (built in parallel, zero or low cost):**
+- **Jackson's Strava (~200 distance-runner followers), adopted as a zero-cost trust channel:** fueling notes in run descriptions 1 to 2x/week, one overt launch-day post, bio sharpened. An actual collegiate distance runner is the most credible possible source. The activity-append growth loop ("Fueled with TrueCalorie" auto-appended to activities) is PARKED pending Strava API terms review; the read integration is mission-critical and must not be jeopardized.
+- **Own TikTok:** warm-up founder-story posts pre-launch with NO download CTA (the reveal gate stays intact). The first warm-up item was cut under week-0 time pressure; rule: warm-up content slips before the pitch call ever does.
+- **Email capture on the landing page:** Resend is configured and building no list; every non-signup visitor is currently lost forever. One planned send: the launch announcement.
+
+**Momentum measurement (thresholds written down pre-launch).** App Store attribution is dark, so metrics are channel-agnostic only, read from PostHog: signups/day, activation rate, trial-to-paid vs the ~5% line (Section 7). Do not pretend to know which channel drove an install.
+
+**Product/landing assets that move conversion (carried, still open):**
+- Landing page highest-converting missing element: a 10 to 15 second autoplaying loop of voice logging actually parsing a spoken meal, above the fold. Film once on a phone; doubles as the best TikTok clip.
+- Post-onboarding voice prompt: end onboarding with "Log your first meal right now. Just say it." Magic moment by design in minute two of account life, not by accident.
+- Talk to the one Founder customer: fifteen minutes on why they bought and what almost stopped them beats any further analysis.
+- Headline note: "Eating is training." is brand-led; the documented decision is to lead with product quality (voice). Resolution: keep the tagline as kicker, test a voice-led headline once there is traffic to test with. Not a pre-launch priority.
+
+**New open items (June 12):**
+- Post-pilot account treatment (do comp accounts convert, expire, or get grandfathered) + the Nutritionix MAU budget those comps consume: decide by pilot week 3.
+- "How did you hear about us" onboarding question: post-launch fast-follow (the only first-party attribution signal available given dark App Store data).
+
+**Parked until stores are live:** Stats weight history, water achievement notifications, SEO/prerendered marketing pages (post-launch compounding asset: "calorie calculator for runners," "MacroFactor alternative for athletes"), X/Instagram (low-priority background under "truecalorie").
+
+**Standing rules:** no paid acquisition until organic conversion is proven; no social features until 500+ DAU.
 
 ---
 
