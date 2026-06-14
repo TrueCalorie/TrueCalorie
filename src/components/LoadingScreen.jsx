@@ -73,15 +73,13 @@ export default function LoadingScreen() {
           justifyContent: 'center',
         }}>
           <img
-            src="/logo.png"
+            src="/logo.svg"
             alt="TrueCalorie"
             className="tc-logo"
             style={{
               width: 64,
               height: 64,
               objectFit: 'contain',
-              // Invert the logo on dark theme so a black-on-white PNG reads correctly
-              filter: 'var(--logo-filter, none)',
             }}
           />
         </div>

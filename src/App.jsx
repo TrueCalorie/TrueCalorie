@@ -687,7 +687,7 @@ function App() {
               )}
             </div>
           </div>
-          <img src="/logo.png" style={{ height: 28, filter: 'var(--logo-filter)', opacity: 0.7 }} alt="TrueCalorie" />
+          <img src="/logo.svg" style={{ height: 28, opacity: 0.85 }} alt="TrueCalorie" />
         </div>
         <TabBar activeTab="today" onChange={handleTabChange} />
       </div>
