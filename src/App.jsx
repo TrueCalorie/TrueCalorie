@@ -121,19 +121,28 @@ function App() {
     const setup = async () => {
       const { App: CapApp } = await import('@capacitor/app')
       handle = await CapApp.addListener('appUrlOpen', async ({ url }) => {
-        window.alert('[appUrlOpen fired] ' + url)   // TODO: remove before submission
-        if (!url.startsWith('truecalorie://')) return
-        try {
-          const code = new URL(url).searchParams.get('code')
-          if (!code) { window.alert('[OAuth] no code in callback: ' + url); return } // TODO: remove before release
+        const hash = url.includes('#') ? url.split('#')[1] : ''
+        const hp = new URLSearchParams(hash)
+        const access_token = hp.get('access_token')
+        const refresh_token = hp.get('refresh_token')
+        let code = null
+        try { code = new URL(url).searchParams.get('code') } catch {}
+
+        // TEMP: truncated so we stop printing full tokens on screen // TODO: remove before submission
+        window.alert('[appUrlOpen] format: ' + (access_token ? 'implicit' : code ? 'code' : 'neither'))
+
+        if (access_token && refresh_token) {
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token })
+          if (error) { window.alert('[OAuth] setSession error: ' + error.message); return } // TODO: remove
+        } else if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) { window.alert('[OAuth] exchange error: ' + error.message); return } // TODO: remove before release
-          const { data } = await supabase.auth.getSession()
-          if (data?.session) setSession(data.session)
-          else { window.alert('[OAuth] exchanged but no session returned') } // TODO: remove before release
-        } catch (e) {
-          window.alert('[OAuth] exception: ' + (e?.message || e)) // TODO: remove before release
+          if (error) { window.alert('[OAuth] exchange error: ' + error.message); return } // TODO: remove
+        } else {
+          window.alert('[OAuth] no token or code'); return // TODO: remove
         }
+        const { data } = await supabase.auth.getSession()
+        if (data?.session) setSession(data.session)
+        else window.alert('[OAuth] no session after') // TODO: remove
       })
       console.log('[appUrlOpen listener registered]') // TODO: remove before release
     }

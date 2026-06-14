@@ -8,8 +8,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+  if (String(req.method).toUpperCase() !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed (got ' + req.method + ')' })
   }
 
   const userId = await verifyUser(req)

@@ -28,8 +28,8 @@ export default async function handler(req) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS })
   }
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+  if (String(req.method).toUpperCase() !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed (got ' + req.method + ')' }), {
       status: 405, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
