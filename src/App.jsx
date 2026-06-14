@@ -136,23 +136,18 @@ function App() {
         let code = null
         try { code = new URL(url).searchParams.get('code') } catch {}
 
-        // TEMP: truncated so we stop printing full tokens on screen // TODO: remove before submission
-        window.alert('[appUrlOpen] format: ' + (access_token ? 'implicit' : code ? 'code' : 'neither'))
-
         if (access_token && refresh_token) {
           const { error } = await supabase.auth.setSession({ access_token, refresh_token })
-          if (error) { window.alert('[OAuth] setSession error: ' + error.message); return } // TODO: remove
+          if (error) return
         } else if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) { window.alert('[OAuth] exchange error: ' + error.message); return } // TODO: remove
+          if (error) return
         } else {
-          window.alert('[OAuth] no token or code'); return // TODO: remove
+          return
         }
         const { data } = await supabase.auth.getSession()
         if (data?.session) setSession(data.session)
-        else window.alert('[OAuth] no session after') // TODO: remove
       })
-      console.log('[appUrlOpen listener registered]') // TODO: remove before release
     }
     setup()
     return () => { handle?.remove() }

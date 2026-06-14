@@ -18,7 +18,7 @@ function utcDateStr() {
 export default async function handler(req, res) {
   if (applyCors(req, res)) return
   if (String(req.method).toUpperCase() !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed (got ' + req.method + ')' })
+    return res.status(405).json({ error: 'Method not allowed' })
   }
   const userId = await verifyUser(req)
   if (!userId) return res.status(401).json({ error: 'Unauthorized' })
