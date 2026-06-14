@@ -4,7 +4,7 @@ import { apiUrl } from './apiUrl'
 // patch was downgrading POST to GET; the explicit plugin API sends the method reliably and
 // still bypasses CORS via native networking. Returns a fetch-like object so callers keep
 // using res.ok / res.status / res.json().
-export async function apiFetch(path, { method = 'GET', headers = {}, body } = {}) {
+export async function apiFetch(path, { method = 'GET', headers = {}, body, cache } = {}) {
   const url = apiUrl(path)
   if (window.Capacitor?.isNativePlatform?.()) {
     const { CapacitorHttp } = await import('@capacitor/core')
@@ -16,5 +16,5 @@ export async function apiFetch(path, { method = 'GET', headers = {}, body } = {}
       json: async () => (typeof resp.data === 'string' ? JSON.parse(resp.data) : resp.data),
     }
   }
-  return fetch(url, { method, headers, body })
+  return fetch(url, { method, headers, body, cache })
 }
