@@ -119,7 +119,7 @@ function App() {
     if (!window.Capacitor?.isNativePlatform?.()) return
     let handle
     const setup = async () => {
-      const { App: CapApp } = await import(/* @vite-ignore */ '@capacitor/app')
+      const { App: CapApp } = await import('@capacitor/app')
       handle = await CapApp.addListener('appUrlOpen', async ({ url }) => {
         window.alert('[appUrlOpen fired] ' + url)   // TODO: remove before submission
         if (!url.startsWith('truecalorie://')) return
@@ -148,7 +148,7 @@ function App() {
     if (!window.Capacitor?.isNativePlatform?.()) return
     let handle
     const setup = async () => {
-      const { App: CapApp } = await import(/* @vite-ignore */ '@capacitor/app')
+      const { App: CapApp } = await import('@capacitor/app')
       handle = await CapApp.addListener('appStateChange', ({ isActive }) => {
         if (isActive) refreshProRef.current?.()
       })

@@ -2,6 +2,11 @@
   "appId": "net.truecalorie.app",
   "appName": "TrueCalorie",
   "webDir": "dist",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  },
   "ios": {
     "infoPlist": {
       "NSCameraUsageDescription": "Used to scan food barcodes for quick logging.",

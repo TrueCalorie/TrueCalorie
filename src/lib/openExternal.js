@@ -5,12 +5,13 @@
 // Capacitor Browser plugin instead of navigating the WKWebView. On web, behavior
 // is unchanged: same-tab navigation by default, or a new tab when target is '_blank'.
 //
-// The native plugin import is dynamic and the plugin is externalized in
-// vite.config.js, so this never pulls Capacitor into the web bundle.
+// The native plugin import is dynamic, so it only loads on native (behind the
+// isNativePlatform guard) and Vite splits it into a separate chunk that the web
+// bundle never fetches.
 export async function openExternal(url, opts = {}) {
   if (window.Capacitor?.isNativePlatform?.()) {
     try {
-      const { Browser } = await import(/* @vite-ignore */ '@capacitor/browser')
+      const { Browser } = await import('@capacitor/browser')
       await Browser.open({ url })
       return
     } catch {
