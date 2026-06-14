@@ -89,6 +89,10 @@ function App() {
   const navigateBack = ()     => setPageHistory(h => h.slice(0, -1))
   const currentPage  = pageHistory[pageHistory.length - 1] || null
 
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [currentPage, showPrivacy, showTerms, showFounders, session?.user?.id])
+
   // ── Session ────────────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -110,6 +114,10 @@ function App() {
       }
       if (event === 'SIGNED_OUT') {
         reset()
+        setPageHistory([])
+        setShowFounders(false)
+        setShowPrivacy(false)
+        setShowTerms(false)
       }
     })
     return () => subscription.unsubscribe()
