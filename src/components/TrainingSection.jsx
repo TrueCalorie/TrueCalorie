@@ -413,7 +413,7 @@ export default function TrainingSection({ session, range, calByDate, calorieGoal
   }
 
   // Not connected — render nothing
-  if (!loading && (!data || !data.connected)) return null
+  if (loading || !data || !data.connected) return null
 
   const SectionHead = ({ children }) => (
     <div style={{
