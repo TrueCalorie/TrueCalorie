@@ -95,6 +95,11 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
   const isFounder    = source === 'founder'
   const isMonthlyPro = isPro && !isTrialing && source === 'monthly'
 
+  const navigateTo = (path) => {
+    window.history.pushState({}, '', path)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }
+
   const {
     isSupported: pushSupported, isSubscribed, isPromptReady,
     reminderTime, subscribe, unsubscribe, updateReminderTime,
@@ -444,8 +449,8 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
             </div>
             {[
               { label: 'Sign out',        action: () => supabase.auth.signOut() },
-              { label: 'Privacy Policy',  action: () => window.open('/privacy', '_blank') },
-              { label: 'Terms of Service', action: () => window.open('/terms', '_blank') },
+              { label: 'Privacy Policy',  action: () => navigateTo('/privacy') },
+              { label: 'Terms of Service', action: () => navigateTo('/terms') },
             ].map((item, i, arr) => (
               <button key={item.label} onClick={item.action} style={{
                 width: '100%', padding: '13px 16px', background: 'none', border: 'none',
