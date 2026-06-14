@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import { apiUrl } from '../lib/apiUrl'
+import { apiFetch } from '../lib/apiFetch'
 
 /**
  * Nutritionix service module.
@@ -369,7 +369,7 @@ async function searchRestaurantsMock(query) {
 
 async function callRestaurantSearch(query, mode = 'search') {
   const { data: { session } } = await supabase.auth.getSession()
-  const res = await fetch(apiUrl('/api/restaurant-search'), {
+  const res = await apiFetch('/api/restaurant-search', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

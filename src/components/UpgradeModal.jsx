@@ -3,7 +3,7 @@ import { usePro } from '../hooks/usePro'
 import { supabase } from '../supabase'
 import { capture } from '../analytics'
 import { openExternal } from '../lib/openExternal'
-import { apiUrl } from '../lib/apiUrl'
+import { apiFetch } from '../lib/apiFetch'
 
 const FEATURES = [
   'Full macros for 200,000+ restaurant menu items',
@@ -61,7 +61,7 @@ export default function UpgradeModal({ open, onClose }) {
       const { data: { session: authSession } } = await supabase.auth.getSession()
       if (!authSession?.user) throw new Error('Not signed in')
 
-      const res = await fetch(apiUrl('/api/create-checkout-session'), {
+      const res = await apiFetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         body: JSON.stringify({ userEmail: authSession.user.email, plan: billingPeriod }),
