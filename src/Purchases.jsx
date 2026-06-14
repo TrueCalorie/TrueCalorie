@@ -59,6 +59,7 @@ export default function Purchases({ session, onClose }) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
         body: JSON.stringify({ userEmail: session.user.email, plan: billingPeriod }),
       })
+      window.alert('[checkout] status ' + res.status)   // TODO: remove before submission
       const data = await res.json()
       if (data?.url) {
         capture('checkout_started', { plan: billingPeriod })
@@ -66,7 +67,8 @@ export default function Purchases({ session, onClose }) {
       } else {
         setCheckoutError(data?.error || 'Something went wrong. Please try again.')
       }
-    } catch {
+    } catch (err) {
+      window.alert('[checkout] threw: ' + (err?.message || err))   // TODO: remove before submission
       setCheckoutError('Something went wrong. Please try again.')
     }
     setCheckoutLoading(false)

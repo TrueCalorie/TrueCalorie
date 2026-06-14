@@ -121,7 +121,7 @@ function App() {
     const setup = async () => {
       const { App: CapApp } = await import(/* @vite-ignore */ '@capacitor/app')
       handle = await CapApp.addListener('appUrlOpen', async ({ url }) => {
-        console.log('[appUrlOpen fired] url =', url) // TODO: remove before release
+        window.alert('[appUrlOpen fired] ' + url)   // TODO: remove before submission
         if (!url.startsWith('truecalorie://')) return
         try {
           const code = new URL(url).searchParams.get('code')
