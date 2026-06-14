@@ -1,5 +1,5 @@
 # TrueCalorie Context Document
-Last updated: June 13, 2026 (repo at 5a64f91). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
+Last updated: June 14, 2026 (repo at f9f563f on main; all session work merged, not yet pushed at wrap time). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
 
 This is the canonical context document. Any Claude chat working on TrueCalorie should treat this as the source of truth for project state, decisions, and conventions. Search project knowledge (this doc, CLAUDE.md, and the synced repo) before making assumptions about current file contents. When this doc and the repo disagree, the repo wins; flag the discrepancy.
 
@@ -36,7 +36,26 @@ Calorie and macro tracking built for serious athletes, particularly runners and 
 
 ---
 
-## 3. Current state (end of day, June 13, 2026)
+## 3. Current state (end of day, June 14, 2026)
+
+### Native POST blocker RESOLVED; native app verified end-to-end on a physical device (June 14, 2026)
+
+The June 13 OPEN BLOCKER is closed. The native iOS app now works end to end on a real iPhone: Google and Apple OAuth, Stripe checkout + Manage Billing portal, voice logging, Strava sync, and account deletion all confirmed on device. This closes the device-verification gap open since June 9.
+
+| Change | Hash | Notes |
+|---|---|---|
+| Drop CapacitorHttp from apiFetch; plain fetch on every platform | 11a5511 | MERGED + PUSHED to main. apiFetch.js is now just `fetch(apiUrl(path), {...})`; CapacitorHttp is no longer imported anywhere in src/. Reverts the June 13 native branch that downgraded POST to GET. |
+| Point native apiUrl base at canonical www host | 6a922a1 | MERGED + PUSHED to main. Native /api base is now https://www.truecalorie.net (was the apex truecalorie.net). |
+
+**Root cause of the entire native-POST failure (confirmed): an apex-to-www 301 redirect mid-request.** The app pointed native /api calls at the apex `truecalorie.net`, but the canonical host is `www.truecalorie.net` and the apex 301-redirects to it. A redirect mid-request breaks native cross-origin calls: plain browser fetch returns status 0, and CapacitorHttp silently downgrades the POST to a GET (the "got GET" diagnostic). Pointing the native base at the exact non-redirecting host (www) plus plain fetch + the existing server CORS resolved every native-only failure at once. Web was never affected (same-origin relative URLs); Supabase was never affected (own domain, no redirect). This is exactly the apex-vs-www path the June 13 "recommended next step" flagged as the thing to check.
+
+**Four pre-launch UI fixes — merged to main June 14 (not yet device-verified; batched for one rebuild):**
+
+| Change | Hash | Notes |
+|---|---|---|
+| Clear nav state on SIGNED_OUT + scroll-reset on screen change | 15ad3fb | App.jsx: SIGNED_OUT now clears pageHistory + the founders/privacy/terms flags (fixes login landing on Settings); added a window.scrollTo(0,0) effect keyed on currentPage / static-page flags / session?.user?.id (user id, not the session object, so a background token refresh does not yank scroll). Covers prompted fixes 1 and 2. |
+| Stop Strava section flashing on Trends for non-connected users | c072f07 | TrainingSection.jsx guard was `!loading && (!data || !data.connected)`, which rendered during the load window then hid; now `if (loading || !data || !data.connected) return null`. |
+| Settings Privacy/Terms links work on native | f9f563f | Were window.open('/privacy','_blank') / window.open('/terms','_blank') (no-op in WKWebView); now use Landing's pushState + dispatch popstate, which the App router catches. Closes Section 4 P2 #10. |
 
 ### Shipped to production June 13, 2026 (native API transport session, all merged to main)
 
@@ -48,16 +67,18 @@ Calorie and macro tracking built for serious athletes, particularly runners and 
 | Safe-area-inset-top extended to Founders, Privacy, Terms, Onboarding | 6c02170, 60eb536 | Completes the June 9 notch fix across the remaining top-anchored screens. Audit confirmed all other pages already covered; Auth (centered card) and bottom-sheet overlays need none. |
 | scripts/patch-plist.sh committed | 267f979 | Idempotent Info.plist patcher (usage strings, ITSAppUsesNonExemptEncryption, truecalorie:// scheme). Was referenced by the MacinCloud build flow but missing from the repo. LF endings + exec bit (100755). |
 | Bundle @capacitor/app & @capacitor/browser (the sign-in fix) | bf2797d | Root cause below. |
-| Explicit CapacitorHttp.request for API calls + cache passthrough | d6a3b7e, 5a64f91 | Attempted native POST transport; superseded — see OPEN BLOCKER. |
+| Explicit CapacitorHttp.request for API calls + cache passthrough | d6a3b7e, 5a64f91 | Attempted native POST transport; SUPERSEDED and removed June 14 (11a5511). See the June 14 block above for the resolution. |
 | eruda on-device debug console + alert/diagnostic scaffolding | 4c6b6b6, f7158fc | TEMPORARY. Gated to window.location.hostname === 'localhost' (localhost in WKWebView and local dev, never truecalorie.net). This is what finally gave native visibility. Strip before submission. |
 
 **Sign in with Google AND Apple now work on a physical device (verified this session).** Two stacked root causes:
 1. **@capacitor/app was never installed** (absent from package.json). It had been externalized in vite.config.js and dynamically imported with /* @vite-ignore */ to silence the build error, which left an unresolvable bare module specifier in the bundle that crashed the appUrlOpen listener at runtime ("Module name '@capacitor/app' does not resolve to a valid URL") — so the sign-in listener never registered. Fix: `npm install @capacitor/app@^8`, removed the externalize entries and the /* @vite-ignore */ comments so Vite resolves and code-splits the plugins. @capgo/capacitor-health and @capacitor-community/speech-recognition stay externalized (not @capacitor/* packages, not called on the platform).
 2. **The OAuth callback returns the implicit-token format** (truecalorie://auth/callback#access_token=...&refresh_token=...), not ?code=. The handler now parses the URL hash and calls supabase.auth.setSession; exchangeCodeForSession remains the fallback path. Supabase (login + all reads) confirmed working on native via plain browser fetch.
 
+**[RESOLVED June 14 — see the June 14 block at the top of Section 3. Root cause was the apex-to-www 301 redirect, not CapacitorHttp alone; fixed by 6a922a1 (www base) + 11a5511 (plain fetch). The diagnosis below is retained as the record of how it was found.]**
+
 **OPEN BLOCKER — every authenticated POST to our own /api fails on native.** Affected: create-checkout-session, create-portal-session, voice-log, strava-activities, strava-training, delete-account, save-push-subscription. Login, OAuth, and all Supabase reads are fine. Diagnosis (not visible in git): the request reaches the server but arrives as **GET** — confirmed by the temporary server diagnostic returning "Method not allowed (got GET)" — under BOTH the global CapacitorHttp fetch patch AND explicit CapacitorHttp.request. src/lib/apiFetch.js is correct (it passes method:'POST' into CapacitorHttp.request, and the caller passes 'POST'), so the downgrade is happening inside CapacitorHttp's iOS layer, not our code. The endpoint is healthy: a direct GET to https://truecalorie.net/api/create-checkout-session returns its normal 405. Conclusion: **CapacitorHttp is not viable for our POSTs on iOS.** Plain browser fetch was tried earlier and was CORS-blocked ("Load failed"), but that attempt predates the @capacitor/app crash fix and may have been transient. This blocks the entire money path (checkout/portal), the voice centerpiece, Strava sync, account deletion, and push on iOS, so **no fully device-verified build exists yet.**
 
-**Recommended next step (top of next session): remove CapacitorHttp entirely and revert apiFetch's native branch to plain `fetch`** so all calls use standard browser fetch + server CORS — the proven pattern, since Supabase makes the identical cross-origin call from the same WKWebView and succeeds and applyCors looks correct. Re-test on device first. If plain fetch still fails: (a) inspect the OPTIONS preflight in eruda's Network tab to see exactly where it dies; (b) check whether https://truecalorie.net/api/* issues an apex-vs-www or trailing-slash redirect that both breaks the CORS request and downgrades the method — if so, point apiUrl at the exact canonical host to remove the redirect. Current state to revert from: capacitor.config.json has NO CapacitorHttp block (removed in d6a3b7e), but apiFetch's native branch still calls CapacitorHttp.request — that branch is what to change.
+**[DONE June 14: this is exactly what shipped. The www-redirect hypothesis (option b) was the real cause.]** **Recommended next step (top of next session): remove CapacitorHttp entirely and revert apiFetch's native branch to plain `fetch`** so all calls use standard browser fetch + server CORS — the proven pattern, since Supabase makes the identical cross-origin call from the same WKWebView and succeeds and applyCors looks correct. Re-test on device first. If plain fetch still fails: (a) inspect the OPTIONS preflight in eruda's Network tab to see exactly where it dies; (b) check whether https://truecalorie.net/api/* issues an apex-vs-www or trailing-slash redirect that both breaks the CORS request and downgrades the method — if so, point apiUrl at the exact canonical host to remove the redirect. Current state to revert from: capacitor.config.json has NO CapacitorHttp block (removed in d6a3b7e), but apiFetch's native branch still calls CapacitorHttp.request — that branch is what to change.
 
 ### Shipped to production June 11, 2026
 
@@ -136,9 +157,9 @@ api/delete-account.js: verifyUser Bearer token only; cancels Stripe subscription
 
 ### P0, fix before the TikTok reveal makes the app visible
 
-_Was clear June 11; reopened June 13 by the native API-transport blocker._
+_Was clear June 11; reopened June 13 by the native API-transport blocker; re-closed June 14._
 
-1. **Authenticated POST to /api fails on native (CapacitorHttp downgrades POST to GET).** Full diagnosis and the recommended fix are in Section 3 (June 13 block). Blocks checkout, voice, Strava, account deletion, and push on iOS — the money path and the voice centerpiece. Until fixed, no fully device-verified build exists. Next session: revert apiFetch's native branch to plain fetch + CORS and re-test on device.
+1. **[RESOLVED June 14] Authenticated POST to /api fails on native.** Root cause was the apex-to-www 301 redirect, not CapacitorHttp alone; fixed by pointing the native base at https://www.truecalorie.net (6a922a1) and reverting to plain fetch (11a5511). Native checkout, portal, voice, Strava, and account deletion all verified on a physical device June 14. See the June 14 block in Section 3.
 2. **Security: rotate the exposed Supabase session tokens.** Live access and refresh tokens were printed in on-device debug popups and appeared in screenshots during the June 13 session. Sign out of all sessions / rotate before relaunch; tighten or remove the token-printing debug alerts as part of the scaffolding cleanup (P2 item 9).
 
 The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; privacy policy + Terms update, 43017ad/4ad37ad) shipped June 11 and are recorded in the Section 3 shipped table. One residual from the privacy item, routing support@truecalorie.net to a monitored inbox, is tracked under App Store submission in the roadmap (Section 5, item 4).
@@ -157,7 +178,8 @@ The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; 
 7. Emoji icons (feature lists, Trends) read cheap vs the otherwise premium system; Tabler icons are already bundled. Cosmetic.
 8. Some text at 10 to 11px is below comfortable readability.
 9. **Strip all June 13 debug scaffolding before submission (currently live in production):** eruda init (src/main.jsx), OAuth + appUrlOpen alerts/logs (src/App.jsx), [checkout] status/threw alerts (src/Purchases.jsx), and the server-side "Method not allowed (got ...)" 405 diagnostics (api/*.js). Find them all with `grep -rn "TODO: remove before" src/ api/`. The token-printing alerts also drive the P0 security rotation above.
-10. **Privacy Policy and Terms links in Settings go nowhere on native** (they work on web). Separate native-routing fix; needed for App Store review since those are the legal-contact pages.
+10. **[FIXED June 14, merged] Privacy Policy and Terms links in Settings go nowhere on native.** Fixed in f9f563f (switched from window.open to pushState + dispatch popstate, matching Landing). Merged to main; verify on device in the next rebuild.
+11. **iOS scroll bounce (rubber-band) parked as post-launch polish.** There is no iOS rubber-band because Capacitor hardcodes `scrollView.bounces = false` in the bridge (@capacitor/ios/.../CAPBridgeViewController.swift:301). Ruled out CSS (no html rule, no overscroll-behavior; body and #root scroll naturally) and config (Capacitor 8.4.0 exposes no bounce option). Only fix is native: `scrollView.bounces = true` + `alwaysBounceVertical = true` after bridge load. Since ios/ is gitignored and regenerated each MacinCloud session, the durable fix is a small local Capacitor plugin (preferred); the lighter one is a ~4-line AppDelegate.swift edit reapplied each regen. Decision June 14: do neither now (cosmetic, new native surface right before submission, zero downside to deferring). Revisit post-launch.
 
 ---
 
@@ -169,7 +191,7 @@ The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; 
    - npm install pulls posthog-js and @capacitor/browser; cap sync registers the Browser plugin automatically.
    - Optional but recommended patch-plist.sh addition: `/usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null || true` (skips the export compliance question every build).
    - In Xcode: uncheck iPad under Deployment Info (iPhone-only = no iPad screenshots, smaller review surface). Recreate App.entitlements manually as usual (no new entitlements needed; Apple sign-in is browser-flow). Increment build number. Archive, upload to TestFlight.
-3. **Device verification checklist (physical iPhone, in order).** _Progress June 13: Google AND Apple sign-in verified on device; inputs/notch hold. The rest is BLOCKED until the native POST transport blocker (Section 4 P0 #1) is fixed — checkout, voice, Strava, and delete-account all POST._ Remaining checklist: fresh install; Google sign-in survives force-quit; sign out, Apple sign-in same checks; voice log a real meal and confirm meal_logged {voice} in PostHog Activity; inputs do not zoom, no notch overlap; Pro checkout opens a Safari sheet (not in-app); **the money test:** buy monthly on own card, confirm Pro activates on resume, confirm subscription_activated in PostHog, open Manage billing from the Purchases page specifically (regression test for the portal fix), cancel via portal, refund in Stripe dashboard. One $9.99 round trip validates checkout, webhook, source mapping, resume refresh, and the portal fix. Then delete-account on a throwaway.
+3. **Device verification checklist (physical iPhone, in order).** _DONE June 14: the native POST blocker is resolved (apex-to-www redirect; Section 3 June 14 block), and the full path is now verified on a physical device — Google + Apple sign-in, Stripe checkout + Manage Billing portal (the money test), voice logging, Strava sync, and account deletion all confirmed. Inputs/notch hold. Remaining: device-verify the four pre-launch UI fixes (15ad3fb/c072f07/f9f563f, now merged) in one batched rebuild, with debug scaffolding still in for that pass, then strip it._ Original checklist retained for reference: fresh install; Google sign-in survives force-quit; sign out, Apple sign-in same checks; voice log a real meal and confirm meal_logged {voice} in PostHog Activity; inputs do not zoom, no notch overlap; Pro checkout opens a Safari sheet (not in-app); **the money test:** buy monthly on own card, confirm Pro activates on resume, confirm subscription_activated in PostHog, open Manage billing from the Purchases page specifically (regression test for the portal fix), cancel via portal, refund in Stripe dashboard. One $9.99 round trip validates checkout, webhook, source mapping, resume refresh, and the portal fix. Then delete-account on a throwaway.
 4. **App Store submission:**
    - Confirm support@truecalorie.net delivers to a monitored inbox before submitting. It is now the privacy policy and Terms legal contact; Resend/Namecheap is configured but end-to-end delivery is unverified. A reviewer emailing a dead contact address is an avoidable rejection risk.
    - Name: "TrueCalorie - Macro Tracker". Subtitle: "Calorie tracking for athletes". Keywords (100 chars, no spaces, no title-word repeats): counter,running,strava,protein,nutrition,marathon,weightlifting,food,log,voice,runner,fuel
@@ -255,6 +277,10 @@ The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; 
 
 ## 9. Key learnings and principles (cumulative)
 
+New from June 14:
+- **Canonical-domain mismatch silently breaks native; this was the real root cause of the whole native-POST saga.** A mid-request 301 redirect (apex truecalorie.net to www.truecalorie.net) is invisible on web (same-origin relative URLs) and to Supabase (its own domain, no redirect), but it kills native cross-origin calls: plain fetch returns status 0 and CapacitorHttp downgrades POST to GET. Point native at the exact host that serves without redirecting. www-vs-apex is now load-bearing in three places (Stripe webhook, native API base, this). Corollary: the June 13 "CapacitorHttp downgrades POST to GET" learning was a real symptom but not the root cause; plain fetch against the apex would also have failed (status 0). Fixing the host was the actual fix.
+- **iOS scroll bounce is a native default, not a CSS/config setting.** Capacitor hardcodes `scrollView.bounces = false` in CAPBridgeViewController.swift; no CSS (overscroll-behavior, html/body rules) and no Capacitor 8.4.0 config can re-enable it. Re-enabling requires native code after bridge load. Don't ship a no-op CSS/config "fix" for it. (Decision: parked post-launch; Section 4 P2 #11.)
+
 New from June 13:
 - **The Capacitor-plugin externalize trap.** A plugin left in rollup `external` and dynamically imported with /* @vite-ignore */ keeps a bare module specifier in the built JS that the WKWebView cannot resolve; it throws at runtime and silently kills whatever registered in that effect (here, the appUrlOpen sign-in listener). Only externalize packages you never call on the platform. If a plugin runs at runtime it must be a real dependency and bundled by Vite. @capacitor/app was not even in package.json.
 - **Supabase native OAuth returns the implicit-token (hash) format, not ?code=.** Parse #access_token/#refresh_token from the URL hash and call supabase.auth.setSession; exchangeCodeForSession is only the fallback. The earlier code-only handler is why sign-in silently no-op'd even once the listener registered.
@@ -323,7 +349,7 @@ export VITE_POSTHOG_KEY="phc_..."
 
 **Stripe reference:** old hardcoded monthly price was price_1TcCMTRz19liVCNXQmgD2VVM (now STRIPE_PRICE_ID_MONTHLY). Founders is a Stripe Payment Link (VITE_STRIPE_FOUNDERS_LINK).
 
-**Key new files since June 8:** src/analytics.js, src/lib/openExternal.js, api/delete-account.js, scripts/gen-apple-secret.mjs. June 13 additions: src/lib/apiUrl.js (native API base prefix), src/lib/apiFetch.js (native API transport wrapper — currently CapacitorHttp, to be reverted to plain fetch; see Section 4 P0 #1), lib/cors.js (applyCors + CORS_HEADERS for all client endpoints), scripts/patch-plist.sh (idempotent Info.plist patcher). @capacitor/app added as a dependency.
+**Key new files since June 8:** src/analytics.js, src/lib/openExternal.js, api/delete-account.js, scripts/gen-apple-secret.mjs. June 13 additions: src/lib/apiUrl.js (native API base prefix — now https://www.truecalorie.net as of June 14, 6a922a1), src/lib/apiFetch.js (native API transport wrapper — now plain fetch on every platform as of June 14, 11a5511; CapacitorHttp removed), lib/cors.js (applyCors + CORS_HEADERS for all client endpoints), scripts/patch-plist.sh (idempotent Info.plist patcher). @capacitor/app added as a dependency.
 
 **Supabase tables (rate limiting):** api_rate_limits, added June 11. PK (user_id, date, endpoint), call_count int, RLS on with a service-role-only ALL policy. Backs the daily caps on /api/voice-log (25/user/day) and /api/restaurant-search (75/user/day); UTC reset window; fail-open on DB error. SQL migrations are still run manually in the Supabase SQL editor before deploy.
 
