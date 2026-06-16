@@ -341,3 +341,39 @@ input[type="number"] {
 }
 
 .safe-scroll { padding-bottom: env(safe-area-inset-bottom); }
+
+/* ─────────────────────────────────────────────────────────
+   NATIVE FEEL
+   Stops the WebView from behaving like a web page. Does NOT
+   touch the scroll bounce (that is a native Swift setting,
+   parked post-launch per CONTEXT.md).
+───────────────────────────────────────────────────────── */
+
+/* No gray tap-highlight flash anywhere (inherited from html) */
+html { -webkit-tap-highlight-color: transparent; }
+
+/* Treat UI chrome like a native app: no long-press callout menu, no text
+   selection. Inputs and textareas opt back in just below so typing and field
+   selection keep working. */
+body {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Remove the double-tap-zoom delay on tappable elements
+   (inputs/textarea/select already set this above) */
+button, a, [role="button"] { touch-action: manipulation; }
+
+/* Momentum scrolling on the scroll regions */
+.today-wrap, .trends-wrap, .menu-items, .order-list, .rest-col, .cat-row {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Subtle press feedback; snaps back instantly on release */
+button:active:not(:disabled) { opacity: 0.62; transition: opacity 0.06s ease; }
