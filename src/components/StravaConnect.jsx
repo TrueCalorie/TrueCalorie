@@ -3,14 +3,21 @@ import { supabase } from '../supabase'
 
 function buildStravaAuthUrl(userId) {
   const clientId    = import.meta.env.VITE_STRAVA_CLIENT_ID
-  const redirectUri = `${window.location.origin}/api/strava-callback`
+  // Absolute redirect_uri: window.location.origin resolves to capacitor://localhost
+  // on native, which Strava rejects. Always return through the production callback,
+  // which deep-links back into the app on native and https-redirects on web.
+  const redirectUri = 'https://truecalorie.net/api/strava-callback'
+  // Encode the platform in state so the callback knows whether to send the user
+  // back via the truecalorie:// custom scheme (native) or the https redirect (web).
+  const isNative = window.Capacitor?.isNativePlatform?.()
+  const state    = isNative ? `${userId}__native` : userId
   const params = new URLSearchParams({
     client_id:       clientId,
     redirect_uri:    redirectUri,
     response_type:   'code',
     approval_prompt: 'auto',
     scope:           'read,activity:read',
-    state:           userId,
+    state,
   })
   return `https://www.strava.com/oauth/authorize?${params}`
 }
@@ -34,6 +41,26 @@ export default function StravaConnect({ session }) {
       feedbackHandled.current = true
       handleUrlFeedback()
     }
+  }, [session?.user?.id])
+
+  // Native return: App.jsx's single appUrlOpen listener catches the truecalorie://
+  // deep link and dispatches a 'strava-return' event. Mirror what the web ?strava
+  // param does — set the same feedback and re-check the connection.
+  useEffect(() => {
+    const onStravaReturn = (e) => {
+      const detail = e.detail || {}
+      if (detail.connected) {
+        setFeedback('connected')
+        checkConnection()
+        setTimeout(checkConnection, 800)
+      } else if (detail.denied) {
+        setFeedback('denied')
+      } else if (detail.error) {
+        setFeedback('error')
+      }
+    }
+    window.addEventListener('strava-return', onStravaReturn)
+    return () => window.removeEventListener('strava-return', onStravaReturn)
   }, [session?.user?.id])
 
   const checkConnection = async () => {
@@ -64,6 +91,11 @@ export default function StravaConnect({ session }) {
   const handleConnect = () => {
     const userId = session?.user?.id
     if (!userId) return
+    // Native and web both navigate the current window to the Strava authorize URL,
+    // mirroring src/Auth.jsx (supabase.auth.signInWithOAuth navigates window.location
+    // internally; no in-app browser sheet is used). On native the callback returns
+    // through the truecalorie:// custom scheme handled by the single appUrlOpen
+    // listener in App.jsx; on web it returns via the normal https redirect.
     window.location.href = buildStravaAuthUrl(userId)
   }
 

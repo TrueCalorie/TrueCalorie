@@ -1,7 +1,12 @@
 // api/strava-callback.js
 // Handles the OAuth redirect from Strava after the user authorizes.
 // Exchanges the code for tokens, saves to strava_tokens in Supabase,
-// then redirects back to the app with ?strava=connected
+// then redirects back to the app.
+//
+// State carries the Supabase user ID, plus a "__native" suffix when the flow
+// started in the Capacitor app. On native we return via the truecalorie://
+// custom scheme (caught by the single appUrlOpen listener in src/App.jsx);
+// on web we keep the original https redirects unchanged.
 
 import { createClient } from '@supabase/supabase-js'
 
@@ -11,13 +16,30 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 )
 
+// status: 'connected' | 'denied' | 'error'
+function redirectBack(res, appUrl, isNative, status) {
+  if (isNative) {
+    return res.redirect(302, `truecalorie://strava?${status}=1`)
+  }
+  // Web: preserve existing behavior exactly — success returns to the app root
+  // with no param, failures carry ?strava=denied / ?strava=error.
+  if (status === 'connected') {
+    return res.redirect(302, `${appUrl}/`)
+  }
+  return res.redirect(302, `${appUrl}/?strava=${status}`)
+}
+
 export default async function handler(req, res) {
   const { code, error, state } = req.query
 
   const appUrl = process.env.VITE_APP_URL || 'https://truecalorie.net'
 
+  // Pull the native flag out of state and recover the clean Supabase user ID.
+  const isNative = typeof state === 'string' && state.endsWith('__native')
+  const userId   = isNative ? state.slice(0, -'__native'.length) : state
+
   if (error || !code) {
-    return res.redirect(302, `${appUrl}/?strava=denied`)
+    return redirectBack(res, appUrl, isNative, 'denied')
   }
 
   // Exchange code for tokens
@@ -36,12 +58,12 @@ export default async function handler(req, res) {
     tokenData = await tokenRes.json()
   } catch (err) {
     console.error('Strava token exchange failed:', err)
-    return res.redirect(302, `${appUrl}/?strava=error`)
+    return redirectBack(res, appUrl, isNative, 'error')
   }
 
   if (!tokenData.access_token) {
     console.error('No access token in Strava response:', tokenData)
-    return res.redirect(302, `${appUrl}/?strava=error`)
+    return redirectBack(res, appUrl, isNative, 'error')
   }
 
   const athlete = tokenData.athlete || {}
@@ -49,10 +71,9 @@ export default async function handler(req, res) {
   // We need the Supabase user ID. Strava passes our state param back —
   // we embed the user ID in state when initiating the OAuth flow.
   // If state is missing (e.g. direct nav), we can't link the account.
-  const userId = state
   if (!userId) {
     console.error('No userId in state param')
-    return res.redirect(302, `${appUrl}/?strava=error`)
+    return redirectBack(res, appUrl, isNative, 'error')
   }
 
   // Upsert tokens — one row per user, replace on reconnect
@@ -71,8 +92,8 @@ export default async function handler(req, res) {
 
   if (dbError) {
     console.error('Failed to save Strava tokens:', dbError)
-    return res.redirect(302, `${appUrl}/?strava=error`)
+    return redirectBack(res, appUrl, isNative, 'error')
   }
 
-  return res.redirect(302, `${appUrl}/`)
+  return redirectBack(res, appUrl, isNative, 'connected')
 }
