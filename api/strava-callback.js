@@ -32,12 +32,11 @@ function redirectBack(res, appUrl, isNative, status) {
 export default async function handler(req, res) {
   const { code, error, state } = req.query
 
-  const appUrl = process.env.VITE_APP_URL || 'https://truecalorie.net'
+  const appUrl = process.env.VITE_APP_URL || 'https://www.truecalorie.net'
 
   // Pull the native flag out of state and recover the clean Supabase user ID.
   const isNative = typeof state === 'string' && state.endsWith('__native')
   const userId   = isNative ? state.slice(0, -'__native'.length) : state
-  console.log('[strava-debug] state:', JSON.stringify(state), 'isNative:', isNative)
 
   if (error || !code) {
     return redirectBack(res, appUrl, isNative, 'denied')

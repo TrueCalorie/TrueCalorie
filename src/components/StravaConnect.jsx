@@ -6,7 +6,7 @@ function buildStravaAuthUrl(userId) {
   // Absolute redirect_uri: window.location.origin resolves to capacitor://localhost
   // on native, which Strava rejects. Always return through the production callback,
   // which deep-links back into the app on native and https-redirects on web.
-  const redirectUri = 'https://truecalorie.net/api/strava-callback'
+  const redirectUri = 'https://www.truecalorie.net/api/strava-callback'
   // Encode the platform in state so the callback knows whether to send the user
   // back via the truecalorie:// custom scheme (native) or the https redirect (web).
   const isNative = window.Capacitor?.isNativePlatform?.()
