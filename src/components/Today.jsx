@@ -78,7 +78,7 @@ export default function Today({ log, onDelete, onAdd }) {
       {log.length === 0 ? (
         <div className="empty">
           <i className="ti ti-salad" />
-          <p>Nothing logged yet — tap above to search restaurants</p>
+          <p>Nothing logged yet. Tap above to search restaurants</p>
         </div>
       ) : (
         timeOrder.filter(t => groups[t]).map(time => (

@@ -562,18 +562,18 @@ export default function BodyFitnessPage({ session, settings, onUpdate, onClose, 
 
                     {proCalcResult.sport === 'running' && (
                       <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
-                        {Math.round(proCalcResult.carbs_goal * 4 / proCalcResult.calorie_goal * 100)}% carbs —
+                        {Math.round(proCalcResult.carbs_goal * 4 / proCalcResult.calorie_goal * 100)}% carbs:
                         {form.race_distance === 'ultra' ? ' fat-adapted split for ultra endurance.' : ' glycogen-focused for endurance performance.'}
                       </p>
                     )}
                     {proCalcResult.sport === 'cycling' || proCalcResult.sport === 'swimming' ? (
                       <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
-                        High-carb split ({Math.round(proCalcResult.carbs_goal * 4 / proCalcResult.calorie_goal * 100)}% carbs) — optimized for endurance performance.
+                        High-carb split ({Math.round(proCalcResult.carbs_goal * 4 / proCalcResult.calorie_goal * 100)}% carbs), optimized for endurance performance.
                       </p>
                     ) : null}
                     {proCalcResult.sport === 'strength' && (
                       <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.5 }}>
-                        {proCalcResult.proteinPerKg}g/kg protein —
+                        {proCalcResult.proteinPerKg}g/kg protein:
                         {form.lifting_goal === 'hypertrophy' ? ' optimized for maximum muscle protein synthesis.' : form.lifting_goal === 'strength' ? ' powerlifting split with higher fat tolerance.' : ' balanced athletic performance split.'}
                       </p>
                     )}

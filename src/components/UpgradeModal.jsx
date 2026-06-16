@@ -8,7 +8,7 @@ import { apiFetch } from '../lib/apiFetch'
 const FEATURES = [
   'Full macros for 200,000+ restaurant menu items',
   '858+ restaurant chains covered',
-  'AI voice logging — speak your meal to log it',
+  'AI voice logging: speak your meal to log it',
   'Meal templates for your go-to foods',
   'Advanced trend analysis',
   'Strava integration',

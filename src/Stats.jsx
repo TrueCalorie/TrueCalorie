@@ -672,7 +672,7 @@ export default function Stats({ session, settings, onClose }) {
           <SectionHead>HYDRATION ({range}D)</SectionHead>
           {daysWithWater.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--muted)', textAlign: 'center', padding: '8px 0' }}>
-              No water data yet — start logging on the Today tab
+              No water data yet. Start logging on the Today tab
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>

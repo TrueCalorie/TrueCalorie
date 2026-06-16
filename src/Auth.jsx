@@ -178,7 +178,7 @@ export default function Auth({ resetMode = false }) {
         {mode === 'set-done' && (
           <div>
             <p style={{ fontSize: 14, color: '#aaa', lineHeight: 1.6, marginBottom: 24 }}>
-              Your password has been updated. You're signed in — head back to the app.
+              Your password has been updated. You're signed in. Head back to the app.
             </p>
             <button
               onClick={() => window.location.href = '/'}

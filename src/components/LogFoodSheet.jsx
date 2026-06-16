@@ -659,7 +659,7 @@ export default function LogFoodSheet({
                   {results.some(r => r.verified) && (
                     <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10, lineHeight: 1.5 }}>
                       <span style={{ color: '#1D9E75', fontWeight: 700 }}>VERIFIED</span>
-                      {' '}— USDA Foundation or SR Legacy data, validated by registered dietitians.
+                      : USDA Foundation or SR Legacy data, validated by registered dietitians.
                     </p>
                   )}
                 </div>

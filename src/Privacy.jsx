@@ -95,8 +95,8 @@ export default function Privacy({ onBack }) {
             fitness goals. This information is used solely to calculate your
             personalized calorie and macronutrient targets.</p>
           <p><strong style={{ color: '#fff' }}>Usage information.</strong> When you log meals or use the Service,
-            we collect the data you enter — including food items, restaurants,
-            timestamps, and nutritional values — so we can display your
+            we collect the data you enter, including food items, restaurants,
+            timestamps, and nutritional values, so we can display your
             tracking history and progress.</p>
           <p><strong style={{ color: '#fff' }}>Payment information.</strong> If you purchase a Founders'
             Membership or subscribe to Pro, payment is processed by Stripe.
@@ -133,13 +133,13 @@ export default function Privacy({ onBack }) {
             to provide their services to us:
           </p>
           <ul style={{ paddingLeft: 20, color: '#bbb' }}>
-            <li><strong style={{ color: '#fff' }}>Supabase</strong> — database and authentication infrastructure</li>
-            <li><strong style={{ color: '#fff' }}>Vercel</strong> — website hosting and serverless functions</li>
-            <li><strong style={{ color: '#fff' }}>Stripe</strong> — payment processing</li>
-            <li><strong style={{ color: '#fff' }}>Google</strong> — sign-in (if you choose to use Google authentication)</li>
-            <li><strong style={{ color: '#fff' }}>Apple</strong> — sign-in (if you choose to use Apple authentication)</li>
-            <li><strong style={{ color: '#fff' }}>Open Food Facts and Nutritionix</strong> — nutrition data lookup (we send your search queries; they do not receive your account information)</li>
-            <li><strong style={{ color: '#fff' }}>PostHog</strong> — product analytics. We use PostHog to understand how users interact with the app (for example, which features are used and where users encounter errors). PostHog does not receive your food log data or health information.</li>
+            <li><strong style={{ color: '#fff' }}>Supabase</strong>: database and authentication infrastructure</li>
+            <li><strong style={{ color: '#fff' }}>Vercel</strong>: website hosting and serverless functions</li>
+            <li><strong style={{ color: '#fff' }}>Stripe</strong>: payment processing</li>
+            <li><strong style={{ color: '#fff' }}>Google</strong>: sign-in (if you choose to use Google authentication)</li>
+            <li><strong style={{ color: '#fff' }}>Apple</strong>: sign-in (if you choose to use Apple authentication)</li>
+            <li><strong style={{ color: '#fff' }}>Open Food Facts and Nutritionix</strong>: nutrition data lookup (we send your search queries; they do not receive your account information)</li>
+            <li><strong style={{ color: '#fff' }}>PostHog</strong>: product analytics. We use PostHog to understand how users interact with the app (for example, which features are used and where users encounter errors). PostHog does not receive your food log data or health information.</li>
           </ul>
           <p>
             We may use additional analytics or operational tools in the

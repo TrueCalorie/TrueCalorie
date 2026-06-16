@@ -248,7 +248,7 @@ export default function StravaCard({ session, refreshKey = 0, onSync }) {
           background: 'rgba(252,76,2,0.04)',
         }}>
           <p style={{ fontSize: 11, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
-            🔧 Strava overestimates cycling calories by ~18%. We've adjusted the numbers down for accuracy.
+            Strava overestimates cycling calories by ~18%. We've adjusted the numbers down for accuracy.
           </p>
         </div>
       )}

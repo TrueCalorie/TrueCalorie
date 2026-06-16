@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     }
 
     if (settings.pro_source === 'founder') {
-      return res.status(400).json({ error: 'Founders have lifetime access — no subscription to manage.' })
+      return res.status(400).json({ error: 'Founders have lifetime access. No subscription to manage.' })
     }
 
     if (!settings.stripe_subscription_id) {
