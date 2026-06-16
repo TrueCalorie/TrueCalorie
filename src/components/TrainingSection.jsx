@@ -259,7 +259,7 @@ function TrainingVsRest({ trainingDays, allDates, calByDate, calorieGoal }) {
           borderTop: '1px solid var(--border)', lineHeight: 1.5,
         }}>
           {trainAvg > restAvg
-            ? `You eat ${(trainAvg - restAvg).toLocaleString()} more calories on training days — good instinct.`
+            ? `You eat ${(trainAvg - restAvg).toLocaleString()} more calories on training days. Good instinct.`
             : trainAvg === restAvg
               ? "You eat the same on training and rest days. Consider eating more on heavy training days."
               : `You eat ${(restAvg - trainAvg).toLocaleString()} fewer calories on training days. This may be limiting your recovery.`
@@ -375,7 +375,7 @@ function CalorieAccuracy({ weeklyTotals, sportBreakdown }) {
       </div>
       <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
         Strava tends to overestimate calorie burn. We adjust by sport so your targets stay accurate.
-        {hasCycling && ' Cycling has the largest correction (−18%) — Strava is known to significantly overcount cycling calories.'}
+        {hasCycling && ' Cycling has the largest correction (−18%). Strava is known to significantly overcount cycling calories.'}
       </div>
     </div>
   )

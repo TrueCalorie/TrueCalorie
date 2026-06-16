@@ -10,7 +10,7 @@ const FOUNDER_CAP = 100
 
 const PRO_FEATURES = [
   { icon: '🍽',  label: 'Restaurant search',   desc: '200k+ menu items across 858 chains (via Nutritionix)' },
-  { icon: '🎙',  label: 'Voice logging',        desc: 'Speak your meal — app logs it in seconds' },
+  { icon: '🎙',  label: 'Voice logging',        desc: 'Speak your meal and the app logs it in seconds' },
   { icon: '🏃',  label: 'Athletic targets',     desc: 'Sport-specific calorie & macro goals built for your training load' },
   { icon: '📈',  label: 'Advanced trends',      desc: 'Full nutrition history and weekly insights' },
   { icon: '📋',  label: 'Meal templates',       desc: 'Save your go-to meals for one-tap logging' },
@@ -140,7 +140,7 @@ export default function Purchases({ session, onClose }) {
               <span style={{ fontSize: 24, flexShrink: 0 }}>🏃</span>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                  Welcome to Pro — set your athletic targets
+                  Welcome to Pro. Set your athletic targets
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.55, marginBottom: 12 }}>
                   Head to Settings → Body & Fitness to enter your sport and training volume. You'll get calorie and macro targets built for your actual training load.
@@ -204,7 +204,7 @@ export default function Purchases({ session, onClose }) {
 
           <div style={{ fontSize: 13, color: isFounder ? '#555' : 'var(--muted)', lineHeight: 1.55 }}>
             {isFounder
-              ? 'You were here first. Every feature — now and everything we ship — is yours permanently.'
+              ? 'You were here first. Every feature, now and everything we ship, is yours permanently.'
               : renewDate
                 ? cancelAtPeriodEnd ? `Pro until ${renewDate}, won't renew.` : `Renews ${renewDate}.`
                 : 'Your Pro access is active.'}
@@ -272,7 +272,7 @@ export default function Purchases({ session, onClose }) {
           borderRadius: 10, padding: '10px 14px',
           fontSize: 13, color: '#f5a623', marginBottom: 16, textAlign: 'center',
         }}>
-          {trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left in your trial — upgrade to keep access.
+          {trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left in your trial. Upgrade to keep access.
         </div>
       )}
 
@@ -382,7 +382,7 @@ export default function Purchases({ session, onClose }) {
             {checkoutLoading
               ? 'Loading...'
               : isTrialing
-                ? 'Upgrade now — keep Pro access'
+                ? 'Upgrade now to keep Pro access'
                 : 'Start 7-day free trial'}
           </button>
           {!isTrialing && (
@@ -420,7 +420,7 @@ export default function Purchases({ session, onClose }) {
             Founders' Access
           </div>
           <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.55, marginBottom: 14 }}>
-            One-time payment. Every Pro feature, permanently — at a price the public will never see.
+            One-time payment. Every Pro feature, permanently, at a price the public will never see.
           </div>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#1D9E75' }}>
             Learn more →
@@ -448,7 +448,7 @@ function FoundersModal({ spotsLeft, onClose }) {
   const isFull = spotsLeft === 0
 
   const PERKS = [
-    'Every Pro feature — now and everything we ship',
+    'Every Pro feature, now and everything we ship',
     'Locked forever at this price, never charged monthly',
     'Founder badge on your profile',
     'Direct line to the founder during development',

@@ -423,7 +423,7 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
       const data = await res.json()
 
       if (!data.foods || data.foods.length === 0) {
-        setError("Couldn't match those foods. Try being more specific — e.g. '2 scrambled eggs and a cup of oatmeal'.")
+        setError("Couldn't match those foods. Try being more specific, e.g. '2 scrambled eggs and a cup of oatmeal'.")
         setPhaseSync(PHASE.ERROR)
         return
       }

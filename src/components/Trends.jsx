@@ -214,7 +214,7 @@ function LockedTrends({ onUpgrade }) {
             { icon: '📊', title: 'Week-over-week comparison', desc: 'Are your calories, protein, and consistency improving?' },
             { icon: '🎯', title: 'Consistency score trend',   desc: 'Weekly breakdown of how often you hit your goals.' },
             { icon: '⚖️', title: 'Weight projection',        desc: 'Where will you be in 4 weeks at your current pace?' },
-            { icon: '🗓️', title: 'Monthly heat map',         desc: 'Every day of the month at a glance — patterns emerge.' },
+            { icon: '🗓️', title: 'Monthly heat map',         desc: 'Every day of the month at a glance. Patterns emerge.' },
           ].map((f, i) => (
             <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{f.icon}</span>
@@ -552,7 +552,7 @@ export default function Trends({ session, settings, isPro, onUpgrade, onClose })
                   color: consTrend > 5 ? '#1D9E75' : consTrend < -5 ? '#f59e0b' : 'var(--muted)',
                 }}>
                   {consTrend > 5
-                    ? `↑ Consistency up ${consTrend}% over this period — keep it going`
+                    ? `↑ Consistency up ${consTrend}% over this period. Keep it going`
                     : consTrend < -5
                       ? `↓ Consistency down ${Math.abs(consTrend)}% over this period`
                       : '→ Consistency holding steady'}
@@ -603,7 +603,7 @@ export default function Trends({ session, settings, isPro, onUpgrade, onClose })
                 </div>
               </div>
               <div style={{ fontSize: 11, color: 'var(--muted)', paddingTop: 10, borderTop: '1px solid var(--border)', lineHeight: 1.5 }}>
-                Based on your last {Math.min(weightPoints.length, 14)} weight entries. Projection assumes current trend continues — not a medical estimate.
+                Based on your last {Math.min(weightPoints.length, 14)} weight entries. Projection assumes current trend continues. This is not a medical estimate.
               </div>
             </>
           )}
