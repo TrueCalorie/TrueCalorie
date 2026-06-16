@@ -64,7 +64,11 @@ export default function UpgradeModal({ open, onClose }) {
       const res = await apiFetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession?.access_token}` },
-        body: JSON.stringify({ userEmail: authSession.user.email, plan: billingPeriod }),
+        body: JSON.stringify({
+          userEmail: authSession.user.email,
+          plan: billingPeriod,
+          native: window.Capacitor?.isNativePlatform?.(),
+        }),
       })
 
       const data = await res.json()
