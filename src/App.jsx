@@ -129,6 +129,23 @@ function App() {
     const setup = async () => {
       const { App: CapApp } = await import('@capacitor/app')
       handle = await CapApp.addListener('appUrlOpen', async ({ url }) => {
+        // Strava OAuth return: the callback deep-links via the truecalorie://strava
+        // custom scheme. Parse the result, hand it to StravaConnect via a window
+        // event, and return early so it doesn't fall through to auth-token parsing.
+        if (url.startsWith('truecalorie://strava')) {
+          let detail = {}
+          try {
+            const sp = new URL(url).searchParams
+            detail = {
+              connected: sp.get('connected') === '1',
+              denied:    sp.get('denied') === '1',
+              error:     sp.get('error') === '1',
+            }
+          } catch {}
+          window.dispatchEvent(new CustomEvent('strava-return', { detail }))
+          return
+        }
+
         const hash = url.includes('#') ? url.split('#')[1] : ''
         const hp = new URLSearchParams(hash)
         const access_token = hp.get('access_token')
