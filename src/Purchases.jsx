@@ -9,13 +9,13 @@ const FOUNDERS_PAYMENT_LINK = import.meta.env.VITE_STRIPE_FOUNDERS_LINK || ''
 const FOUNDER_CAP = 100
 
 const PRO_FEATURES = [
-  { icon: '🍽',  label: 'Restaurant search',   desc: '200k+ menu items across 858 chains (via Nutritionix)' },
-  { icon: '🎙',  label: 'Voice logging',        desc: 'Speak your meal and the app logs it in seconds' },
-  { icon: '🏃',  label: 'Athletic targets',     desc: 'Sport-specific calorie & macro goals built for your training load' },
-  { icon: '📈',  label: 'Advanced trends',      desc: 'Full nutrition history and weekly insights' },
-  { icon: '📋',  label: 'Meal templates',       desc: 'Save your go-to meals for one-tap logging' },
-  { icon: '📤',  label: 'CSV export',           desc: 'Export your complete food log anytime' },
-  { icon: '🔗',  label: 'Strava integration',   desc: 'Sync workouts and calories burned' },
+  { icon: 'ti-tools-kitchen-2', label: 'Restaurant search',   desc: '200k+ menu items across 858 chains (via Nutritionix)' },
+  { icon: 'ti-microphone',      label: 'Voice logging',        desc: 'Speak your meal and the app logs it in seconds' },
+  { icon: 'ti-run',             label: 'Athletic targets',     desc: 'Sport-specific calorie & macro goals built for your training load' },
+  { icon: 'ti-chart-line',      label: 'Advanced trends',      desc: 'Full nutrition history and weekly insights' },
+  { icon: 'ti-clipboard-list',  label: 'Meal templates',       desc: 'Save your go-to meals for one-tap logging' },
+  { icon: 'ti-file-export',     label: 'CSV export',           desc: 'Export your complete food log anytime' },
+  { icon: 'ti-brand-strava',    label: 'Strava integration',   desc: 'Sync workouts and calories burned' },
 ]
 
 export default function Purchases({ session, onClose }) {
@@ -137,7 +137,7 @@ export default function Purchases({ session, onClose }) {
               }}
             >×</button>
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 24, flexShrink: 0 }}>🏃</span>
+              <i className="ti ti-run" style={{ fontSize: 24, flexShrink: 0, color: '#1D9E75' }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
                   Welcome to Pro. Set your athletic targets
@@ -223,7 +223,7 @@ export default function Purchases({ session, onClose }) {
                 padding: '13px 16px',
                 borderBottom: i < PRO_FEATURES.length - 1 ? '1px solid var(--border)' : 'none',
               }}>
-                <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{f.icon}</span>
+                <i className={`ti ${f.icon}`} style={{ fontSize: 18, flexShrink: 0, marginTop: 1, color: '#1D9E75' }} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{f.label}</div>
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, lineHeight: 1.4 }}>{f.desc}</div>
@@ -346,7 +346,7 @@ export default function Purchases({ session, onClose }) {
               padding: '10px 0',
               borderBottom: i < PRO_FEATURES.length - 1 ? '1px solid var(--border)' : 'none',
             }}>
-              <span style={{ fontSize: 17, flexShrink: 0, marginTop: 1 }}>{f.icon}</span>
+              <i className={`ti ${f.icon}`} style={{ fontSize: 17, flexShrink: 0, marginTop: 1, color: '#1D9E75' }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{f.label}</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1, lineHeight: 1.4 }}>{f.desc}</div>

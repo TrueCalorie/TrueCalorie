@@ -210,14 +210,14 @@ function LockedTrends({ onUpgrade }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28, textAlign: 'left' }}>
           {[
-            { icon: '〰️', title: 'Rolling 7-day average',    desc: 'Cut through daily noise. See your real calorie trend.' },
-            { icon: '📊', title: 'Week-over-week comparison', desc: 'Are your calories, protein, and consistency improving?' },
-            { icon: '🎯', title: 'Consistency score trend',   desc: 'Weekly breakdown of how often you hit your goals.' },
-            { icon: '⚖️', title: 'Weight projection',        desc: 'Where will you be in 4 weeks at your current pace?' },
-            { icon: '🗓️', title: 'Monthly heat map',         desc: 'Every day of the month at a glance. Patterns emerge.' },
+            { icon: 'ti-wave-sine',      title: 'Rolling 7-day average',    desc: 'Cut through daily noise. See your real calorie trend.' },
+            { icon: 'ti-chart-bar',      title: 'Week-over-week comparison', desc: 'Are your calories, protein, and consistency improving?' },
+            { icon: 'ti-target',         title: 'Consistency score trend',   desc: 'Weekly breakdown of how often you hit your goals.' },
+            { icon: 'ti-scale',          title: 'Weight projection',        desc: 'Where will you be in 4 weeks at your current pace?' },
+            { icon: 'ti-calendar-month', title: 'Monthly heat map',         desc: 'Every day of the month at a glance. Patterns emerge.' },
           ].map((f, i) => (
             <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{f.icon}</span>
+              <i className={`ti ${f.icon}`} style={{ fontSize: 18, flexShrink: 0, marginTop: 1, color: '#1D9E75' }} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{f.title}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{f.desc}</div>
