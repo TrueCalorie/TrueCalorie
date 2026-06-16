@@ -186,6 +186,12 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
     }
   }
 
+  const closeDeleteModal = () => {
+    setShowDeleteConfirm(false)
+    setDeleteConfirmText('')
+    setDeleteError(null)
+  }
+
   const deleteAccount = async () => {
     if (deleteConfirmText !== 'DELETE') return
     setDeleteLoading(true)
@@ -463,58 +469,87 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
               </button>
             ))}
 
-            {!showDeleteConfirm ? (
-              <button onClick={() => setShowDeleteConfirm(true)} style={{
-                width: '100%', padding: '13px 16px', background: 'none', border: 'none',
-                borderTop: '1px solid var(--border)',
-                display: 'flex', alignItems: 'center',
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-                <span style={{ fontSize: 15, color: '#E24B4A' }}>Delete account</span>
-              </button>
-            ) : (
-              <div style={{ padding: 16, borderTop: '1px solid var(--border)' }}>
-                <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.5 }}>
-                  This permanently deletes your account and all your data. This cannot be undone.
-                </p>
-                <input
-                  type="text"
-                  placeholder="Type DELETE to confirm"
-                  value={deleteConfirmText}
-                  onChange={e => setDeleteConfirmText(e.target.value)}
+            <button onClick={() => setShowDeleteConfirm(true)} style={{
+              width: '100%', padding: '13px 16px', background: 'none', border: 'none',
+              borderTop: '1px solid var(--border)',
+              display: 'flex', alignItems: 'center',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              <span style={{ fontSize: 15, color: '#E24B4A' }}>Delete account</span>
+            </button>
+
+            {showDeleteConfirm && (
+              <div
+                onClick={deleteLoading ? undefined : closeDeleteModal}
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 300,
+                  background: 'rgba(0,0,0,0.65)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: 20,
+                  backdropFilter: 'blur(2px)',
+                  WebkitBackdropFilter: 'blur(2px)',
+                  animation: 'fadeIn 0.2s ease both',
+                }}
+              >
+                <div
+                  onClick={e => e.stopPropagation()}
                   style={{
-                    width: '100%', padding: '10px 12px', marginBottom: 10,
-                    background: 'var(--surface2)', border: '1px solid var(--border)',
-                    borderRadius: 8, color: 'var(--text)', fontSize: 16,
-                    fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
-                  }}
-                />
-                <button
-                  onClick={deleteAccount}
-                  disabled={deleteConfirmText !== 'DELETE' || deleteLoading}
-                  style={{
-                    width: '100%', padding: 11, marginBottom: 8,
-                    background: deleteConfirmText === 'DELETE' && !deleteLoading ? '#E24B4A' : 'var(--surface2)',
-                    border: 'none', borderRadius: 8,
-                    color: deleteConfirmText === 'DELETE' && !deleteLoading ? '#fff' : 'var(--muted)',
-                    fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
-                    cursor: deleteConfirmText === 'DELETE' && !deleteLoading ? 'pointer' : 'default',
+                    width: '100%', maxWidth: 400,
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 16, padding: 24,
+                    fontFamily: 'sans-serif',
+                    animation: 'modalEnter 0.25s cubic-bezier(0.34, 1.2, 0.64, 1) both',
                   }}
                 >
-                  {deleteLoading ? 'Deleting...' : 'Permanently delete account'}
-                </button>
-                {deleteError && (
-                  <p style={{ fontSize: 12, color: '#E24B4A', marginBottom: 8 }}>{deleteError}</p>
-                )}
-                <button
-                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setDeleteError(null) }}
-                  style={{
-                    width: '100%', padding: '8px', background: 'none', border: 'none',
-                    cursor: 'pointer', fontSize: 13, color: 'var(--muted)', fontFamily: 'inherit',
-                  }}
-                >
-                  Cancel
-                </button>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>
+                    Delete your account?
+                  </div>
+                  <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 18, lineHeight: 1.55 }}>
+                    This permanently deletes your account and all your data. It cannot be undone, and it cancels any active subscription. To confirm, type DELETE below.
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="Type DELETE to confirm"
+                    value={deleteConfirmText}
+                    onChange={e => setDeleteConfirmText(e.target.value)}
+                    autoFocus
+                    style={{
+                      width: '100%', padding: '10px 12px', marginBottom: 12,
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      borderRadius: 8, color: 'var(--text)', fontSize: 16,
+                      fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                    }}
+                  />
+                  <button
+                    onClick={deleteAccount}
+                    disabled={deleteConfirmText !== 'DELETE' || deleteLoading}
+                    style={{
+                      width: '100%', padding: 12, marginBottom: 8,
+                      background: deleteConfirmText === 'DELETE' && !deleteLoading ? '#E24B4A' : 'var(--surface2)',
+                      border: 'none', borderRadius: 8,
+                      color: deleteConfirmText === 'DELETE' && !deleteLoading ? '#fff' : 'var(--muted)',
+                      fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
+                      cursor: deleteConfirmText === 'DELETE' && !deleteLoading ? 'pointer' : 'default',
+                    }}
+                  >
+                    {deleteLoading ? 'Deleting...' : 'Delete my account'}
+                  </button>
+                  {deleteError && (
+                    <p style={{ fontSize: 12, color: '#E24B4A', marginBottom: 8 }}>{deleteError}</p>
+                  )}
+                  <button
+                    onClick={closeDeleteModal}
+                    disabled={deleteLoading}
+                    style={{
+                      width: '100%', padding: '10px', background: 'none', border: 'none',
+                      cursor: deleteLoading ? 'default' : 'pointer',
+                      fontSize: 14, color: 'var(--muted)', fontFamily: 'inherit',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             )}
           </Card>
