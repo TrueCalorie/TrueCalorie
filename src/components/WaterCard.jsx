@@ -4,15 +4,20 @@ import { supabase } from '../supabase'
 const GOAL_OZ     = 80
 const WATER_COLOR = '#38bdf8'
 const QUICK_ADDS  = [8, 16, 32]
+const COLLAPSE_AT = 4
+
+const formatTime = (ts) =>
+  new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
 
 export default function WaterCard({ session }) {
-  const [todayOz,    setTodayOz]    = useState(0)
+  const [entries,    setEntries]    = useState([])
   const [loading,    setLoading]    = useState(true)
   const [adding,     setAdding]     = useState(false)
   const [customMode, setCustomMode] = useState(false)
   const [customVal,  setCustomVal]  = useState('')
   const [lastId,     setLastId]     = useState(null)
   const [justAdded,  setJustAdded]  = useState(0)
+  const [expanded,   setExpanded]   = useState(false)
   const undoTimer = useRef(null)
 
   useEffect(() => {
@@ -28,15 +33,13 @@ export default function WaterCard({ session }) {
 
       const { data } = await supabase
         .from('water_logs')
-        .select('amount_oz')
+        .select('id, amount_oz, logged_at')
         .eq('user_id', session.user.id)
         .gte('logged_at', start.toISOString())
         .lte('logged_at', end.toISOString())
+        .order('logged_at', { ascending: true })
 
-      if (data) {
-        const total = data.reduce((sum, r) => sum + Number(r.amount_oz), 0)
-        setTodayOz(Math.round(total))
-      }
+      if (data) setEntries(data)
     } catch {}
     setLoading(false)
   }
@@ -48,13 +51,13 @@ export default function WaterCard({ session }) {
     const { data, error } = await supabase
       .from('water_logs')
       .insert({ user_id: session.user.id, amount_oz: oz })
-      .select('id')
+      .select('id, amount_oz, logged_at')
       .single()
 
     if (!error && data) {
+      setEntries(prev => [...prev, data])
       setLastId(data.id)
       setJustAdded(oz)
-      setTodayOz(prev => prev + oz)
 
       // Clear undo availability after 5 seconds
       clearTimeout(undoTimer.current)
@@ -69,10 +72,21 @@ export default function WaterCard({ session }) {
   const undo = async () => {
     if (!lastId) return
     await supabase.from('water_logs').delete().eq('id', lastId)
-    setTodayOz(prev => Math.max(prev - justAdded, 0))
+    setEntries(prev => prev.filter(e => e.id !== lastId))
     setLastId(null)
     setJustAdded(0)
     clearTimeout(undoTimer.current)
+  }
+
+  const deleteEntry = async (id) => {
+    await supabase.from('water_logs').delete().eq('id', id)
+    setEntries(prev => prev.filter(e => e.id !== id))
+    // If we just removed the entry the Undo button referred to, retire the prompt.
+    if (id === lastId) {
+      setLastId(null)
+      setJustAdded(0)
+      clearTimeout(undoTimer.current)
+    }
   }
 
   const handleCustomSubmit = async () => {
@@ -85,9 +99,15 @@ export default function WaterCard({ session }) {
 
   if (loading) return null
 
+  // Total always derives from the entries so the two can never drift apart.
+  const todayOz   = Math.round(entries.reduce((sum, e) => sum + Number(e.amount_oz), 0))
   const pct       = Math.min((todayOz / GOAL_OZ) * 100, 100)
   const remaining = Math.max(GOAL_OZ - todayOz, 0)
   const goalHit   = todayOz >= GOAL_OZ
+
+  // Newest first; collapse to the most recent few unless expanded.
+  const sorted  = [...entries].sort((a, b) => new Date(b.logged_at) - new Date(a.logged_at))
+  const visible = expanded ? sorted : sorted.slice(0, COLLAPSE_AT)
 
   return (
     <div>
@@ -221,6 +241,43 @@ export default function WaterCard({ session }) {
           >
             Undo +{justAdded} oz
           </button>
+        </div>
+      )}
+
+      {/* Today's entries */}
+      {entries.length > 0 && (
+        <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+          {visible.map(e => (
+            <div
+              key={e.id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '5px 0',
+              }}
+            >
+              <span style={{ fontSize: 13, color: 'var(--text)', minWidth: 54 }}>
+                {Math.round(e.amount_oz)} oz
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--muted)', flex: 1 }}>
+                {formatTime(e.logged_at)}
+              </span>
+              <button className="le-del" onClick={() => deleteEntry(e.id)} aria-label="Remove">
+                <i className="ti ti-x" />
+              </button>
+            </div>
+          ))}
+
+          {sorted.length > COLLAPSE_AT && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              style={{
+                marginTop: 2, background: 'none', border: 'none', padding: '4px 0',
+                fontSize: 12, color: 'var(--muted)', cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {expanded ? 'Show less' : `Show all ${sorted.length}`}
+            </button>
+          )}
         </div>
       )}
     </div>
