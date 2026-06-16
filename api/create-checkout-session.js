@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid JSON' })
   }
 
-  const { userEmail, plan } = body
+  const { userEmail, plan, native } = body
   if (!userEmail) {
     return res.status(400).json({ error: 'userEmail is required' })
   }
@@ -54,8 +54,14 @@ export default async function handler(req, res) {
           type: planNorm === 'annual' ? 'pro_annual' : 'pro_monthly',
         },
       },
-      success_url: `${process.env.VITE_APP_URL || 'https://truecalorie.net'}/?checkout=success`,
-      cancel_url: `${process.env.VITE_APP_URL || 'https://truecalorie.net'}/?checkout=canceled`,
+      // Native loads success_url inside the Safari sheet, so it must be a clean
+      // static confirmation page, not the full web app (which renders the
+      // logged-out landing page). Web keeps returning into the app. Always use
+      // the www host explicitly here, not the apex fallback.
+      success_url: native
+        ? 'https://www.truecalorie.net/checkout-success.html'
+        : 'https://www.truecalorie.net/?checkout=success',
+      cancel_url: 'https://www.truecalorie.net/?checkout=canceled',
     })
 
     return res.status(200).json({ url: session.url })
