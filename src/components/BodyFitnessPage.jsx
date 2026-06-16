@@ -660,7 +660,7 @@ export default function BodyFitnessPage({ session, settings, onUpdate, onClose, 
                   fontSize: 12, color: 'var(--muted)', lineHeight: 1.55,
                   background: 'rgba(245,166,35,0.06)',
                 }}>
-                  Connect Strava for daily adjustment. Until then your target uses your estimated training.
+                  Without Strava, adaptive targets estimate your training burn from the sport and weekly volume you entered, adding the same amount each day. Connect Strava to base your daily target on the calories from your logged activities instead, so it rises on training days and eases back on rest days.
                 </div>
               )}
             </Card>
