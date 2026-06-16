@@ -1,5 +1,5 @@
 # TrueCalorie Context Document
-Last updated: June 14, 2026 (repo at 51fdf76 on main; 1.0 build 32 submitted to App Review, in review, manual release). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
+Last updated: June 15, 2026 (repo at 193f70c on main; pre-launch QA batch + Strava native OAuth finalized, all merged to main; a TestFlight rebuild superseding 1.0 build 32 is in flight and not yet device-verified). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
 
 This is the canonical context document. Any Claude chat working on TrueCalorie should treat this as the source of truth for project state, decisions, and conventions. Search project knowledge (this doc, CLAUDE.md, and the synced repo) before making assumptions about current file contents. When this doc and the repo disagree, the repo wins; flag the discrepancy.
 
@@ -36,7 +36,37 @@ Calorie and macro tracking built for serious athletes, particularly runners and 
 
 ---
 
-## 3. Current state (end of day, June 14, 2026)
+## 3. Current state (end of day, June 15, 2026)
+
+### Pre-launch QA batch + Strava native OAuth finalized (June 15, 2026)
+
+Everything below is **merged + pushed to main** (Vercel auto-deploys web). The native-facing pieces ride a **TestFlight rebuild now in flight** (supersedes 1.0 build 32, which was in review); **none of the native changes are device-verified yet.** HEAD at 193f70c. All work this session followed the standard flow: feature branch, `npm run build` clean, diff reviewed, no-ff merge to local main, push.
+
+**Strava native OAuth — CLOSED.** The deep-link return built this session (`truecalorie://strava`, the single appUrlOpen listener in App.jsx, a `__native` flag in the OAuth `state`, a `redirectBack` helper across StravaConnect.jsx / api/strava-callback.js / App.jsx) was correct code. The real on-device failure was a **stale PWA service worker on the apex origin (truecalorie.net) in iOS Safari**: it intercepted the Strava redirect and served an old cached shell, short-circuiting both the apex->www 301 and the callback. That is why strava-callback never appeared in www logs (it never ran). Vercel was correct throughout (apex 301->www, www=production). Unblocked on device by clearing truecalorie.net website data in Safari. Durable fix shipped: `redirectUri` and the `appUrl` fallback moved off the apex to `https://www.truecalorie.net`; Strava now never touches the apex.
+
+| Change | Hash | Notes |
+|---|---|---|
+| Route Strava OAuth through truecalorie:// on native | 380a784 (merge 2b3b988) | `__native` flag in `state`; deep-link return reuses the single appUrlOpen listener; `redirectBack` helper in strava-callback.js. Web flow unchanged. |
+| Temporary [strava-debug] log in strava-callback | f8493ab (merge 421bccc) | Diagnostic only; removed in 077d923. |
+| Point Strava redirect at www, drop debug log | 077d923 (merge e9aeaa8) | `redirectUri` (StravaConnect.jsx) + `appUrl` fallback (strava-callback.js) -> `https://www.truecalorie.net`; [strava-debug] removed. |
+
+**QA punch list (all merged; client-side verified locally, device-verify in the rebuild):**
+
+| Change | Hash | Notes |
+|---|---|---|
+| Account-deletion confirmation modal | 60c792b (merge edde084) | Settings.jsx: inline type-DELETE replaced with a centered modal (still requires typing DELETE, plus Cancel/backdrop, disabled mid-delete). The "no confirmation" seen on device was the stale bundle, not missing code. |
+| Native Stripe success page | e49b80d (merge 29e713c) | New static public/checkout-success.html; create-checkout-session.js takes a `native` flag (success_url -> static page on native / app on web; both success and cancel URLs use www explicitly); UpgradeModal passes the flag. Pro still granted by the webhook; appStateChange resume refresh unchanged. (Cancel still lands on the in-sheet landing page; deferred, P2 #12.) |
+| Hide broken Apple Health connect | 533bcc9 (merge de8d251) | BodyFitnessPage.jsx gated behind `APPLE_HEALTH_ENABLED=false`; code kept for re-enable. Renders nothing, so no empty container, divider, or layout gap. |
+| Remove em dashes from user-facing copy | d4426d5 (merge 3ee12c0) | ~13 files; one decorative wrench emoji removed (StravaCard cycling note). Standalone "—" empty-value indicators and icon/status emoji left in place (flagged as indicators, not prose). |
+| Emoji feature-icons -> Tabler glyphs | a875ecb (merge a624115) | Purchases PRO_FEATURES + Welcome-to-Pro icon + Trends locked-features now `ti-*` webfont icons, monochrome #1D9E75. Picks for the three unmapped: ti-file-export (CSV), ti-brand-strava (Strava), ti-wave-sine (rolling avg). Closes P2 #7. |
+| Adaptive-targets copy | 0bb3577 (merge 2c92d9e) | BodyFitnessPage.jsx: no-Strava warning rewritten to explain the estimate (sport + weekly volume entered, same amount each day) vs Strava (calories from logged activities). Matches the `restDayBaseline + estimatedDailyTraining` vs `+ trailingBurn` logic in App.jsx. |
+| Water entry delete | 10f980b (merge 6a8c9d2) | WaterCard.jsx: holds today's water_logs rows (id, amount_oz, logged_at); daily total now derived from the array; compact newest-first deletable list (le-del/ti-x), collapses past 4; quick-add/custom/5s-undo preserved. |
+| Achievements streak fix | 6ff5446 (merge 2a1b326) | achievements.js: streaks now count consecutive CALENDAR days from today (walk-back, matches Stats.jsx currentStreak) instead of total logged days; goal_hit_1 is any logged in-range day; added a local toLocalDateStr (UTC off-by-one). Signature/return unchanged, no caller change. Caveat (pre-existing): the caller only fetches 30 days of logs, so streak_30 needs the full window present. |
+| Native-feel CSS pass | e0fdaf6 (merge 193f70c) | index.css: -webkit-tap-highlight-color transparent, -webkit-touch-callout none, user-select none on chrome (inputs/textarea opt back in), -webkit-overflow-scrolling touch on the six scroll regions, touch-action manipulation on tappables, opacity press feedback on buttons. Scroll bounce deliberately untouched (P2 #11). |
+
+**No-code (no git record):** Stripe dashboard logo updated; Apple sign-in display name fixed via the App ID Description.
+
+**IN FLIGHT — not "done" until this passes.** Verify the whole batch on device in one pass: delete modal renders right; every Tabler glyph appears (watch ti-wave-sine and ti-calendar-month, version-dependent); no gap where Apple Health was; water list clean; post-purchase and Strava both complete and return to the app. Then re-run the money test: one $9.99 round trip (checkout -> Pro on resume -> subscription_activated in PostHog -> portal -> cancel -> refund).
 
 ### 1.0 SUBMITTED to App Review (June 14, 2026)
 
@@ -208,11 +238,14 @@ The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; 
 4. Trial copy inconsistency: Purchases CTA for post-trial users says "Start 7-day free trial, no card charged until trial ends" but the trial was already granted at signup. Watch in PostHog for confusion, then fix copy or flow.
 5. Auth.jsx uses hardcoded hex colors (#0a0a0a, #111, #ef4444) instead of design-system CSS variables.
 6. App.jsx is a god component (ring, bars, log, all overlays). Rule going forward: new features go in components, not App.jsx. Full refactor is not currently worth the risk.
-7. Emoji icons (feature lists, Trends) read cheap vs the otherwise premium system; Tabler icons are already bundled. Cosmetic.
+7. **[DONE June 15, merged]** Emoji feature-icons replaced with monochrome Tabler glyphs (#1D9E75) in Purchases and Trends (a875ecb). Data/status emoji elsewhere (achievements, restaurants, sport, brand, action tiles) deliberately kept as functional icons.
 8. Some text at 10 to 11px is below comfortable readability.
 9. **[DONE June 14, merged + pushed] Stripped all June 13 debug scaffolding** (eruda init src/main.jsx + uninstalled the package, OAuth/appUrlOpen alerts + console.log src/App.jsx, [checkout] alerts src/Purchases.jsx, and the "Method not allowed (got ...)" 405 echo across api/*.js), in ceec784. Real logic left intact (OAuth setSession-from-hash, single appUrlOpen listener, method guards, CORS, verifyUser). The token-printing source is now gone from production; the already-exposed tokens still need rotation under P0 #2 above.
 10. **[FIXED June 14, merged] Privacy Policy and Terms links in Settings go nowhere on native.** Fixed in f9f563f (switched from window.open to pushState + dispatch popstate, matching Landing). Merged to main; verify on device in the next rebuild.
-11. **iOS scroll bounce (rubber-band) parked as post-launch polish.** There is no iOS rubber-band because Capacitor hardcodes `scrollView.bounces = false` in the bridge (@capacitor/ios/.../CAPBridgeViewController.swift:301). Ruled out CSS (no html rule, no overscroll-behavior; body and #root scroll naturally) and config (Capacitor 8.4.0 exposes no bounce option). Only fix is native: `scrollView.bounces = true` + `alwaysBounceVertical = true` after bridge load. Since ios/ is gitignored and regenerated each MacinCloud session, the durable fix is a small local Capacitor plugin (preferred); the lighter one is a ~4-line AppDelegate.swift edit reapplied each regen. Decision June 14: do neither now (cosmetic, new native surface right before submission, zero downside to deferring). Revisit post-launch.
+11. **iOS scroll bounce (rubber-band) parked as post-launch polish.** There is no iOS rubber-band because Capacitor hardcodes `scrollView.bounces = false` in the bridge (@capacitor/ios/.../CAPBridgeViewController.swift:301). Ruled out CSS (no html rule, no overscroll-behavior; body and #root scroll naturally) and config (Capacitor 8.4.0 exposes no bounce option). Only fix is native: `scrollView.bounces = true` + `alwaysBounceVertical = true` after bridge load. Since ios/ is gitignored and regenerated each MacinCloud session, the durable fix is a small local Capacitor plugin (preferred); the lighter one is a ~4-line AppDelegate.swift edit reapplied each regen. Decision June 14: do neither now (cosmetic, new native surface right before submission, zero downside to deferring). Revisit post-launch. (Re-confirmed June 15: still no CSS/config path.)
+12. **No native checkout-canceled page (June 15).** Native Stripe cancel still lands on the in-sheet web landing page with no app return; success now has its own static page (checkout-success.html) but cancel does not. Optional static checkout-canceled.html mirroring it. Cosmetic; cancel is the rare path.
+13. **Apple Health re-enable note (June 15).** When flipping `APPLE_HEALTH_ENABLED` back to true in BodyFitnessPage.jsx, switch its native check from `Capacitor.isNativePlatform()` to the `window.Capacitor?.isNativePlatform?.()` window-property form per CLAUDE.md before shipping.
+14. **Adaptive copy nuance (June 15).** The new no-Strava-vs-Strava copy says the target "rises on training days"; burn is a 3-day trailing average excluding today, so it actually rises the days after. Accepted as a simplification; tighten only if it confuses users.
 
 ---
 
@@ -312,10 +345,15 @@ The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; 
 
 ## 9. Key learnings and principles (cumulative)
 
+New from June 15:
+- **www-vs-apex is now load-bearing in a FOURTH place: the Strava redirect_uri.** Every URL that leaves native and comes back (Stripe webhook, native /api base, native checkout success/cancel, and now the Strava OAuth redirect) must target www directly and never the apex. Make this the default for any new external return URL.
+- **A stale PWA service worker caches per-origin and persists across deploys, masking correct server/config.** In iOS Safari it intercepted the Strava redirect on the apex origin and served an old cached shell, so the server route never even ran (the absence of a strava-callback log meant "never ran," not "failed"). Localize by comparing two clients (the apex 301 worked on desktop but not on the cached phone); clear site data when a native web flow behaves impossibly. Same shape as the achievements bug this session (the caller passed only logged days; the callee assumed a gap-filled calendar): silent disagreements at a boundary survive the longest, whether the boundary is client/server, cache/origin, or caller/callee.
+- **Scroll bounce re-confirmed unfixable via CSS/config** (native scrollView.bounces=false; needs per-build Swift). Stays parked (P2 #11). The app already has a full keyframe animation layer; "polish" is not an animation overhaul, so do not ship a no-op CSS "fix" for the bounce.
+
 New from June 14:
 - **"TestFlight Internal Only" builds can never be submitted for review.** Xcode's Distribute App offers it as a distribution choice, but those builds are internal-testing-only and show greyed out in the App Store Connect build picker. Submitting requires choosing "App Store Connect" distribution, and the build number must exceed the highest already uploaded. `cap add ios` resets the build number to 1 each MacinCloud session, so bump it manually every build. Builds 27-31 were silently wasted this way before build 32 (the first App-Store-eligible one).
 - **Two asset pipelines, do not conflate them.** Web assets (favicon, icon-192/512) are committed static files in /public, served by Vercel, and update on a normal push. Native app icons generate into the gitignored ios/ each build via @capacitor/assets, so their source lives in committed assets/icon-only.png and must be re-stamped per MacinCloud session (`capacitor-assets generate --ios`), the same per-session pattern as patch-plist.sh. A web push updates the favicon/PWA icon; only a native rebuild updates the app icon.
-- **Canonical-domain mismatch silently breaks native; this was the real root cause of the whole native-POST saga.** A mid-request 301 redirect (apex truecalorie.net to www.truecalorie.net) is invisible on web (same-origin relative URLs) and to Supabase (its own domain, no redirect), but it kills native cross-origin calls: plain fetch returns status 0 and CapacitorHttp downgrades POST to GET. Point native at the exact host that serves without redirecting. www-vs-apex is now load-bearing in three places (Stripe webhook, native API base, this). Corollary: the June 13 "CapacitorHttp downgrades POST to GET" learning was a real symptom but not the root cause; plain fetch against the apex would also have failed (status 0). Fixing the host was the actual fix.
+- **Canonical-domain mismatch silently breaks native; this was the real root cause of the whole native-POST saga.** A mid-request 301 redirect (apex truecalorie.net to www.truecalorie.net) is invisible on web (same-origin relative URLs) and to Supabase (its own domain, no redirect), but it kills native cross-origin calls: plain fetch returns status 0 and CapacitorHttp downgrades POST to GET. Point native at the exact host that serves without redirecting. www-vs-apex is now load-bearing in three places (Stripe webhook, native API base, this) — extended to a fourth, the Strava redirect_uri, on June 15. Corollary: the June 13 "CapacitorHttp downgrades POST to GET" learning was a real symptom but not the root cause; plain fetch against the apex would also have failed (status 0). Fixing the host was the actual fix.
 - **iOS scroll bounce is a native default, not a CSS/config setting.** Capacitor hardcodes `scrollView.bounces = false` in CAPBridgeViewController.swift; no CSS (overscroll-behavior, html/body rules) and no Capacitor 8.4.0 config can re-enable it. Re-enabling requires native code after bridge load. Don't ship a no-op CSS/config "fix" for it. (Decision: parked post-launch; Section 4 P2 #11.)
 
 New from June 13:
