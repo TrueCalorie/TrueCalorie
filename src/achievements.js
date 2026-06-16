@@ -12,8 +12,20 @@ export const ACHIEVEMENTS = [
   { key: 'goal_hit_10', label: 'Locked In',     desc: 'Hit your calorie goal 10 days in a row',   icon: '🏆' },
 ]
 
+// Local-date string (avoids the UTC off-by-one that .toISOString() causes for
+// evening logs in US timezones). Matches Stats.jsx's toLocalDateStr.
+function toLocalDateStr(date) {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /**
  * Returns the keys of achievements newly earned this check.
+ *
+ * Streaks are consecutive CALENDAR days ending today: we walk back one day at a
+ * time and stop at the first day that breaks the run, exactly like Stats.jsx's
+ * currentStreak. `history` only contains days that have logs, so any date not
+ * present is a gap that ends the streak.
  *
  * @param {Array<{date: string, calories: number, logged: boolean}>} history
  * @param {number} calorieGoal
@@ -24,31 +36,41 @@ export function checkAchievements(history, calorieGoal, earned) {
   // earned is already string[], so use it directly — don't .map(e => e.key)
   const earnedKeys  = new Set(earned)
 
-  const loggedDays  = history.filter(d => d.logged)
-  const sortedDates = [...loggedDays].sort((a, b) => new Date(b.date) - new Date(a.date))
+  const loggedDays = history.filter(d => d.logged)
+  const byDate     = new Map(loggedDays.map(d => [d.date, d]))
+  const isGoalHit  = (d) => !!d && Math.abs(d.calories - calorieGoal) <= 100
 
   // First log
   if (loggedDays.length >= 1 && !earnedKeys.has('first_log')) {
     newlyEarned.push('first_log')
   }
 
-  // Logging streak (consecutive days from most recent backwards)
-  let loggingStreak = 0
-  for (const day of sortedDates) {
-    if (day.logged) loggingStreak++
-    else break
+  // Walk back from today over consecutive calendar days. The logging streak ends
+  // at the first missing day; the goal-hit streak ends at the first missing day
+  // OR the first logged day that missed goal.
+  let loggingStreak    = 0
+  let goalStreak       = 0
+  let goalStreakBroken = false
+  let check = toLocalDateStr(new Date())
+  for (let i = 0; i < 60; i++) {
+    const day = byDate.get(check)
+    if (!day) break
+    loggingStreak++
+    if (!goalStreakBroken && isGoalHit(day)) goalStreak++
+    else goalStreakBroken = true
+    const prev = new Date(check + 'T12:00:00')
+    prev.setDate(prev.getDate() - 1)
+    check = toLocalDateStr(prev)
   }
+
   if (loggingStreak >= 3  && !earnedKeys.has('streak_3'))  newlyEarned.push('streak_3')
   if (loggingStreak >= 7  && !earnedKeys.has('streak_7'))  newlyEarned.push('streak_7')
   if (loggingStreak >= 30 && !earnedKeys.has('streak_30')) newlyEarned.push('streak_30')
 
-  // Goal hit streak (consecutive days within 100 cal of goal)
-  let goalStreak = 0
-  for (const day of sortedDates) {
-    if (day.logged && Math.abs(day.calories - calorieGoal) <= 100) goalStreak++
-    else break
+  // First goal hit: any logged day within 100 of goal (not streak-dependent).
+  if (loggedDays.some(isGoalHit) && !earnedKeys.has('goal_hit_1')) {
+    newlyEarned.push('goal_hit_1')
   }
-  if (goalStreak >= 1  && !earnedKeys.has('goal_hit_1'))  newlyEarned.push('goal_hit_1')
   if (goalStreak >= 5  && !earnedKeys.has('goal_hit_5'))  newlyEarned.push('goal_hit_5')
   if (goalStreak >= 10 && !earnedKeys.has('goal_hit_10')) newlyEarned.push('goal_hit_10')
 
