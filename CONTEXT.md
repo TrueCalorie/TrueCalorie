@@ -1,5 +1,5 @@
 # TrueCalorie Context Document
-Last updated: June 15, 2026 (repo at 193f70c on main; pre-launch QA batch + Strava native OAuth finalized, all merged to main; a TestFlight rebuild superseding 1.0 build 32 is in flight and not yet device-verified). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
+Last updated: June 16, 2026 (repo at 193f70c on main; no new commits this session, operational/App Store state only; 1.0 build 35 is now in App Review with manual release, build 32 was broken and is superseded). This file is the single canonical copy of project state. Version history lives in git: `git log -- CONTEXT.md`. This file is updated only via the /wrap-session command; do not edit it ad hoc.
 
 This is the canonical context document. Any Claude chat working on TrueCalorie should treat this as the source of truth for project state, decisions, and conventions. Search project knowledge (this doc, CLAUDE.md, and the synced repo) before making assumptions about current file contents. When this doc and the repo disagree, the repo wins; flag the discrepancy.
 
@@ -36,7 +36,17 @@ Calorie and macro tracking built for serious athletes, particularly runners and 
 
 ---
 
-## 3. Current state (end of day, June 15, 2026)
+## 3. Current state (end of day, June 16, 2026)
+
+### App Store: build 35 in review, build 32 superseded (June 16, 2026)
+
+No git changes this session; this is all App Store Connect operational state. HEAD unchanged at 193f70c (code), 8d87abe (last docs/wrap commit).
+
+- **Build 32 is BROKEN and superseded. Do NOT release it.** Strava OAuth plus other functionality regressed in it. TODO: confirm build 32 is fully cleared in App Store Connect so it can never be released by accident.
+- **Build 35 is now the build in review for 1.0**, with **manual release** still set. It is build 34's code with no meaningful changes, re-archived with **"App Store Connect"** distribution. Build 34 had been uploaded as **"TestFlight Internal Only"** and was therefore unsubmittable: the documented landmine recurred (same failure as builds 27-31). Build-number discipline held (32 to 34 to 35).
+- **Next on build 35:** await the verdict. On a **3.1.1 bounce**, reply in the Resolution Center citing the US-storefront basis (do NOT resubmit blind). On approval, **release manually** to fire the launch. The HARD GATE (no TikTok reveal until the App Store link is live) still holds.
+- **support@truecalorie.net delivery CONFIRMED working end to end.** Closes the open submission item and the remaining support-inbox piece of P0 #2 (the privacy/Terms legal contact now provably reaches a monitored inbox).
+- **Exposed user session tokens (June 13 OAuth debug alerts) RESOLVED by deleting the affected account.** Deleting a user revokes the session (kills the long-lived refresh token) and removes the data, which neutralizes the leak. Deletion, not elapsed time, is what closes it. STILL TO CONFIRM: that the account was in fact deleted, and that it was a throwaway and not a real beta user. If both hold, the P0 token item is fully closed (see Section 4 P0 #2).
 
 ### Pre-launch QA batch + Strava native OAuth finalized (June 15, 2026)
 
@@ -68,7 +78,7 @@ Everything below is **merged + pushed to main** (Vercel auto-deploys web). The n
 
 **IN FLIGHT — not "done" until this passes.** Verify the whole batch on device in one pass: delete modal renders right; every Tabler glyph appears (watch ti-wave-sine and ti-calendar-month, version-dependent); no gap where Apple Health was; water list clean; post-purchase and Strava both complete and return to the app. Then re-run the money test: one $9.99 round trip (checkout -> Pro on resume -> subscription_activated in PostHog -> portal -> cancel -> refund).
 
-### 1.0 SUBMITTED to App Review (June 14, 2026)
+### 1.0 SUBMITTED to App Review (June 14, 2026) — [build 32 SUPERSEDED June 16; broken, do not release. Build 35 is the build now in review. See the June 16 block above. The as-submitted metadata/privacy labels below still apply.]
 
 TrueCalorie 1.0, **build 32**, submitted to App Review June 14, 2026. Status: **in review, manual release** (the listing does not go live automatically on approval; Jackson releases it by hand to fire the launch). No git record; this is an App Store Connect operational action.
 
@@ -223,7 +233,7 @@ api/delete-account.js: verifyUser Bearer token only; cancels Stripe subscription
 _Was clear June 11; reopened June 13 by the native API-transport blocker; re-closed June 14._
 
 1. **[RESOLVED June 14] Authenticated POST to /api fails on native.** Root cause was the apex-to-www 301 redirect, not CapacitorHttp alone; fixed by pointing the native base at https://www.truecalorie.net (6a922a1) and reverting to plain fetch (11a5511). Native checkout, portal, voice, Strava, and account deletion all verified on a physical device June 14. See the June 14 block in Section 3.
-2. **Security: rotate the exposed Supabase session tokens.** Live access and refresh tokens were printed in on-device debug popups and appeared in screenshots during the June 13 session. The token-printing debug alerts were removed June 14 (ceec784, P2 item 9), so no new exposure occurs, but the already-exposed tokens still need rotation: sign out of all sessions / rotate before relaunch. This remains open.
+2. **[RESOLVED June 16, pending confirmation] Exposed Supabase session tokens.** Live access and refresh tokens were printed in on-device debug popups and appeared in screenshots during the June 13 session. The token-printing debug alerts were removed June 14 (ceec784, P2 item 9), so no new exposure occurs. The already-exposed session was neutralized June 16 by **deleting the affected account**, which revokes the session (kills the long-lived refresh token) and removes the data. Revocation, not elapsed time, is the mitigation: a leaked Supabase session is a ~1-hour access token PLUS a long-lived refresh token, so "expires in an hour" only covered half the risk (see Section 9). STILL TO CONFIRM to fully close: that the account was in fact deleted, and that it was a throwaway and not a real beta user.
 
 The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; privacy policy + Terms update, 43017ad/4ad37ad) shipped June 11 and are recorded in the Section 3 shipped table. One residual from the privacy item, routing support@truecalorie.net to a monitored inbox, is tracked under App Store submission in the roadmap (Section 5, item 4).
 
@@ -260,8 +270,8 @@ The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; 
    - In Xcode: uncheck iPad under Deployment Info (iPhone-only = no iPad screenshots, smaller review surface). Recreate App.entitlements manually as usual (no new entitlements needed; Apple sign-in is browser-flow). Increment build number. Archive, upload to TestFlight.
    - **Distribute App must use "App Store Connect," NOT "TestFlight Internal Only"** (internal-only builds can never be submitted for review and show greyed out in the build picker), and **bump the build number above the highest already uploaded** since `cap add ios` resets it to 1 each session. Builds 27-31 were wasted as internal-only; build 32 (App Store Connect distribution) was the first submittable one. See the June 14 submission block in Section 3.
 3. **Device verification checklist (physical iPhone, in order).** _DONE June 14: the native POST blocker is resolved (apex-to-www redirect; Section 3 June 14 block), and the full path is now verified on a physical device — Google + Apple sign-in, Stripe checkout + Manage Billing portal (the money test), voice logging, Strava sync, and account deletion all confirmed. Inputs/notch hold. Remaining: device-verify the four pre-launch UI fixes (15ad3fb/c072f07/f9f563f, now merged) in one batched rebuild, with debug scaffolding still in for that pass, then strip it._ Original checklist retained for reference: fresh install; Google sign-in survives force-quit; sign out, Apple sign-in same checks; voice log a real meal and confirm meal_logged {voice} in PostHog Activity; inputs do not zoom, no notch overlap; Pro checkout opens a Safari sheet (not in-app); **the money test:** buy monthly on own card, confirm Pro activates on resume, confirm subscription_activated in PostHog, open Manage billing from the Purchases page specifically (regression test for the portal fix), cancel via portal, refund in Stripe dashboard. One $9.99 round trip validates checkout, webhook, source mapping, resume refresh, and the portal fix. Then delete-account on a throwaway.
-4. **App Store submission: [SUBMITTED June 14 — 1.0 build 32, in review, manual release. See the submission block at the top of Section 3 for the as-submitted name, keywords, age rating, and privacy labels, which supersede the planning below. The bullets here are retained as the planning record and for the next submission.]**
-   - Confirm support@truecalorie.net delivers to a monitored inbox before submitting. It is now the privacy policy and Terms legal contact; Resend/Namecheap is configured but end-to-end delivery is unverified. A reviewer emailing a dead contact address is an avoidable rejection risk.
+4. **App Store submission: [IN REVIEW June 16 — 1.0 build 35, manual release. Build 32 was broken and is superseded (build 34 was internal-only/unsubmittable; 35 is 34's code re-archived for App Store Connect). See the June 16 block at the top of Section 3. The as-submitted name, keywords, age rating, and privacy labels in the June 14 block supersede the planning below; these bullets are retained as the planning record and for the next submission.] Open: confirm build 32 is fully cleared in App Store Connect; await the build 35 verdict; on a 3.1.1 bounce reply in Resolution Center citing the US-storefront basis (do not resubmit blind); on approval release manually.**
+   - **[DONE June 16] support@truecalorie.net delivers to a monitored inbox, confirmed end to end.** It is the privacy policy and Terms legal contact; the reviewer-emails-a-dead-address risk is closed.
    - Name: "TrueCalorie - Macro Tracker". Subtitle: "Calorie tracking for athletes". Keywords (100 chars, no spaces, no title-word repeats): counter,running,strava,protein,nutrition,marathon,weightlifting,food,log,voice,runner,fuel
    - Screenshots (6.9" set, order is the argument): 1 voice logging mid-parse, 2 adaptive target raised after a synced run, 3 daily ring, 4 Trends, 5 fueling gauge
    - Privacy labels: Contact Info (email), Health & Fitness, Identifiers (User ID), Usage Data (Product Interaction); linked to user, NOT used for tracking (no ATT needed)
@@ -269,6 +279,9 @@ The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; 
    - Age rating lands 4+; answer No to unrestricted web access.
 5. **Play Store completion (resume from June 7 state, AAB exists and is signed):** store listing assets (reuse iOS screenshots; 512 icon; 1024x500 feature graphic); privacy policy URL + account deletion link (now exists); Data safety form (email, health & fitness, app interactions; encrypted in transit; deletable); IARC questionnaire (lands Everyone); target audience 18+; **countries: US only** (the external-payment carve-outs on both platforms are US-court-driven; US-only distribution keeps the Stripe flow in the clearest legal territory on Android too); upload AAB, production rollout.
 6. **After build verified: CLAUDE.md Pass 2** (add: four new env vars, key files openExternal.js / delete-account.js / gen-apple-secret.mjs, annual pricing model, locked analytics schema, openExternal rule for all Stripe URLs, Apple secret expiry maintenance note) and run /wrap-session.
+7. **Technical director education track (post-launch; sequenced AFTER store launch + Mines pitch).** Flagged as a comfort-zone substitution risk under the Section 8 paired-action rule: do not let it displace launch + pitch. Two tracks:
+   - **(a) Codebase/backend literacy.** Method: trace real paths on the LIVE app when real things happen. Jackson traces first, Claude corrects/extends, not Claude lecturing. Launching accelerates this (the live app is the curriculum).
+   - **(b) Legal/financial compliance.** NOT a reason-from-principles topic; binding answers come from a CPA (and a lawyer for contracts), timed to when revenue starts, not pre-launch. Claude provides the map and the questions only. **First action: one small-business CPA consult for quarterly estimated taxes + bookkeeping.** Supporting frame: fraud/evasion require intent; good-faith founders get penalty-shaped problems (surprise bills, late filings, missed registrations), fixed by a separate business bank account (which also preserves the LLC liability shield), setting aside a % of profit, paying estimates quarterly, and never commingling funds. SaaS sales tax is per-customer-state and scales with revenue; nexus is far off; Stripe Tax automates it when justified. Paying the TikTok friend a rev share likely makes him a contractor: W-9 + 1099-NEC if $600+/yr; flag to the CPA before money flows.
 
 **HARD GATE: the TikTok reveal videos do not post until "Download on the App Store" is a live link.** Mobile social traffic converts through store links or not at all. This is the single highest-stakes sequencing rule in the project.
 
@@ -281,7 +294,7 @@ The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; 
 - **Two-tier bet structure:** the Mines pilot is the launch FLOOR (controllable, high-trust, costs one conversation); the friend's TikTok is the high-variance UPSIDE experiment (uncontrollable, not owned). Plan to the floor; treat the upside as upside.
 
 **Mines athletic department pilot (the launch floor, pitch THIS WEEK in parallel with the build, not after):**
-- Remote pitch call this week + follow-up email. Assets drafted: a half-page pitch doc and a pre-written coach announcement. **Coach pitch queued for Monday AM** as the paired market-contact action for this build session (Section 8 behavioral principle).
+- Remote pitch call this week + follow-up email. Assets drafted: a half-page pitch doc and a pre-written coach announcement. **The coach pitch is now a scheduled phone call June 17** (moved up from "queued Monday AM"); the coach expressed strong interest. The launch-floor experiment is in motion, running in parallel with the build per the Section 8 paired-action rule.
 - Two doors: the coach (primary) and the athletic trainer (parallel/fallback).
 - Biggest objection to preempt is disordered-eating / RED-S risk. Pilot design answers it directly: shame-free opt-out, the trainer quietly exempts at-risk athletes, sports med invited to review. Consistent with the eat-enough brand stance (Section 1); coaches and athletic trainers care deeply. Summer base-building is good timing.
 - Mechanics (carried): comp accounts (pro_source 'comp' plumbing exists), defined 4-week window, midpoint check-in, two asks at the end (honest testimonial; an App Store review from anyone who genuinely liked it, asking allowed, incentivizing not).
@@ -344,6 +357,12 @@ The two prior P0 items (server-side Pro gate on Nutritionix endpoints, 74adc61; 
 ---
 
 ## 9. Key learnings and principles (cumulative)
+
+New from June 16:
+- **A leaked credential is neutralized by REVOKING it, never by waiting it out.** A leaked Supabase session is a short-lived access token (~1 hour) PLUS a long-lived refresh token; the OAuth alert printed the whole session, so "expires in an hour" only covered the access half. The risk lives in the long-lived half. Sign-out or delete-user revokes both; elapsed time mitigates nothing. Generalizes to any credential.
+- **App Review queue position is PER-SUBMISSION and does not transfer across builds.** A new build is reviewed fresh from the back of the queue, so days already banked on an old build are sunk cost, not an asset to preserve. Do not hesitate to swap in a fixed build to "save" queue time.
+- **Manual release is the safety net for a broken build.** Even if Apple approves it, a manual-release build sits at "Pending Developer Release" and reaches no one without an explicit release click. Swapping in a fixed build is therefore never a race, only a sequencing decision.
+- **"TestFlight Internal Only" landmine recurs every session and must be checked every build** (now hit on builds 27-31 and again on build 34). Distribute App must choose "App Store Connect," and the build number must exceed the highest already uploaded.
 
 New from June 15:
 - **www-vs-apex is now load-bearing in a FOURTH place: the Strava redirect_uri.** Every URL that leaves native and comes back (Stripe webhook, native /api base, native checkout success/cancel, and now the Strava OAuth redirect) must target www directly and never the apex. Make this the default for any new external return URL.
