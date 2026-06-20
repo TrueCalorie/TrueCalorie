@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { PostHog } from 'posthog-node'
+import { reportError } from '../lib/sentry.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2026-04-22.dahlia',
@@ -83,6 +84,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ received: true })
   } catch (err) {
     console.error(`Error handling ${event.type}:`, err)
+    await reportError(err, { tags: { endpoint: 'stripe-webhook' }, extra: { eventType: event.type } })
     return res.status(500).json({ error: err.message })
   }
 }

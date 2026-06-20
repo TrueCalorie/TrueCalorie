@@ -9,6 +9,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { verifyUser } from '../lib/verifyUser.js'
 import { applyCors } from '../lib/cors.js'
+import { reportError } from '../lib/sentry.js'
 
 const stripe   = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-04-22.dahlia' })
 const supabase = createClient(
@@ -62,6 +63,7 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('Portal session error:', err.message)
+    await reportError(err, { tags: { endpoint: 'create-portal-session' } })
     return res.status(500).json({ error: 'Failed to create portal session. Please try again.' })
   }
 }

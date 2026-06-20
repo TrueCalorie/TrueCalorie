@@ -9,6 +9,7 @@
 // on web we keep the original https redirects unchanged.
 
 import { createClient } from '@supabase/supabase-js'
+import { reportError } from '../lib/sentry.js'
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -58,6 +59,7 @@ export default async function handler(req, res) {
     tokenData = await tokenRes.json()
   } catch (err) {
     console.error('Strava token exchange failed:', err)
+    await reportError(err, { tags: { endpoint: 'strava-callback' }, extra: { stage: 'token-exchange' } })
     return redirectBack(res, appUrl, isNative, 'error')
   }
 
@@ -92,6 +94,7 @@ export default async function handler(req, res) {
 
   if (dbError) {
     console.error('Failed to save Strava tokens:', dbError)
+    await reportError(dbError, { tags: { endpoint: 'strava-callback' }, extra: { stage: 'save-tokens', userId } })
     return redirectBack(res, appUrl, isNative, 'error')
   }
 

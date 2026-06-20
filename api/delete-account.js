@@ -2,6 +2,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { verifyUser } from '../lib/verifyUser.js'
 import { applyCors } from '../lib/cors.js'
+import { reportError } from '../lib/sentry.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-04-22.dahlia' })
 const supabase = createClient(
@@ -64,7 +65,10 @@ export default async function handler(req, res) {
     .eq('user_id', userId)
 
   const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
-  if (deleteError) return res.status(500).json({ error: 'Failed to delete account.' })
+  if (deleteError) {
+    await reportError(deleteError, { tags: { endpoint: 'delete-account' }, extra: { userId } })
+    return res.status(500).json({ error: 'Failed to delete account.' })
+  }
 
   return res.status(200).json({ ok: true })
 }
