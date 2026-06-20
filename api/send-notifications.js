@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
+import { reportError } from '../lib/sentry.js'
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -36,7 +37,10 @@ export default async function handler(req, res) {
     .select('*')
     .eq('enabled', true)
 
-  if (error) return res.status(500).json({ error: error.message })
+  if (error) {
+    await reportError(error, { tags: { endpoint: 'send-notifications' }, extra: { stage: 'load-subscriptions' } })
+    return res.status(500).json({ error: error.message })
+  }
 
   let sent = 0
   const total = subs?.length || 0

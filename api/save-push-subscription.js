@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { verifyUser } from '../lib/verifyUser.js'
 import { applyCors } from '../lib/cors.js'
+import { reportError } from '../lib/sentry.js'
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -37,7 +38,10 @@ export default async function handler(req, res) {
         enabled:      true,
         updated_at:   new Date().toISOString(),
       }, { onConflict: 'user_id' })
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) {
+      await reportError(error, { tags: { endpoint: 'save-push-subscription' }, extra: { op: 'upsert' } })
+      return res.status(500).json({ error: error.message })
+    }
     return res.status(200).json({ ok: true })
   }
 
@@ -47,7 +51,10 @@ export default async function handler(req, res) {
       .from('push_subscriptions')
       .update({ reminder_time, updated_at: new Date().toISOString() })
       .eq('user_id', userId)
-    if (error) return res.status(500).json({ error: error.message })
+    if (error) {
+      await reportError(error, { tags: { endpoint: 'save-push-subscription' }, extra: { op: 'update' } })
+      return res.status(500).json({ error: error.message })
+    }
     return res.status(200).json({ ok: true })
   }
 

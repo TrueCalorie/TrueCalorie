@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { verifyUser } from '../lib/verifyUser.js'
 import { applyCors } from '../lib/cors.js'
+import { reportError } from '../lib/sentry.js'
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -107,6 +108,7 @@ export default async function handler(req, res) {
     res.status(200).json({ items })
   } catch (e) {
     console.error('Nutritionix error:', e)
+    await reportError(e, { tags: { endpoint: 'restaurant-search' } })
     res.status(500).json({ error: 'Search failed' })
   }
 }

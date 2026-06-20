@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { verifyUser } from '../lib/verifyUser.js'
 import { applyCors } from '../lib/cors.js'
+import { reportError } from '../lib/sentry.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2026-04-22.dahlia',
@@ -67,6 +68,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ url: session.url })
   } catch (err) {
     console.error('Stripe checkout session error:', err)
+    await reportError(err, { tags: { endpoint: 'create-checkout-session' } })
     return res.status(500).json({ error: err.message })
   }
 }
