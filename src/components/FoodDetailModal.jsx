@@ -9,6 +9,17 @@ const isGenericUnit = (unit) => {
   return ['serving', 'servings', 'g', 'gram', 'grams', 'oz', 'ml', ''].includes(u)
 }
 
+// Returns true for mass/volume units. These ARE meaningful serving context (a
+// grocery serving is "20 g", "355 ml"), unlike the bare "serving" placeholder,
+// so they get a real "Per X g" label and a gram-aware stepper rather than the
+// servings multiplier path.
+const isWeightUnit = (unit) => {
+  if (!unit) return false
+  const u = unit.toLowerCase().trim()
+  return ['g', 'gram', 'grams', 'ml', 'milliliter', 'milliliters',
+          'oz', 'ounce', 'ounces'].includes(u)
+}
+
 // Returns the increment to use for the stepper.
 // Countable things (eggs, slices, pieces) → 1. Continuous things → 0.5.
 const getIncrement = (unit) => {
@@ -25,6 +36,12 @@ const getIncrement = (unit) => {
 
 // Human-readable label for the quantity row
 const buildQuantityLabel = (qty, unit) => {
+  if (isWeightUnit(unit)) {
+    const u = unit.toLowerCase().trim()
+    if (u === 'ml' || u === 'milliliter' || u === 'milliliters') return 'Milliliters'
+    if (u === 'oz' || u === 'ounce' || u === 'ounces') return 'Ounces'
+    return 'Grams'
+  }
   if (isGenericUnit(unit)) return 'Servings'
   // Strip parenthetical weight hints: "large egg (50g)" → "large egg"
   const cleanUnit = unit.replace(/\s*\(.*?\)\s*$/, '').trim()
@@ -34,23 +51,34 @@ const buildQuantityLabel = (qty, unit) => {
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId, isSaved, onToggleSave }) {
   const [qty, setQty]           = useState(1)
+  // qtyStr mirrors qty for the editable input so the user can type freely
+  // (including a transient empty/partial value) without fighting the number state.
+  const [qtyStr, setQtyStr]     = useState('1')
   const [saving, setSaving]     = useState(false)
   const [starAnim, setStarAnim] = useState(false)
+
+  const fmtQty = (n) => (n % 1 === 0 ? String(n) : n.toFixed(1))
 
   useEffect(() => {
     // Seed with the item's own serving_qty if it's a sane number, otherwise 1
     const seed = item?.serving_qty && item.serving_qty > 0 ? item.serving_qty : 1
     setQty(seed)
+    setQtyStr(fmtQty(seed))
   }, [item])
 
   if (!item) return null
 
-  const increment = getIncrement(item.serving_unit)
-
   // When the item has a real serving_qty, the multiplier is qty / serving_qty.
   // When it doesn't, the multiplier is qty directly.
-  const baseQty   = item.serving_qty && item.serving_qty > 0 ? item.serving_qty : 1
+  const baseQty    = item.serving_qty && item.serving_qty > 0 ? item.serving_qty : 1
   const multiplier = qty / baseQty
+
+  // Grams/ml step by a whole serving (don't step grams by 0.5); the typed input
+  // handles exact amounts. Named/countable units keep their 0.5 or 1 increment.
+  const isWeight  = isWeightUnit(item.serving_unit)
+  const increment = isWeight ? baseQty : getIncrement(item.serving_unit)
+
+  const applyQty = (n) => { setQty(n); setQtyStr(fmtQty(n)) }
 
   const baseCal = Math.round(item.nf_calories             || 0)
   const baseP   = Math.round(item.nf_protein              || 0)
@@ -63,18 +91,35 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId
   const totalF   = Math.round(baseF   * multiplier)
 
   const adjust = (delta) => {
-    const next = Math.max(increment, Math.round((qty + delta) / increment) * increment)
-    setQty(parseFloat(next.toFixed(1)))
+    // Weight steps stay on whole units; named units snap to their increment grid.
+    const next = isWeight
+      ? Math.max(increment, Math.round(qty + delta))
+      : Math.max(increment, Math.round((qty + delta) / increment) * increment)
+    applyQty(parseFloat(next.toFixed(1)))
   }
 
-  // Display the qty value cleanly (no trailing .0 for whole numbers)
-  const qtyDisplay = qty % 1 === 0 ? String(qty) : qty.toFixed(1)
+  // Typed quantity: keep digits/one decimal, recompute live on any valid value,
+  // and snap back to one serving if the field is left empty or invalid.
+  const onQtyInput = (raw) => {
+    if (!/^\d*\.?\d*$/.test(raw)) return
+    setQtyStr(raw)
+    const v = parseFloat(raw)
+    if (!isNaN(v) && v > 0) setQty(v)
+  }
+  const onQtyBlur = () => {
+    const v = parseFloat(qtyStr)
+    if (isNaN(v) || v <= 0) applyQty(baseQty)
+    else applyQty(v)
+  }
 
+  // Show real "Per X unit" context for weight units and named/countable units,
+  // but not for the bare "serving" placeholder (that stays a plain multiplier).
+  const showContext   = isWeight || !isGenericUnit(item.serving_unit)
   const quantityLabel = buildQuantityLabel(qty, item.serving_unit)
-  const showUnit      = !isGenericUnit(item.serving_unit)
 
-  // Strip weight hint from unit for compact display inside the stepper
-  const shortUnit = showUnit
+  // Sub-label under the stepper, only for named/countable units (the weight
+  // label already names the unit, and "serving" needs no sub-label).
+  const shortUnit = (!isWeight && !isGenericUnit(item.serving_unit))
     ? item.serving_unit.replace(/\s*\(.*?\)\s*$/, '').trim()
     : null
 
@@ -164,7 +209,7 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>{item.brand_name}</div>
           )}
           {/* Serving size context */}
-          {showUnit && (
+          {showContext && (
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
               Per {baseQty} {item.serving_unit.replace(/\s*\(.*?\)\s*$/, '').trim()}
               {' · '}{baseCal} cal
@@ -207,7 +252,7 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId
             <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>
               {quantityLabel}
             </span>
-            {showUnit && (
+            {shortUnit && (
               <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>
                 {shortUnit}
               </div>
@@ -230,9 +275,21 @@ export default function FoodDetailModal({ item, mealTime, onClose, onLog, userId
               onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
             >−</button>
 
-            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)', minWidth: 32, textAlign: 'center' }}>
-              {qtyDisplay}
-            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={qtyStr}
+              onChange={e => onQtyInput(e.target.value)}
+              onBlur={onQtyBlur}
+              onFocus={e => e.target.select()}
+              aria-label={quantityLabel}
+              style={{
+                width: 52, minWidth: 52, textAlign: 'center',
+                fontSize: 16, fontWeight: 600, color: 'var(--text)',
+                background: 'var(--bg)', border: '1px solid var(--border)',
+                borderRadius: 8, padding: '6px 4px', fontFamily: 'inherit',
+              }}
+            />
 
             <button
               onClick={() => adjust(increment)}

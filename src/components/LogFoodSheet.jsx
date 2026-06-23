@@ -54,6 +54,21 @@ function ModeTile({ icon, label, animDelay, onClick, badge, disabled }) {
 }
 
 // ─── Open Food Facts search ───────────────────────────────────────────────────
+// Parses an Open Food Facts serving_size string ("30 g", "240ml", "1 cup (240 ml)")
+// into a { qty, unit } the FoodDetailModal can show as real serving context.
+// Returns null when there's no leading "<number> <unit>" to read.
+function parseOffServingSize(s) {
+  if (!s || typeof s !== 'string') return null
+  const m = s.trim().match(/^([\d.]+)\s*([a-zA-Z]+)/)
+  if (!m) return null
+  const qty = parseFloat(m[1])
+  if (!(qty > 0)) return null
+  let unit = m[2].toLowerCase()
+  if (['gr', 'gram', 'grams'].includes(unit)) unit = 'g'
+  if (['millilitre', 'milliliter', 'milliliters', 'mls'].includes(unit)) unit = 'ml'
+  return { qty, unit }
+}
+
 async function searchOpenFoodFacts(query) {
   const url = new URL('https://world.openfoodfacts.org/cgi/search.pl')
   url.searchParams.set('action', 'process')
@@ -74,17 +89,40 @@ async function searchOpenFoodFacts(query) {
       p.product_name &&
       (p.nutriments?.['energy-kcal_serving'] || p.nutriments?.['energy-kcal_100g'])
     )
-    .map(p => ({
-      food_name:             p.product_name,
-      brand_name:            p.brands?.split(',')[0]?.trim() || null,
-      nf_calories:           Math.round(p.nutriments?.['energy-kcal_serving'] || p.nutriments?.['energy-kcal_100g'] || 0),
-      nf_protein:            Math.round(p.nutriments?.['proteins_serving']       || p.nutriments?.['proteins_100g']       || 0),
-      nf_total_carbohydrate: Math.round(p.nutriments?.['carbohydrates_serving']  || p.nutriments?.['carbohydrates_100g']  || 0),
-      nf_total_fat:          Math.round(p.nutriments?.['fat_serving']            || p.nutriments?.['fat_100g']            || 0),
-      serving_qty:           1,
-      serving_unit:          'serving',
-      verified:              false,
-    }))
+    .map(p => {
+      const n = p.nutriments || {}
+      // Pick ONE basis for all four macros. Mixing per-serving calories with
+      // per-100g protein (the old per-field fallback) produced incoherent macros.
+      const hasServing = n['energy-kcal_serving'] != null
+      const val = (key) => Math.round(
+        (hasServing ? n[`${key}_serving`] : n[`${key}_100g`]) || 0
+      )
+
+      // Serving context: per-serving values get the real serving size where the
+      // string is parseable, else a generic "1 serving". Per-100g values are
+      // labeled honestly as "100 g".
+      let serving_qty = 1
+      let serving_unit = 'serving'
+      if (hasServing) {
+        const parsed = parseOffServingSize(p.serving_size)
+        if (parsed) { serving_qty = parsed.qty; serving_unit = parsed.unit }
+      } else {
+        serving_qty = 100
+        serving_unit = 'g'
+      }
+
+      return {
+        food_name:             p.product_name,
+        brand_name:            p.brands?.split(',')[0]?.trim() || null,
+        nf_calories:           Math.round((hasServing ? n['energy-kcal_serving'] : n['energy-kcal_100g']) || 0),
+        nf_protein:            val('proteins'),
+        nf_total_carbohydrate: val('carbohydrates'),
+        nf_total_fat:          val('fat'),
+        serving_qty,
+        serving_unit,
+        verified:              false,
+      }
+    })
     .filter(f => f.nf_calories > 0)
 }
 
