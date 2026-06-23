@@ -55,14 +55,18 @@ export default async function handler(req, res) {
           type: planNorm === 'annual' ? 'pro_annual' : 'pro_monthly',
         },
       },
-      // Native loads success_url inside the Safari sheet, so it must be a clean
-      // static confirmation page, not the full web app (which renders the
-      // logged-out landing page). Web keeps returning into the app. Always use
-      // the www host explicitly here, not the apex fallback.
+      // Native opens checkout in the device default browser (real Safari), so
+      // both return URLs must be clean static pages with a truecalorie:// deep
+      // link back into the app, not the full web app (which renders the
+      // logged-out landing page) and not a sheet with a Done button (gone now
+      // that we left the in-app browser). Web keeps returning into the app.
+      // Always use the www host explicitly here, not the apex fallback.
       success_url: native
         ? 'https://www.truecalorie.net/checkout-success.html'
         : 'https://www.truecalorie.net/?checkout=success',
-      cancel_url: 'https://www.truecalorie.net/?checkout=canceled',
+      cancel_url: native
+        ? 'https://www.truecalorie.net/checkout-canceled.html'
+        : 'https://www.truecalorie.net/?checkout=canceled',
     })
 
     return res.status(200).json({ url: session.url })
