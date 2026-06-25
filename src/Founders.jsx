@@ -10,8 +10,6 @@ const STRIPE_PAYMENT_LINK = import.meta.env.VITE_STRIPE_FOUNDERS_LINK || ''
 
 const FOUNDER_CAP = 100
 
-const FOUNDER_PRODUCT_ID = 'net.truecalorie.founders'
-
 export default function Founders({ onBack }) {
   const [claimed, setClaimed] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -44,17 +42,18 @@ export default function Founders({ onBack }) {
     setClaimError(null)
 
     // Native (iOS): buy the founder non-consumable through RevenueCat /
-    // StoreKit instead of the Stripe payment link. The v13 plugin has no
-    // purchaseProduct({ productIdentifier }) helper, so fetch the StoreProduct
-    // then purchaseStoreProduct. Pro/founder is granted server-side by
+    // StoreKit instead of the Stripe payment link. Route through the offering
+    // path (matching Pro monthly/annual) rather than getProducts, which returns
+    // empty in sandbox. The founders package lives at offerings.current.founders
+    // in the default offering. Pro/founder is granted server-side by
     // api/revenuecat-webhook.js on the NON_SUBSCRIPTION_PURCHASE event.
     if (window.Capacitor?.isNativePlatform?.()) {
       try {
         const { Purchases } = await import('@revenuecat/purchases-capacitor')
-        const { products } = await Purchases.getProducts({ productIdentifiers: [FOUNDER_PRODUCT_ID] })
-        const product = products?.[0]
-        if (!product) throw new Error('Product unavailable')
-        await Purchases.purchaseStoreProduct({ product })
+        const offerings = await Purchases.getOfferings()
+        const foundersPackage = offerings.current?.founders
+        if (!foundersPackage) throw new Error('No offering available')
+        await Purchases.purchasePackage({ aPackage: foundersPackage })
       } catch (err) {
         // Cancellation (code '1' / userCancelled): back out silently.
         if (!(err?.userCancelled === true || String(err?.code) === '1')) {
