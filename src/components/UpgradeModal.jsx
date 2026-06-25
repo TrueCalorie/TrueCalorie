@@ -57,6 +57,34 @@ export default function UpgradeModal({ open, onClose }) {
     setLoading(true)
     setError(null)
 
+    // Native (iOS): route through RevenueCat / StoreKit instead of Stripe.
+    if (window.Capacitor?.isNativePlatform?.()) {
+      try {
+        const { Purchases } = await import('@revenuecat/purchases-capacitor')
+        const offerings = await Purchases.getOfferings()
+        const pkg = billingPeriod === 'annual'
+          ? offerings.current?.annual
+          : offerings.current?.monthly
+        if (!pkg) throw new Error('No offering available')
+        capture('checkout_started', { plan: billingPeriod, store: 'apple' })
+        await Purchases.purchasePackage({ aPackage: pkg })
+        // Pro is granted server-side by api/revenuecat-webhook.js; the app
+        // re-reads Pro status on foreground (appStateChange in App.jsx).
+        onClose()
+      } catch (err) {
+        // PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR === '1' (or the
+        // deprecated userCancelled flag): user backed out, close silently.
+        if (err?.userCancelled === true || String(err?.code) === '1') {
+          onClose()
+        } else {
+          console.error('IAP error:', err)
+          setError('Something went wrong. Please try again.')
+          setLoading(false)
+        }
+      }
+      return
+    }
+
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
       if (!authSession?.user) throw new Error('Not signed in')
