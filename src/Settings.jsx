@@ -94,6 +94,10 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
   const isProUser    = isPro || isTrialing
   const isFounder    = source === 'founder'
   const isMonthlyPro = isPro && !isTrialing && source === 'monthly'
+  // IAP subscribers manage billing through iOS Settings, not our Stripe portal,
+  // so hide "Manage billing" on native (matches Purchases.jsx).
+  const isNative          = window.Capacitor?.isNativePlatform?.()
+  const showManageBilling = isMonthlyPro && !isNative
 
   const navigateTo = (path) => {
     window.history.pushState({}, '', path)
@@ -267,7 +271,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
           <Card>
             <button onClick={() => onNavigate?.('subscription')} style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
-              borderBottom: isMonthlyPro ? '1px solid var(--border)' : 'none',
+              borderBottom: showManageBilling ? '1px solid var(--border)' : 'none',
               opacity: loading ? 0 : 1, transition: 'opacity 0.3s',
               width: '100%', background: 'none', border: 'none', cursor: 'pointer',
               fontFamily: 'inherit', textAlign: 'left',
@@ -307,7 +311,7 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
               <span style={{ color: 'var(--muted)', fontSize: 16, opacity: 0.4 }}>›</span>
             </button>
 
-            {isMonthlyPro && (
+            {showManageBilling && (
               <div>
                 {renewDate && (
                   <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', fontSize: 13, color: 'var(--muted)' }}>
