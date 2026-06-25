@@ -19,7 +19,7 @@ const PRO_FEATURES = [
 ]
 
 export default function Purchases({ session, onClose }) {
-  const { isPro, isTrialing, trialDaysLeft, source, expiresAt, loading, cancelAtPeriodEnd } = usePro()
+  const { isPro, isTrialing, trialDaysLeft, source, expiresAt, loading, cancelAtPeriodEnd, refresh } = usePro()
   const [billingPeriod, setBillingPeriod]         = useState('annual')
   const [showFoundersModal, setShowFoundersModal] = useState(false)
   const [checkoutLoading, setCheckoutLoading]     = useState(false)
@@ -27,6 +27,10 @@ export default function Purchases({ session, onClose }) {
   const [portalLoading, setPortalLoading]         = useState(false)
   const [portalError, setPortalError]             = useState(null)
   const [foundersClaimed, setFoundersClaimed]     = useState(null)
+  const [restoreLoading, setRestoreLoading]       = useState(false)
+  const [restoreMsg, setRestoreMsg]               = useState(null)
+
+  const isNative = window.Capacitor?.isNativePlatform?.()
 
   // Show athletic targets prompt only when landing from Stripe checkout
   const [showAthleticPrompt, setShowAthleticPrompt] = useState(
@@ -52,6 +56,31 @@ export default function Purchases({ session, onClose }) {
   const handleProSubscribe = async () => {
     setCheckoutLoading(true)
     setCheckoutError(null)
+
+    // Native (iOS): route through RevenueCat / StoreKit instead of Stripe.
+    if (isNative) {
+      try {
+        const { Purchases } = await import('@revenuecat/purchases-capacitor')
+        const offerings = await Purchases.getOfferings()
+        const pkg = billingPeriod === 'annual'
+          ? offerings.current?.annual
+          : offerings.current?.monthly
+        if (!pkg) throw new Error('No offering available')
+        capture('checkout_started', { plan: billingPeriod, store: 'apple' })
+        await Purchases.purchasePackage({ aPackage: pkg })
+        // Pro is granted server-side by api/revenuecat-webhook.js; re-read so
+        // this screen flips to the Pro dashboard once the row updates.
+        refresh?.()
+      } catch (err) {
+        // Cancellation (code '1' / userCancelled): back out silently.
+        if (!(err?.userCancelled === true || String(err?.code) === '1')) {
+          setCheckoutError('Something went wrong. Please try again.')
+        }
+      }
+      setCheckoutLoading(false)
+      return
+    }
+
     try {
       const { data: { session: authSession } } = await supabase.auth.getSession()
       const res  = await apiFetch('/api/create-checkout-session', {
@@ -89,6 +118,22 @@ export default function Purchases({ session, onClose }) {
       setPortalError('Something went wrong. Try again.')
     } finally {
       setPortalLoading(false)
+    }
+  }
+
+  const handleRestore = async () => {
+    setRestoreLoading(true)
+    setRestoreMsg(null)
+    try {
+      const { Purchases } = await import('@revenuecat/purchases-capacitor')
+      await Purchases.restorePurchases()
+      // Pro is reconciled server-side via the webhook / RevenueCat backend.
+      refresh?.()
+      setRestoreMsg({ ok: true, text: 'Purchases restored. Your Pro access is up to date.' })
+    } catch {
+      setRestoreMsg({ ok: false, text: 'Could not restore purchases. Please try again.' })
+    } finally {
+      setRestoreLoading(false)
     }
   }
 
@@ -234,8 +279,10 @@ export default function Purchases({ session, onClose }) {
           </div>
         </div>
 
-        {/* ── Manage billing (paid pro only) ── */}
-        {isPaidPro && (
+        {/* ── Manage billing (paid pro only, web only) ──
+            IAP subscribers manage billing in iOS Settings, not our Stripe
+            portal, so hide it on native. ── */}
+        {isPaidPro && !isNative && (
           <div style={{ textAlign: 'center' }}>
             {portalError && (
               <div style={{
@@ -389,6 +436,33 @@ export default function Purchases({ session, onClose }) {
             <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 8 }}>
               No card charged until trial ends · Cancel anytime
             </p>
+          )}
+
+          {/* ── Restore Purchases (native / IAP only) ── */}
+          {isNative && (
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <button
+                onClick={handleRestore}
+                disabled={restoreLoading}
+                style={{
+                  background: 'none', border: 'none',
+                  cursor: restoreLoading ? 'default' : 'pointer',
+                  fontSize: 13, color: 'var(--muted)', textDecoration: 'underline',
+                  textUnderlineOffset: 3, fontFamily: 'inherit',
+                  opacity: restoreLoading ? 0.6 : 1,
+                }}
+              >
+                {restoreLoading ? 'Restoring…' : 'Restore Purchases'}
+              </button>
+              {restoreMsg && (
+                <p style={{
+                  fontSize: 12, marginTop: 8,
+                  color: restoreMsg.ok ? '#1D9E75' : '#E24B4A',
+                }}>
+                  {restoreMsg.text}
+                </p>
+              )}
+            </div>
           )}
         </div>
       </div>

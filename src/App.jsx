@@ -186,6 +186,33 @@ function App() {
     return () => { handle?.remove() }
   }, [])
 
+  // ── Native: configure RevenueCat (Apple IAP) once we have a user ────────────
+  // On native iOS the subscribe path routes through RevenueCat / StoreKit
+  // instead of Stripe (UpgradeModal / Purchases / Founders). Configure once the
+  // session user id is known so RevenueCat's appUserID matches our Supabase user
+  // id (the revenuecat-webhook keys off it). Dynamic import + try/catch, same
+  // pattern as the @capacitor/inappbrowser load in src/lib/openExternal.js, so
+  // the plugin chunk never loads on web.
+  useEffect(() => {
+    if (!session?.user?.id) return
+    if (!window.Capacitor?.isNativePlatform?.()) return
+    const userId = session.user.id
+    const setup = async () => {
+      try {
+        const { Purchases } = await import('@revenuecat/purchases-capacitor')
+        await Purchases.configure({
+          apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
+          appUserID: userId,
+        })
+        await Purchases.logIn({ appUserID: userId })
+      } catch {
+        // Plugin missing or configure failed — IAP just won't be available on
+        // this device; the web/Stripe path is unaffected.
+      }
+    }
+    setup()
+  }, [session?.user?.id])
+
   // ── Routing ────────────────────────────────────────────────────────────────
   useEffect(() => {
     const setRouteFromPath = () => {

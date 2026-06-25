@@ -10,9 +10,12 @@ const STRIPE_PAYMENT_LINK = import.meta.env.VITE_STRIPE_FOUNDERS_LINK || ''
 
 const FOUNDER_CAP = 100
 
+const FOUNDER_PRODUCT_ID = 'net.truecalorie.founders'
+
 export default function Founders({ onBack }) {
   const [claimed, setClaimed] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [claimError, setClaimError] = useState(null)
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -37,7 +40,30 @@ export default function Founders({ onBack }) {
     setLoading(false)
   }
 
-  const handleClaim = () => {
+  const handleClaim = async () => {
+    setClaimError(null)
+
+    // Native (iOS): buy the founder non-consumable through RevenueCat /
+    // StoreKit instead of the Stripe payment link. The v13 plugin has no
+    // purchaseProduct({ productIdentifier }) helper, so fetch the StoreProduct
+    // then purchaseStoreProduct. Pro/founder is granted server-side by
+    // api/revenuecat-webhook.js on the NON_SUBSCRIPTION_PURCHASE event.
+    if (window.Capacitor?.isNativePlatform?.()) {
+      try {
+        const { Purchases } = await import('@revenuecat/purchases-capacitor')
+        const { products } = await Purchases.getProducts({ productIdentifiers: [FOUNDER_PRODUCT_ID] })
+        const product = products?.[0]
+        if (!product) throw new Error('Product unavailable')
+        await Purchases.purchaseStoreProduct({ product })
+      } catch (err) {
+        // Cancellation (code '1' / userCancelled): back out silently.
+        if (!(err?.userCancelled === true || String(err?.code) === '1')) {
+          setClaimError('Something went wrong. Please try again.')
+        }
+      }
+      return
+    }
+
     if (!STRIPE_PAYMENT_LINK) {
       alert('Stripe checkout is not configured yet. Please contact us.')
       return
@@ -209,6 +235,14 @@ export default function Founders({ onBack }) {
               }}>
                 One-time purchase. No renewal. Yours forever.
               </p>
+              {claimError && (
+                <p style={{
+                  fontSize: 13, color: '#E24B4A', fontFamily: 'sans-serif',
+                  textAlign: 'center', marginTop: 12, marginBottom: 0,
+                }}>
+                  {claimError}
+                </p>
+              )}
             </>
           )}
         </div>
