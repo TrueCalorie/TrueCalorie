@@ -1,9 +1,6 @@
-import { useState, useEffect } from 'react'
-import { supabase } from './supabase'
+import { useEffect } from 'react'
 
 export default function Landing({ onGetStarted }) {
-
-  const [spotsLeft, setSpotsLeft] = useState(null)
 
   useEffect(() => {
     const els = document.querySelectorAll('.fade-up')
@@ -18,18 +15,11 @@ export default function Landing({ onGetStarted }) {
     })
   }, [])
 
-  useEffect(() => {
-    supabase.rpc('founder_count').then(({ data }) => {
-      if (data != null) setSpotsLeft(100 - data)
-    }).catch(() => {})
-  }, [])
-
   const navigateTo = (path) => {
     window.history.pushState({}, '', path)
     window.dispatchEvent(new PopStateEvent('popstate'))
   }
 
-  const goToFounders = () => navigateTo('/founders')
   const goToPrivacy  = () => navigateTo('/privacy')
   const goToTerms    = () => navigateTo('/terms')
 
@@ -100,18 +90,6 @@ export default function Landing({ onGetStarted }) {
             onMouseLeave={e => e.target.style.opacity = 1}
           >
             Start for free
-          </button>
-          <button
-            onClick={goToFounders}
-            style={{
-              background: 'none', border: 'none', color: '#1D9E75',
-              fontSize: 13, cursor: 'pointer', fontFamily: 'sans-serif',
-              padding: 0, transition: 'opacity 0.2s',
-            }}
-            onMouseEnter={e => e.target.style.opacity = 0.7}
-            onMouseLeave={e => e.target.style.opacity = 1}
-          >
-            or see Founders pricing
           </button>
         </div>
       </div>
@@ -216,42 +194,6 @@ export default function Landing({ onGetStarted }) {
             <div style={{ fontSize: 13, color: '#666', lineHeight: 1.6, fontFamily: 'sans-serif' }}>{p.desc}</div>
           </div>
         ))}
-      </div>
-
-      {/* Founders banner */}
-      <div className="fade-up" style={{ maxWidth: 760, margin: '0 auto 60px', padding: '0 32px' }}>
-        <div
-          onClick={goToFounders}
-          style={{
-            padding: '20px 28px',
-            border: '1px solid #1a5c3a',
-            borderRadius: 14,
-            background: 'linear-gradient(135deg, #0d2e22 0%, #0a1f17 100%)',
-            cursor: 'pointer',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            gap: 16, flexWrap: 'wrap', transition: 'all 0.2s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#1D9E75' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#1a5c3a' }}
-        >
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{
-              fontSize: 10, letterSpacing: '0.15em', color: '#1D9E75',
-              fontFamily: 'sans-serif', marginBottom: 8, textTransform: 'uppercase', fontWeight: 600,
-            }}>
-              Founders Membership. Limited spots.
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
-              Lock in Pro for $79.99, one time.
-            </div>
-            <div style={{ fontSize: 13, color: '#888', fontFamily: 'sans-serif' }}>
-              {spotsLeft != null
-                ? `${spotsLeft} of 100 spots left. Price locks in permanently when you join.`
-                : '100 spots total. Price locks in permanently when you join.'}
-            </div>
-          </div>
-          <div style={{ fontSize: 22, color: '#1D9E75', flexShrink: 0 }}>›</div>
-        </div>
       </div>
 
       {/* Footer */}

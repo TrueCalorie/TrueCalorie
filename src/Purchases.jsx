@@ -1,12 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
 import { capture } from './analytics'
 import { openExternal } from './lib/openExternal'
 import { apiFetch } from './lib/apiFetch'
-
-const FOUNDERS_PAYMENT_LINK = import.meta.env.VITE_STRIPE_FOUNDERS_LINK || ''
-const FOUNDER_CAP = 100
 
 const PRO_FEATURES = [
   { icon: 'ti-tools-kitchen-2', label: 'Restaurant search',   desc: '200k+ menu items across 858 chains (via Nutritionix)' },
@@ -29,12 +26,10 @@ function withTimeout(promise, ms, message) {
 export default function Purchases({ session, onClose }) {
   const { isPro, isTrialing, trialDaysLeft, source, expiresAt, loading, cancelAtPeriodEnd, refresh } = usePro()
   const [billingPeriod, setBillingPeriod]         = useState('annual')
-  const [showFoundersModal, setShowFoundersModal] = useState(false)
   const [checkoutLoading, setCheckoutLoading]     = useState(false)
   const [checkoutError, setCheckoutError]         = useState(null)
   const [portalLoading, setPortalLoading]         = useState(false)
   const [portalError, setPortalError]             = useState(null)
-  const [foundersClaimed, setFoundersClaimed]     = useState(null)
   const [restoreLoading, setRestoreLoading]       = useState(false)
   const [restoreMsg, setRestoreMsg]               = useState(null)
 
@@ -48,18 +43,6 @@ export default function Purchases({ session, onClose }) {
   const isFounder = source === 'founder'
   const isPaidPro = isPro && (source === 'monthly' || source === 'annual')
   const hasOwnedPro = isPro && source !== 'trial'
-  const spotsLeft = foundersClaimed !== null ? Math.max(0, FOUNDER_CAP - foundersClaimed) : null
-
-  useEffect(() => {
-    fetchFoundersClaimed()
-  }, [])
-
-  const fetchFoundersClaimed = async () => {
-    try {
-      const { data: count } = await supabase.rpc('founder_count')
-      setFoundersClaimed(count ?? 0)
-    } catch {}
-  }
 
   const handleProSubscribe = async () => {
     setCheckoutLoading(true)
@@ -488,215 +471,8 @@ export default function Purchases({ session, onClose }) {
         </div>
       </div>
 
-      {/* Founders card */}
-      {spotsLeft !== 0 && (
-        <button
-          onClick={() => setShowFoundersModal(true)}
-          style={{
-            width: '100%', padding: '16px 18px', textAlign: 'left',
-            background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-            <div style={{
-              fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
-              color: '#1D9E75', textTransform: 'uppercase',
-              border: '1px solid rgba(29,158,117,0.4)',
-              borderRadius: 4, padding: '2px 8px',
-            }}>
-              {spotsLeft !== null ? `${spotsLeft} spots left` : "Founders' Access"}
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.03em' }}>
-              $79.99<span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}> one time</span>
-            </div>
-          </div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-            Founders' Access
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.55, marginBottom: 14 }}>
-            One-time payment. Every Pro feature, permanently, at a price the public will never see.
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#1D9E75' }}>
-            Learn more →
-          </div>
-        </button>
-      )}
-
-      {/* Founders modal */}
-      {showFoundersModal && (
-        <FoundersModal
-          session={session}
-          spotsLeft={spotsLeft}
-          onClose={() => setShowFoundersModal(false)}
-        />
-      )}
       </div>
       )}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Founders bottom-sheet modal
-// ─────────────────────────────────────────────────────────────────────────────
-function FoundersModal({ session, spotsLeft, onClose }) {
-  const isFull = spotsLeft === 0
-  const isNative = window.Capacitor?.isNativePlatform?.()
-  const [claimError, setClaimError] = useState(null)
-  const [debugStatus, setDebugStatus] = useState(null) // TEMP on-screen IAP trace
-
-  const PERKS = [
-    'Every Pro feature, now and everything we ship',
-    'Locked forever at this price, never charged monthly',
-    'Founder badge on your profile',
-    'Direct line to the founder during development',
-  ]
-
-  const handleClaim = async () => {
-    setDebugStatus('1: handler fired')
-    setClaimError(null)
-    capture('checkout_started', { plan: 'founders' })
-    setDebugStatus('2: session=' + (session?.user?.id ? 'yes' : 'MISSING'))
-
-    // Native (iOS): buy the founder non-consumable through RevenueCat /
-    // StoreKit instead of the Stripe payment link, matching Founders.jsx
-    // handleClaim. Route through the offering path (matching Pro monthly/annual)
-    // rather than getProducts, which returns empty in sandbox. 'founders' is a
-    // CUSTOM package identifier, so it is not exposed as a named property on the
-    // offering (only annual/monthly/etc. are) — look it up by identifier in
-    // availablePackages. Pro/founder is granted server-side by
-    // api/revenuecat-webhook.js on the NON_SUBSCRIPTION_PURCHASE event.
-    if (window.Capacitor?.isNativePlatform?.()) {
-      try {
-        const { Purchases, STOREKIT_VERSION } = await import('@revenuecat/purchases-capacitor')
-        // Guard against an unconfigured SDK: App.jsx configures RevenueCat on
-        // login, but if that effect hasn't run or silently failed, getOfferings
-        // hangs/rejects. Configure here too (same apiKey + appUserID) before use.
-        setDebugStatus('3: checking config')
-        const { isConfigured } = await Purchases.isConfigured()
-        if (!isConfigured) {
-          await Purchases.configure({
-            apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
-            appUserID: session.user.id,
-            // Force StoreKit 2 — v13's StoreKit 1 path hangs on non-consumable
-            // (Founders) purchases. Pass the STOREKIT_VERSION enum member.
-            storeKitVersion: STOREKIT_VERSION.STOREKIT_2,
-          })
-        }
-        setDebugStatus('4: configured, fetching offerings')
-        const offerings = await withTimeout(Purchases.getOfferings(), 10000, 'Purchase timed out, please try again')
-        setDebugStatus('5: got offerings, ' + (offerings.current?.availablePackages?.length ?? 0) + ' packages')
-        const foundersPackage = offerings.current?.availablePackages?.find(p => p.identifier === 'founders')
-        if (!foundersPackage) throw new Error('Founders package not found in offering: ' + JSON.stringify(offerings.current?.availablePackages?.map(p => p.identifier)))
-        setDebugStatus('6: found founders pkg, purchasing')
-        await withTimeout(Purchases.purchasePackage({ aPackage: foundersPackage }), 10000, 'Purchase timed out, please try again')
-      } catch (err) {
-        setDebugStatus('ERROR: ' + (err?.message || err?.code || 'unknown'))
-        // Cancellation (code '1' / userCancelled): back out silently.
-        if (!(err?.userCancelled === true || String(err?.code) === '1')) {
-          setClaimError('Purchase failed: ' + (err?.message || err?.code || 'unknown'))
-        }
-      }
-      return
-    }
-
-    if (!FOUNDERS_PAYMENT_LINK) { alert('Checkout is not configured yet'); return }
-    openExternal(FOUNDERS_PAYMENT_LINK, { target: '_blank' })
-  }
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 100,
-        background: 'rgba(0,0,0,0.65)',
-        display: 'flex', alignItems: 'flex-end',
-        backdropFilter: 'blur(4px)',
-        WebkitBackdropFilter: 'blur(4px)',
-        animation: 'fadeIn 0.2s ease',
-      }}
-    >
-      <style>{`
-        @keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes slideUp { from { transform: translateY(40px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-      `}</style>
-
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%', maxWidth: 460, margin: '0 auto',
-          background: '#0c0c0c',
-          borderRadius: '22px 22px 0 0',
-          border: '1px solid #1a1a1a', borderBottom: 'none',
-          padding: '20px 24px 44px',
-          animation: 'slideUp 0.25s ease',
-        }}
-      >
-        <div style={{ width: 36, height: 4, background: '#2a2a2a', borderRadius: 2, margin: '0 auto 22px' }} />
-
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          fontSize: 9, fontWeight: 700, letterSpacing: '0.15em',
-          color: '#1D9E75', textTransform: 'uppercase',
-          border: '1px solid rgba(29,158,117,0.4)',
-          borderRadius: 6, padding: '4px 10px', marginBottom: 18,
-        }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#1D9E75', display: 'inline-block' }} />
-          {spotsLeft !== null ? `${spotsLeft} of ${FOUNDER_CAP} spots left` : "Founders' Access"}
-        </div>
-
-        <div style={{ fontSize: 24, fontWeight: 700, color: '#fff', letterSpacing: '-0.03em', marginBottom: 8, lineHeight: 1.2 }}>
-          Lock in Pro forever.
-        </div>
-        <div style={{ fontSize: 14, color: '#555', marginBottom: 22, lineHeight: 1.6 }}>
-          $79.99 · one time · yours forever
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
-          {PERKS.map((perk, i) => (
-            <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-              <span style={{ color: '#1D9E75', fontSize: 14, marginTop: 1, flexShrink: 0 }}>✓</span>
-              <span style={{ fontSize: 14, color: '#aaa', lineHeight: 1.5 }}>{perk}</span>
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={handleClaim}
-          disabled={isFull}
-          style={{
-            width: '100%', padding: '14px',
-            background: isFull ? '#1a1a1a' : '#fff',
-            color: isFull ? '#555' : '#000',
-            border: 'none', borderRadius: 12,
-            fontSize: 15, fontWeight: 700,
-            cursor: isFull ? 'default' : 'pointer',
-            fontFamily: 'inherit',
-          }}
-        >
-          {isFull ? 'Sold out' : 'Claim founders pricing →'}
-        </button>
-
-        {/* TEMP: on-screen IAP trace (cloud Mac has no device console) */}
-        {debugStatus && (
-          <p style={{ fontSize: 11, color: '#888', textAlign: 'center', marginTop: 10, fontFamily: 'monospace' }}>
-            {debugStatus}
-          </p>
-        )}
-
-        {claimError && (
-          <p style={{ fontSize: 13, color: '#E24B4A', textAlign: 'center', marginTop: 12 }}>
-            {claimError}
-          </p>
-        )}
-
-        {!isFull && !isNative && (
-          <p style={{ fontSize: 12, color: '#333', textAlign: 'center', marginTop: 12 }}>
-            You'll be taken to Stripe. Secure checkout.
-          </p>
-        )}
-      </div>
     </div>
   )
 }

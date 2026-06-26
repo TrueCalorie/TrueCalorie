@@ -7,7 +7,6 @@ import Onboarding from './Onboarding'
 import Settings from './Settings'
 import Stats from './Stats'
 import Trends from './components/Trends'
-import Founders from './Founders'
 import Privacy from './Privacy'
 import Terms from './Terms'
 import AchievementToast from './AchievementToast'
@@ -53,7 +52,6 @@ function App() {
   const [savedFoods, setSavedFoods]         = useState([])
   const [recipes, setRecipes]               = useState([])
   const [pageHistory, setPageHistory]       = useState([])
-  const [showFounders, setShowFounders]     = useState(false)
   const [showPrivacy, setShowPrivacy]       = useState(false)
   const [showTerms, setShowTerms]           = useState(false)
   const [passwordResetMode, setPasswordResetMode] = useState(false)
@@ -94,7 +92,7 @@ function App() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
-  }, [currentPage, showPrivacy, showTerms, showFounders, session?.user?.id])
+  }, [currentPage, showPrivacy, showTerms, session?.user?.id])
 
   // ── Session ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -118,7 +116,6 @@ function App() {
       if (event === 'SIGNED_OUT') {
         reset()
         setPageHistory([])
-        setShowFounders(false)
         setShowPrivacy(false)
         setShowTerms(false)
       }
@@ -227,7 +224,6 @@ function App() {
   useEffect(() => {
     const setRouteFromPath = () => {
       const path = window.location.pathname
-      setShowFounders(path === '/founders')
       setShowPrivacy(path === '/privacy')
       setShowTerms(path === '/terms')
     }
@@ -679,7 +675,6 @@ function App() {
   const hasMeals = Object.keys(groupedMeals).length > 0
 
   const goHome = () => {
-    setShowFounders(false)
     setShowPrivacy(false)
     setShowTerms(false)
     window.history.pushState({}, '', '/')
@@ -688,7 +683,6 @@ function App() {
   // ── Early returns ──────────────────────────────────────────────────────────
   if (showPrivacy)  return <Privacy  onBack={goHome} />
   if (showTerms)    return <Terms    onBack={goHome} />
-  if (showFounders) return <Founders onBack={goHome} />
   if (loading || (session && !settingsLoaded)) return <LoadingScreen />
   if (passwordResetMode) return <Auth resetMode={true} />
   if (!session) return <Auth />
