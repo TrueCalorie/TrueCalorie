@@ -520,6 +520,7 @@ export default function Purchases({ session, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function FoundersModal({ spotsLeft, onClose }) {
   const isFull = spotsLeft === 0
+  const isNative = window.Capacitor?.isNativePlatform?.()
   const [claimError, setClaimError] = useState(null)
 
   const PERKS = [
@@ -640,7 +641,7 @@ function FoundersModal({ spotsLeft, onClose }) {
           </p>
         )}
 
-        {!isFull && (
+        {!isFull && !isNative && (
           <p style={{ fontSize: 12, color: '#333', textAlign: 'center', marginTop: 12 }}>
             You'll be taken to Stripe. Secure checkout.
           </p>
