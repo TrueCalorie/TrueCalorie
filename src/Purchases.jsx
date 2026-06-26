@@ -74,7 +74,7 @@ export default function Purchases({ session, onClose }) {
       } catch (err) {
         // Cancellation (code '1' / userCancelled): back out silently.
         if (!(err?.userCancelled === true || String(err?.code) === '1')) {
-          setCheckoutError('Something went wrong. Please try again.')
+          setCheckoutError('Purchase failed: ' + (err?.message || err?.code || 'unknown'))
         }
       }
       setCheckoutLoading(false)
@@ -536,21 +536,22 @@ function FoundersModal({ spotsLeft, onClose }) {
     // Native (iOS): buy the founder non-consumable through RevenueCat /
     // StoreKit instead of the Stripe payment link, matching Founders.jsx
     // handleClaim. Route through the offering path (matching Pro monthly/annual)
-    // rather than getProducts, which returns empty in sandbox. The founders
-    // package lives at offerings.current.founders in the default offering.
-    // Pro/founder is granted server-side by api/revenuecat-webhook.js on the
-    // NON_SUBSCRIPTION_PURCHASE event.
+    // rather than getProducts, which returns empty in sandbox. 'founders' is a
+    // CUSTOM package identifier, so it is not exposed as a named property on the
+    // offering (only annual/monthly/etc. are) — look it up by identifier in
+    // availablePackages. Pro/founder is granted server-side by
+    // api/revenuecat-webhook.js on the NON_SUBSCRIPTION_PURCHASE event.
     if (window.Capacitor?.isNativePlatform?.()) {
       try {
         const { Purchases } = await import('@revenuecat/purchases-capacitor')
         const offerings = await Purchases.getOfferings()
-        const foundersPackage = offerings.current?.founders
-        if (!foundersPackage) throw new Error('No offering available')
+        const foundersPackage = offerings.current?.availablePackages?.find(p => p.identifier === 'founders')
+        if (!foundersPackage) throw new Error('Founders package not found in offering: ' + JSON.stringify(offerings.current?.availablePackages?.map(p => p.identifier)))
         await Purchases.purchasePackage({ aPackage: foundersPackage })
       } catch (err) {
         // Cancellation (code '1' / userCancelled): back out silently.
         if (!(err?.userCancelled === true || String(err?.code) === '1')) {
-          setClaimError('Something went wrong. Please try again.')
+          setClaimError('Purchase failed: ' + (err?.message || err?.code || 'unknown'))
         }
       }
       return
