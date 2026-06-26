@@ -195,7 +195,7 @@ function Delta({ value, unit = '', invert = false }) {
 // ─── Locked state ─────────────────────────────────────────────────────────────
 function LockedTrends({ onUpgrade }) {
   return (
-    <div style={{ padding: '32px 20px', maxWidth: 480, margin: '0 auto' }}>
+    <div style={{ paddingTop: 'calc(32px + env(safe-area-inset-top))', paddingRight: 20, paddingBottom: 32, paddingLeft: 20, maxWidth: 480, margin: '0 auto' }}>
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
         borderRadius: 20, padding: '32px 24px', textAlign: 'center',
