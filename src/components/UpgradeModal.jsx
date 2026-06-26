@@ -130,6 +130,9 @@ export default function UpgradeModal({ open, onClose }) {
           borderRadius: 20,
           padding: 28,
           maxWidth: 400, width: '100%',
+          maxHeight: 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 40px)',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
           boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
           fontFamily: 'sans-serif',
         }}
