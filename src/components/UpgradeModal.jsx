@@ -60,7 +60,7 @@ export default function UpgradeModal({ open, onClose }) {
     // Native (iOS): route through RevenueCat / StoreKit instead of Stripe.
     if (window.Capacitor?.isNativePlatform?.()) {
       try {
-        const { Purchases } = await import('@revenuecat/purchases-capacitor')
+        const { Purchases, STOREKIT_VERSION } = await import('@revenuecat/purchases-capacitor')
         // Guard against an unconfigured SDK: App.jsx configures RevenueCat on
         // login, but if that effect hasn't run or silently failed, getOfferings
         // hangs/rejects. Configure here too (same apiKey + appUserID) before use.
@@ -71,8 +71,8 @@ export default function UpgradeModal({ open, onClose }) {
             apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
             appUserID: authSession?.user?.id,
             // Force StoreKit 2 — v13's StoreKit 1 path hangs on non-consumable
-            // (Founders) purchases. 'STOREKIT_2' is STOREKIT_VERSION.STOREKIT_2.
-            storeKitVersion: 'STOREKIT_2',
+            // (Founders) purchases. Pass the STOREKIT_VERSION enum member.
+            storeKitVersion: STOREKIT_VERSION.STOREKIT_2,
           })
         }
         const offerings = await Purchases.getOfferings()

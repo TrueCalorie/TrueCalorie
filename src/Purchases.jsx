@@ -68,7 +68,7 @@ export default function Purchases({ session, onClose }) {
     // Native (iOS): route through RevenueCat / StoreKit instead of Stripe.
     if (isNative) {
       try {
-        const { Purchases } = await import('@revenuecat/purchases-capacitor')
+        const { Purchases, STOREKIT_VERSION } = await import('@revenuecat/purchases-capacitor')
         // Guard against an unconfigured SDK: App.jsx configures RevenueCat on
         // login, but if that effect hasn't run or silently failed, getOfferings
         // hangs/rejects. Configure here too (same apiKey + appUserID) before use.
@@ -78,8 +78,8 @@ export default function Purchases({ session, onClose }) {
             apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
             appUserID: session.user.id,
             // Force StoreKit 2 — v13's StoreKit 1 path hangs on non-consumable
-            // (Founders) purchases. 'STOREKIT_2' is STOREKIT_VERSION.STOREKIT_2.
-            storeKitVersion: 'STOREKIT_2',
+            // (Founders) purchases. Pass the STOREKIT_VERSION enum member.
+            storeKitVersion: STOREKIT_VERSION.STOREKIT_2,
           })
         }
         const offerings = await withTimeout(Purchases.getOfferings(), 10000, 'Purchase timed out, please try again')
@@ -569,7 +569,7 @@ function FoundersModal({ session, spotsLeft, onClose }) {
     // api/revenuecat-webhook.js on the NON_SUBSCRIPTION_PURCHASE event.
     if (window.Capacitor?.isNativePlatform?.()) {
       try {
-        const { Purchases } = await import('@revenuecat/purchases-capacitor')
+        const { Purchases, STOREKIT_VERSION } = await import('@revenuecat/purchases-capacitor')
         // Guard against an unconfigured SDK: App.jsx configures RevenueCat on
         // login, but if that effect hasn't run or silently failed, getOfferings
         // hangs/rejects. Configure here too (same apiKey + appUserID) before use.
@@ -580,8 +580,8 @@ function FoundersModal({ session, spotsLeft, onClose }) {
             apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
             appUserID: session.user.id,
             // Force StoreKit 2 — v13's StoreKit 1 path hangs on non-consumable
-            // (Founders) purchases. 'STOREKIT_2' is STOREKIT_VERSION.STOREKIT_2.
-            storeKitVersion: 'STOREKIT_2',
+            // (Founders) purchases. Pass the STOREKIT_VERSION enum member.
+            storeKitVersion: STOREKIT_VERSION.STOREKIT_2,
           })
         }
         setDebugStatus('4: configured, fetching offerings')
@@ -590,7 +590,7 @@ function FoundersModal({ session, spotsLeft, onClose }) {
         const foundersPackage = offerings.current?.availablePackages?.find(p => p.identifier === 'founders')
         if (!foundersPackage) throw new Error('Founders package not found in offering: ' + JSON.stringify(offerings.current?.availablePackages?.map(p => p.identifier)))
         setDebugStatus('6: found founders pkg, purchasing')
-        await Purchases.purchasePackage({ aPackage: foundersPackage })
+        await withTimeout(Purchases.purchasePackage({ aPackage: foundersPackage }), 10000, 'Purchase timed out, please try again')
       } catch (err) {
         setDebugStatus('ERROR: ' + (err?.message || err?.code || 'unknown'))
         // Cancellation (code '1' / userCancelled): back out silently.

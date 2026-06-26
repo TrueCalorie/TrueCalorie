@@ -202,15 +202,15 @@ function App() {
     const userId = session.user.id
     const setup = async () => {
       try {
-        const { Purchases } = await import('@revenuecat/purchases-capacitor')
+        const { Purchases, STOREKIT_VERSION } = await import('@revenuecat/purchases-capacitor')
         await Purchases.configure({
           apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
           appUserID: userId,
           // Force StoreKit 2. The v13 SDK's StoreKit 1 path hangs on
           // purchasePackage for non-consumables (Founders) — no sheet, no error.
-          // (v13 uses the storeKitVersion enum, not the old
-          // usesStoreKit2IfAvailable flag; 'STOREKIT_2' is STOREKIT_VERSION.STOREKIT_2.)
-          storeKitVersion: 'STOREKIT_2',
+          // v13 takes the STOREKIT_VERSION enum member (not the old
+          // usesStoreKit2IfAvailable flag, and not a raw string).
+          storeKitVersion: STOREKIT_VERSION.STOREKIT_2,
         })
         await Purchases.logIn({ appUserID: userId })
       } catch (err) {
