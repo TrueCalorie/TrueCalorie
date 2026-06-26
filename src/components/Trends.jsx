@@ -193,51 +193,76 @@ function Delta({ value, unit = '', invert = false }) {
 }
 
 // ─── Locked state ─────────────────────────────────────────────────────────────
-function LockedTrends({ onUpgrade }) {
+function LockedTrends({ onUpgrade, onClose }) {
   return (
-    <div style={{ paddingTop: 'calc(32px + env(safe-area-inset-top))', paddingRight: 20, paddingBottom: 32, paddingLeft: 20, maxWidth: 480, margin: '0 auto' }}>
+    <div style={{ maxWidth: 480, margin: '0 auto', minHeight: '100dvh', background: 'var(--bg)' }}>
+
+      {/* Sticky header — identical to the Pro view so non-Pro users can go back */}
       <div style={{
-        background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: 20, padding: '32px 24px', textAlign: 'center',
+        display: 'flex', alignItems: 'center', gap: 12,
+        paddingTop: 'calc(18px + env(safe-area-inset-top))', paddingRight: 16, paddingBottom: 14, paddingLeft: 16,
+        borderBottom: '1px solid var(--border)',
+        position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 1,
       }}>
-        <div style={{ fontSize: 40, marginBottom: 16 }}>📈</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 8, letterSpacing: '-0.01em' }}>
-          Advanced Trends
-        </div>
-        <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 28 }}>
-          Built for athletes who want to understand their data, not just record it.
-        </div>
+        <button onClick={onClose} style={{
+          background: 'none', border: 'none', padding: 0,
+          cursor: 'pointer', color: 'var(--text)', fontSize: 20, lineHeight: 1,
+        }}>←</button>
+        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em', flex: 1 }}>
+          Trends
+        </span>
+        <span style={{
+          fontSize: 10, fontWeight: 700, color: '#1D9E75',
+          background: 'rgba(29,158,117,0.1)', border: '1px solid rgba(29,158,117,0.25)',
+          borderRadius: 5, padding: '2px 7px', letterSpacing: '0.06em',
+        }}>PRO</span>
+      </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28, textAlign: 'left' }}>
-          {[
-            { icon: 'ti-wave-sine',      title: 'Rolling 7-day average',    desc: 'Cut through daily noise. See your real calorie trend.' },
-            { icon: 'ti-chart-bar',      title: 'Week-over-week comparison', desc: 'Are your calories, protein, and consistency improving?' },
-            { icon: 'ti-target',         title: 'Consistency score trend',   desc: 'Weekly breakdown of how often you hit your goals.' },
-            { icon: 'ti-scale',          title: 'Weight projection',        desc: 'Where will you be in 4 weeks at your current pace?' },
-            { icon: 'ti-calendar-month', title: 'Monthly heat map',         desc: 'Every day of the month at a glance. Patterns emerge.' },
-          ].map((f, i) => (
-            <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <i className={`ti ${f.icon}`} style={{ fontSize: 18, flexShrink: 0, marginTop: 1, color: '#1D9E75' }} />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{f.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{f.desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <button onClick={onUpgrade} style={{
-          width: '100%', padding: '14px',
-          background: 'var(--text)', color: 'var(--bg)',
-          border: 'none', borderRadius: 12,
-          fontSize: 15, fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'inherit',
-          letterSpacing: '-0.01em',
+      {/* Upsell card */}
+      <div style={{ padding: '32px 20px' }}>
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 20, padding: '32px 24px', textAlign: 'center',
         }}>
-          Upgrade to Pro
-        </button>
-        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>
-          $9.99/month · cancel anytime
+          <div style={{ fontSize: 40, marginBottom: 16 }}>📈</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 8, letterSpacing: '-0.01em' }}>
+            Advanced Trends
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 28 }}>
+            Built for athletes who want to understand their data, not just record it.
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28, textAlign: 'left' }}>
+            {[
+              { icon: 'ti-wave-sine',      title: 'Rolling 7-day average',    desc: 'Cut through daily noise. See your real calorie trend.' },
+              { icon: 'ti-chart-bar',      title: 'Week-over-week comparison', desc: 'Are your calories, protein, and consistency improving?' },
+              { icon: 'ti-target',         title: 'Consistency score trend',   desc: 'Weekly breakdown of how often you hit your goals.' },
+              { icon: 'ti-scale',          title: 'Weight projection',        desc: 'Where will you be in 4 weeks at your current pace?' },
+              { icon: 'ti-calendar-month', title: 'Monthly heat map',         desc: 'Every day of the month at a glance. Patterns emerge.' },
+            ].map((f, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <i className={`ti ${f.icon}`} style={{ fontSize: 18, flexShrink: 0, marginTop: 1, color: '#1D9E75' }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{f.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{f.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={onUpgrade} style={{
+            width: '100%', padding: '14px',
+            background: 'var(--text)', color: 'var(--bg)',
+            border: 'none', borderRadius: 12,
+            fontSize: 15, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+            letterSpacing: '-0.01em',
+          }}>
+            Upgrade to Pro
+          </button>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>
+            $9.99/month · cancel anytime
+          </div>
         </div>
       </div>
     </div>
@@ -404,7 +429,7 @@ export default function Trends({ session, settings, isPro, onUpgrade, onClose })
   })()
 
   // ── Non-Pro gate ─────────────────────────────────────────────────────────────
-  if (!isPro) return <LockedTrends onUpgrade={onUpgrade} />
+  if (!isPro) return <LockedTrends onUpgrade={onUpgrade} onClose={onClose} />
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
