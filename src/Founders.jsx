@@ -1,19 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import { openExternal } from './lib/openExternal'
-
-// Stripe Payment Link — $79.99 one-time lifetime founders price
-// To set up: Stripe Dashboard → Products → Add product → $79.99 one-time
-// Then: Payment Links → New link → select that product → copy URL
-// Then add to Vercel env as VITE_STRIPE_FOUNDERS_LINK
-const STRIPE_PAYMENT_LINK = import.meta.env.VITE_STRIPE_FOUNDERS_LINK || ''
 
 const FOUNDER_CAP = 100
 
 export default function Founders({ onBack }) {
   const [claimed, setClaimed] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [claimError, setClaimError] = useState(null)
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -36,40 +28,6 @@ export default function Founders({ onBack }) {
       if (!error && data !== null) setClaimed(data)
     } catch {}
     setLoading(false)
-  }
-
-  const handleClaim = async () => {
-    setClaimError(null)
-
-    // Native (iOS): buy the founder non-consumable through RevenueCat /
-    // StoreKit instead of the Stripe payment link. Route through the offering
-    // path (matching Pro monthly/annual) rather than getProducts, which returns
-    // empty in sandbox. 'founders' is a CUSTOM package identifier, so it is not
-    // exposed as a named property on the offering (only annual/monthly/etc. are)
-    // — look it up by identifier in availablePackages. Pro/founder is granted
-    // server-side by api/revenuecat-webhook.js on the NON_SUBSCRIPTION_PURCHASE
-    // event.
-    if (window.Capacitor?.isNativePlatform?.()) {
-      try {
-        const { Purchases } = await import('@revenuecat/purchases-capacitor')
-        const offerings = await Purchases.getOfferings()
-        const foundersPackage = offerings.current?.availablePackages?.find(p => p.identifier === 'founders')
-        if (!foundersPackage) throw new Error('Founders package not found in offering: ' + JSON.stringify(offerings.current?.availablePackages?.map(p => p.identifier)))
-        await Purchases.purchasePackage({ aPackage: foundersPackage })
-      } catch (err) {
-        // Cancellation (code '1' / userCancelled): back out silently.
-        if (!(err?.userCancelled === true || String(err?.code) === '1')) {
-          setClaimError('Purchase failed: ' + (err?.message || err?.code || 'unknown'))
-        }
-      }
-      return
-    }
-
-    if (!STRIPE_PAYMENT_LINK) {
-      alert('Stripe checkout is not configured yet. Please contact us.')
-      return
-    }
-    openExternal(STRIPE_PAYMENT_LINK)
   }
 
   const spotsLeft  = Math.max(0, FOUNDER_CAP - claimed)
@@ -202,7 +160,9 @@ export default function Founders({ onBack }) {
           ))}
         </div>
 
-        {/* CTA */}
+        {/* CTA — informational. This is a public marketing page; the actual
+            purchase happens in-app on the Subscription screen after sign-in
+            (Apple In-App Purchase on iOS), never from here. */}
         <div className="fade-up">
           {soldOut ? (
             <div style={{
@@ -215,7 +175,7 @@ export default function Founders({ onBack }) {
           ) : (
             <>
               <button
-                onClick={handleClaim}
+                onClick={onBack}
                 style={{
                   width: '100%', padding: '16px',
                   background: '#1D9E75', color: '#fff',
@@ -223,27 +183,21 @@ export default function Founders({ onBack }) {
                   fontSize: 16, fontWeight: 700,
                   cursor: 'pointer', fontFamily: 'sans-serif',
                   letterSpacing: '-0.01em', transition: 'opacity 0.2s',
-                  marginBottom: 12,
+                  marginBottom: 14,
                 }}
                 onMouseEnter={e => e.target.style.opacity = 0.88}
                 onMouseLeave={e => e.target.style.opacity = 1}
               >
-                Claim your spot. $79.99.
+                Sign in to get started →
               </button>
               <p style={{
-                fontSize: 12, color: '#444', fontFamily: 'sans-serif',
-                textAlign: 'center', lineHeight: 1.6, margin: 0,
+                fontSize: 13, color: '#888', fontFamily: 'sans-serif',
+                textAlign: 'center', lineHeight: 1.7, margin: 0,
               }}>
-                One-time purchase. No renewal. Yours forever.
+                Sign in or create your account, finish setup, then open
+                Settings → Subscription to claim Founders for $79.99. One time,
+                no renewal, permanent Pro access.
               </p>
-              {claimError && (
-                <p style={{
-                  fontSize: 13, color: '#E24B4A', fontFamily: 'sans-serif',
-                  textAlign: 'center', marginTop: 12, marginBottom: 0,
-                }}>
-                  {claimError}
-                </p>
-              )}
             </>
           )}
         </div>

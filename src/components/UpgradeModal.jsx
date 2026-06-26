@@ -61,6 +61,17 @@ export default function UpgradeModal({ open, onClose }) {
     if (window.Capacitor?.isNativePlatform?.()) {
       try {
         const { Purchases } = await import('@revenuecat/purchases-capacitor')
+        // Guard against an unconfigured SDK: App.jsx configures RevenueCat on
+        // login, but if that effect hasn't run or silently failed, getOfferings
+        // hangs/rejects. Configure here too (same apiKey + appUserID) before use.
+        const { isConfigured } = await Purchases.isConfigured()
+        if (!isConfigured) {
+          const { data: { session: authSession } } = await supabase.auth.getSession()
+          await Purchases.configure({
+            apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
+            appUserID: authSession?.user?.id,
+          })
+        }
         const offerings = await Purchases.getOfferings()
         const pkg = billingPeriod === 'annual'
           ? offerings.current?.annual

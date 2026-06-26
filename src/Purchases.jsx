@@ -18,6 +18,15 @@ const PRO_FEATURES = [
   { icon: 'ti-brand-strava',    label: 'Strava integration',   desc: 'Sync workouts and calories burned' },
 ]
 
+// Reject if a RevenueCat call hangs (unconfigured / stuck SDK) so the UI shows
+// a clear error instead of silently doing nothing forever.
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ])
+}
+
 export default function Purchases({ session, onClose }) {
   const { isPro, isTrialing, trialDaysLeft, source, expiresAt, loading, cancelAtPeriodEnd, refresh } = usePro()
   const [billingPeriod, setBillingPeriod]         = useState('annual')
@@ -61,7 +70,17 @@ export default function Purchases({ session, onClose }) {
     if (isNative) {
       try {
         const { Purchases } = await import('@revenuecat/purchases-capacitor')
-        const offerings = await Purchases.getOfferings()
+        // Guard against an unconfigured SDK: App.jsx configures RevenueCat on
+        // login, but if that effect hasn't run or silently failed, getOfferings
+        // hangs/rejects. Configure here too (same apiKey + appUserID) before use.
+        const { isConfigured } = await Purchases.isConfigured()
+        if (!isConfigured) {
+          await Purchases.configure({
+            apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
+            appUserID: session.user.id,
+          })
+        }
+        const offerings = await withTimeout(Purchases.getOfferings(), 10000, 'Purchase timed out, please try again')
         const pkg = billingPeriod === 'annual'
           ? offerings.current?.annual
           : offerings.current?.monthly
@@ -505,6 +524,7 @@ export default function Purchases({ session, onClose }) {
       {/* Founders modal */}
       {showFoundersModal && (
         <FoundersModal
+          session={session}
           spotsLeft={spotsLeft}
           onClose={() => setShowFoundersModal(false)}
         />
@@ -518,7 +538,7 @@ export default function Purchases({ session, onClose }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Founders bottom-sheet modal
 // ─────────────────────────────────────────────────────────────────────────────
-function FoundersModal({ spotsLeft, onClose }) {
+function FoundersModal({ session, spotsLeft, onClose }) {
   const isFull = spotsLeft === 0
   const isNative = window.Capacitor?.isNativePlatform?.()
   const [claimError, setClaimError] = useState(null)
@@ -545,7 +565,17 @@ function FoundersModal({ spotsLeft, onClose }) {
     if (window.Capacitor?.isNativePlatform?.()) {
       try {
         const { Purchases } = await import('@revenuecat/purchases-capacitor')
-        const offerings = await Purchases.getOfferings()
+        // Guard against an unconfigured SDK: App.jsx configures RevenueCat on
+        // login, but if that effect hasn't run or silently failed, getOfferings
+        // hangs/rejects. Configure here too (same apiKey + appUserID) before use.
+        const { isConfigured } = await Purchases.isConfigured()
+        if (!isConfigured) {
+          await Purchases.configure({
+            apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
+            appUserID: session.user.id,
+          })
+        }
+        const offerings = await withTimeout(Purchases.getOfferings(), 10000, 'Purchase timed out, please try again')
         const foundersPackage = offerings.current?.availablePackages?.find(p => p.identifier === 'founders')
         if (!foundersPackage) throw new Error('Founders package not found in offering: ' + JSON.stringify(offerings.current?.availablePackages?.map(p => p.identifier)))
         await Purchases.purchasePackage({ aPackage: foundersPackage })

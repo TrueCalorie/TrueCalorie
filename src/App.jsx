@@ -208,9 +208,11 @@ function App() {
           appUserID: userId,
         })
         await Purchases.logIn({ appUserID: userId })
-      } catch {
+      } catch (err) {
         // Plugin missing or configure failed — IAP just won't be available on
-        // this device; the web/Stripe path is unaffected.
+        // this device; the web/Stripe path is unaffected. Log the real error so
+        // a failed configure is visible instead of silently swallowed.
+        console.error('[revenuecat] configure failed:', err)
       }
     }
     setup()
