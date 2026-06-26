@@ -70,6 +70,9 @@ export default function UpgradeModal({ open, onClose }) {
           await Purchases.configure({
             apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
             appUserID: authSession?.user?.id,
+            // Force StoreKit 2 — v13's StoreKit 1 path hangs on non-consumable
+            // (Founders) purchases. 'STOREKIT_2' is STOREKIT_VERSION.STOREKIT_2.
+            storeKitVersion: 'STOREKIT_2',
           })
         }
         const offerings = await Purchases.getOfferings()

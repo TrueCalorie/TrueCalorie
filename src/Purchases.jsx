@@ -14,7 +14,6 @@ const PRO_FEATURES = [
   { icon: 'ti-run',             label: 'Athletic targets',     desc: 'Sport-specific calorie & macro goals built for your training load' },
   { icon: 'ti-chart-line',      label: 'Advanced trends',      desc: 'Full nutrition history and weekly insights' },
   { icon: 'ti-clipboard-list',  label: 'Meal templates',       desc: 'Save your go-to meals for one-tap logging' },
-  { icon: 'ti-file-export',     label: 'CSV export',           desc: 'Export your complete food log anytime' },
   { icon: 'ti-brand-strava',    label: 'Strava integration',   desc: 'Sync workouts and calories burned' },
 ]
 
@@ -78,6 +77,9 @@ export default function Purchases({ session, onClose }) {
           await Purchases.configure({
             apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
             appUserID: session.user.id,
+            // Force StoreKit 2 — v13's StoreKit 1 path hangs on non-consumable
+            // (Founders) purchases. 'STOREKIT_2' is STOREKIT_VERSION.STOREKIT_2.
+            storeKitVersion: 'STOREKIT_2',
           })
         }
         const offerings = await withTimeout(Purchases.getOfferings(), 10000, 'Purchase timed out, please try again')
@@ -577,6 +579,9 @@ function FoundersModal({ session, spotsLeft, onClose }) {
           await Purchases.configure({
             apiKey: import.meta.env.VITE_REVENUECAT_API_KEY,
             appUserID: session.user.id,
+            // Force StoreKit 2 — v13's StoreKit 1 path hangs on non-consumable
+            // (Founders) purchases. 'STOREKIT_2' is STOREKIT_VERSION.STOREKIT_2.
+            storeKitVersion: 'STOREKIT_2',
           })
         }
         setDebugStatus('4: configured, fetching offerings')
