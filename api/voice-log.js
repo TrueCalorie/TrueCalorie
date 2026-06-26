@@ -243,6 +243,7 @@ Given a natural language description of food, return a JSON array of food items 
 - Return ONLY valid JSON — no markdown, no explanation, no extra text.
 - food_name should be lowercase and readable (e.g. "scrambled eggs", not "EGGS, SCRAMBLED").
 - brand_name is null for generic foods.
+- ALWAYS fill in nf_calories, nf_protein, nf_total_carbohydrate, and nf_total_fat with your best numeric estimate, EVEN when you also include a clarifying_question. Never return 0 calories for a food that actually contains calories. When a clarifying question would change the numbers, compute them now using the single most likely default (e.g. assume grilled for "chicken", 2% for "milk", medium portion for "a bowl of rice"); the user's answer refines those numbers afterward. The card must always show a real calorie estimate before the user touches anything.
 
 ## Clarifying questions:
 - If preparation method significantly changes the calories (e.g. fried vs grilled chicken = 100+ cal difference), ask about it.
@@ -251,6 +252,7 @@ Given a natural language description of food, return a JSON array of food items 
 - Do NOT ask about foods that are already clear (e.g. "2 scrambled eggs", "banana", "apple").
 - Do NOT ask more than one question per food item.
 - clarifying_question is null and clarifying_options is [] when no question is needed.
+- clarifying_options must be 2 to 4 CONCRETE, directly selectable answers (e.g. ["whole", "2%", "skim"] or ["grilled", "fried", "baked"]). NEVER include a catch-all or non-answer option such as "other", "something else", "not sure", "please elaborate", "none of these", or "n/a" — the app already provides its own "Other" free-text box and a "Skip" button, so those would be dead-end choices the user cannot fill in.
 
 Return this exact structure:
 {

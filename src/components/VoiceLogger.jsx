@@ -12,6 +12,22 @@ const PHASE = {
   ERROR:      'error',
 }
 
+// Catch-all / non-answer clarifying options the model sometimes emits. The UI
+// already provides its own "Other…" free-text box and a "Skip" button, so these
+// would be dead-end choices the user can't actually fill in. Strip them.
+const CATCHALL_OPTION = /\b(other|something else|elaborate|not sure|unsure|don'?t know|none|n\/?a)\b/i
+
+// Drop catch-all clarifying options; if nothing concrete is left, remove the
+// question entirely so the card just shows the estimate.
+function sanitizeFood(food) {
+  const options = Array.isArray(food.clarifying_options)
+    ? food.clarifying_options.filter(o => typeof o === 'string' && o.trim() && !CATCHALL_OPTION.test(o))
+    : []
+  return options.length > 0
+    ? { ...food, clarifying_options: options }
+    : { ...food, clarifying_question: null, clarifying_options: [] }
+}
+
 // ─── Waveform ─────────────────────────────────────────────────────────────────
 function Waveform() {
   return (
@@ -428,11 +444,14 @@ export default function VoiceLogger({ mealTime, onLog, onLogAll, onBack }) {
         return
       }
 
-      setFoods(data.foods.map(f => ({
-        ...f,
-        multiplier: 1,
-        clarification_answered: !f.clarifying_question,
-      })))
+      setFoods(data.foods.map(f => {
+        const clean = sanitizeFood(f)
+        return {
+          ...clean,
+          multiplier: 1,
+          clarification_answered: !clean.clarifying_question,
+        }
+      }))
       setPhaseSync(PHASE.REVIEW)
     } catch {
       setError('Failed to analyze your meal. Check your connection and try again.')
