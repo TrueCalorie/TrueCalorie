@@ -78,7 +78,7 @@ export default function UpgradeModal({ open, onClose }) {
           onClose()
         } else {
           console.error('IAP error:', err)
-          setError('Something went wrong. Please try again.')
+          setError('Purchase failed: ' + (err?.message || err?.code || 'unknown'))
           setLoading(false)
         }
       }
