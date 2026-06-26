@@ -542,6 +542,7 @@ function FoundersModal({ session, spotsLeft, onClose }) {
   const isFull = spotsLeft === 0
   const isNative = window.Capacitor?.isNativePlatform?.()
   const [claimError, setClaimError] = useState(null)
+  const [debugStatus, setDebugStatus] = useState(null) // TEMP on-screen IAP trace
 
   const PERKS = [
     'Every Pro feature, now and everything we ship',
@@ -551,8 +552,10 @@ function FoundersModal({ session, spotsLeft, onClose }) {
   ]
 
   const handleClaim = async () => {
+    setDebugStatus('1: handler fired')
     setClaimError(null)
     capture('checkout_started', { plan: 'founders' })
+    setDebugStatus('2: session=' + (session?.user?.id ? 'yes' : 'MISSING'))
 
     // Native (iOS): buy the founder non-consumable through RevenueCat /
     // StoreKit instead of the Stripe payment link, matching Founders.jsx
@@ -568,6 +571,7 @@ function FoundersModal({ session, spotsLeft, onClose }) {
         // Guard against an unconfigured SDK: App.jsx configures RevenueCat on
         // login, but if that effect hasn't run or silently failed, getOfferings
         // hangs/rejects. Configure here too (same apiKey + appUserID) before use.
+        setDebugStatus('3: checking config')
         const { isConfigured } = await Purchases.isConfigured()
         if (!isConfigured) {
           await Purchases.configure({
@@ -575,11 +579,15 @@ function FoundersModal({ session, spotsLeft, onClose }) {
             appUserID: session.user.id,
           })
         }
+        setDebugStatus('4: configured, fetching offerings')
         const offerings = await withTimeout(Purchases.getOfferings(), 10000, 'Purchase timed out, please try again')
+        setDebugStatus('5: got offerings, ' + (offerings.current?.availablePackages?.length ?? 0) + ' packages')
         const foundersPackage = offerings.current?.availablePackages?.find(p => p.identifier === 'founders')
         if (!foundersPackage) throw new Error('Founders package not found in offering: ' + JSON.stringify(offerings.current?.availablePackages?.map(p => p.identifier)))
+        setDebugStatus('6: found founders pkg, purchasing')
         await Purchases.purchasePackage({ aPackage: foundersPackage })
       } catch (err) {
+        setDebugStatus('ERROR: ' + (err?.message || err?.code || 'unknown'))
         // Cancellation (code '1' / userCancelled): back out silently.
         if (!(err?.userCancelled === true || String(err?.code) === '1')) {
           setClaimError('Purchase failed: ' + (err?.message || err?.code || 'unknown'))
@@ -664,6 +672,13 @@ function FoundersModal({ session, spotsLeft, onClose }) {
         >
           {isFull ? 'Sold out' : 'Claim founders pricing →'}
         </button>
+
+        {/* TEMP: on-screen IAP trace (cloud Mac has no device console) */}
+        {debugStatus && (
+          <p style={{ fontSize: 11, color: '#888', textAlign: 'center', marginTop: 10, fontFamily: 'monospace' }}>
+            {debugStatus}
+          </p>
+        )}
 
         {claimError && (
           <p style={{ fontSize: 13, color: '#E24B4A', textAlign: 'center', marginTop: 12 }}>
