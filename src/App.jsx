@@ -16,6 +16,8 @@ import FoodDetailModal from './components/FoodDetailModal'
 import MealEditModal from './components/MealEditModal'
 import LogFoodSheet from './components/LogFoodSheet'
 import LoadingScreen from './components/LoadingScreen'
+import ConnectionError from './components/ConnectionError'
+import OfflineBanner from './components/OfflineBanner'
 import TabBar from './components/TabBar'
 import Purchases from './Purchases'
 import { usePro } from './hooks/usePro'
@@ -46,6 +48,7 @@ function App() {
   const [loading, setLoading]               = useState(true)
   const [settings, setSettings]             = useState(null)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [settingsError, setSettingsError]   = useState(false)
   const [meals, setMeals]                   = useState([])
   const [savedFoods, setSavedFoods]         = useState([])
   const [recipes, setRecipes]               = useState([])
@@ -245,6 +248,16 @@ function App() {
     if (session) { fetchSettings(); fetchMeals(); fetchSavedFoods(); fetchRecipes() }
   }, [session])
 
+  // Auto-clear the ConnectionError screen on reconnect: if a prior settings
+  // load failed, re-run the boot fetchers as soon as the device comes back.
+  useEffect(() => {
+    if (!settingsError || !session) return
+    const onReconnect = () => handleRetry()
+    window.addEventListener('online', onReconnect)
+    return () => window.removeEventListener('online', onReconnect)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsError, session])
+
   useEffect(() => {
     if (session) fetchStravaToday()
   }, [session])
@@ -300,13 +313,23 @@ function App() {
   const fetchSettings = async () => {
     if (!session) return
     try {
-      const { data } = await supabase
-        .from('user_settings').select('*').eq('user_id', session.user.id).single()
+      const { data, error } = await supabase
+        .from('user_settings').select('*').eq('user_id', session.user.id).maybeSingle()
+      if (error) throw error
+      // Loaded cleanly. A null row is a genuine new user (no settings yet);
+      // a thrown error below is the network-down case and is handled separately.
+      setSettingsError(false)
       if (data) {
         setSettings(data)
         if (data.theme) document.documentElement.setAttribute('data-theme', data.theme)
+      } else {
+        setSettings(null)
       }
-    } catch {}
+    } catch {
+      // Failed to load (offline / network error). Do NOT clear settings or
+      // treat this as a new user — flag it so routing can show ConnectionError.
+      setSettingsError(true)
+    }
     setSettingsLoaded(true)
   }
 
@@ -393,6 +416,14 @@ function App() {
     fetchStravaToday()
     fetchStravaTrailing()
     setStravaRefreshKey(k => k + 1)
+  }
+
+  // Re-run the boot fetchers that gate routing. Used by the ConnectionError
+  // "Try again" button and the auto-retry on reconnect below. Reuses the same
+  // fetchers the session effect calls, no duplicated logic.
+  const handleRetry = () => {
+    fetchSettings()
+    fetchMeals()
   }
 
   const checkAndAwardAchievements = async () => {
@@ -654,6 +685,11 @@ function App() {
   if (loading || (session && !settingsLoaded)) return <LoadingScreen />
   if (passwordResetMode) return <Auth resetMode={true} />
   if (!session) return <Auth />
+  // Offline boot: settings never loaded and the load errored out. Show the
+  // connection screen instead of dumping the user into Onboarding. The
+  // !settings guard is load-bearing — an already-onboarded user mid-session
+  // (settings in memory) must NOT get yanked here by a transient refetch blip.
+  if (session && !settings && settingsError) return <ConnectionError onRetry={handleRetry} />
   if (!settings || !settings.onboarding_complete) return <Onboarding session={session} onComplete={fetchSettings} />
 
   // ── Page routing ───────────────────────────────────────────────────────────
@@ -677,6 +713,7 @@ function App() {
   if (currentPage) {
     return (
       <div style={{ fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh' }}>
+        <OfflineBanner />
         {currentToast && (
           <AchievementToast achievement={currentToast} onDone={() => setCurrentToast(null)} />
         )}
@@ -688,6 +725,8 @@ function App() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div style={{ position: 'relative', fontFamily: 'sans-serif', background: 'var(--bg)', minHeight: '100vh' }}>
+
+      <OfflineBanner />
 
       {currentToast && (
         <AchievementToast achievement={currentToast} onDone={() => setCurrentToast(null)} />
