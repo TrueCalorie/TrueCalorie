@@ -1,13 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Capacitor } from '@capacitor/core'
 import { supabase } from '../supabase'
 import { calculateGoals, calculateGoalsPro } from '../macros'
-import { requestHealthKitPermissions, syncWeightToHealthKit } from '../hooks/useHealthKit'
-
-// Apple Health Connect is hidden for launch: the connect flow is broken. The UI
-// and underlying HealthKit code are intentionally kept so this can be flipped
-// back on once the flow is fixed. Set to true to re-enable.
-const APPLE_HEALTH_ENABLED = false
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 function Card({ children, style }) {
@@ -180,7 +173,6 @@ export default function BodyFitnessPage({ session, settings, onUpdate, onClose, 
     if (!error) {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-      if (weight_kg) syncWeightToHealthKit(weight_kg)
       onUpdate?.()
     }
   }
@@ -665,18 +657,6 @@ export default function BodyFitnessPage({ session, settings, onUpdate, onClose, 
               )}
             </Card>
           </div>
-        )}
-
-        {/* ── Apple Health (hidden for launch, broken connect flow) ── */}
-        {APPLE_HEALTH_ENABLED && Capacitor.isNativePlatform() && (
-          <button onClick={requestHealthKitPermissions} style={{
-            width: '100%', padding: '11px', background: 'none',
-            border: '1px solid var(--border)', borderRadius: 12, fontSize: 13,
-            fontWeight: 500, color: 'var(--text)',
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-            Connect Apple Health
-          </button>
         )}
 
       </div>

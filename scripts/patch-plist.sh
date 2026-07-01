@@ -10,8 +10,6 @@ set_str () {
 set_str NSCameraUsageDescription "Used to scan food barcodes for quick logging."
 set_str NSMicrophoneUsageDescription "Used to log meals by voice."
 set_str NSSpeechRecognitionUsageDescription "TrueCalorie uses speech recognition to understand your meal descriptions."
-set_str NSHealthShareUsageDescription "Syncs your weight and workouts with Apple Health."
-set_str NSHealthUpdateUsageDescription "Saves your weight and workout data to Apple Health."
 
 /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null \
   || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"

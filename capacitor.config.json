@@ -7,8 +7,6 @@
       "NSCameraUsageDescription": "Used to scan food barcodes for quick logging.",
       "NSMicrophoneUsageDescription": "Used to log meals by voice.",
       "NSSpeechRecognitionUsageDescription": "TrueCalorie uses speech recognition to understand your meal descriptions.",
-      "NSHealthShareUsageDescription": "Syncs your weight and workouts with Apple Health.",
-      "NSHealthUpdateUsageDescription": "Saves your weight and workout data to Apple Health.",
       "CFBundleURLTypes": [
         {
           "CFBundleURLSchemes": ["truecalorie"]

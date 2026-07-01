@@ -15,7 +15,6 @@
     "@capacitor/browser": "^8.0.3",
     "@capacitor/core": "^8.4.0",
     "@capacitor/inappbrowser": "^4.0.0",
-    "@capgo/capacitor-health": "^8.6.2",
     "@revenuecat/purchases-capacitor": "^13.2.0",
     "@sentry/node": "^10.59.0",
     "@supabase/supabase-js": "^2.105.4",
