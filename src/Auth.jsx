@@ -61,26 +61,39 @@ export default function Auth({ resetMode = false }) {
 
   // ── Google OAuth ──────────────────────────────────────────────────────────
   const handleGoogle = async () => {
-    const { Capacitor } = await import('@capacitor/core')
-    const redirectTo = Capacitor.isNativePlatform()
-      ? 'truecalorie://auth/callback'
-      : window.location.origin
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo },
-    })
+    const isNative = window.Capacitor?.isNativePlatform?.()
+    if (isNative) {
+      setMessage('')
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: 'truecalorie://auth/callback', skipBrowserRedirect: true },
+      })
+      if (error || !data?.url) { setMessage('Google sign-in failed. Please try again.'); return }
+      const { Browser } = await import('@capacitor/browser')
+      await Browser.open({ url: data.url })
+    } else {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      })
+    }
   }
 
   // ── Apple OAuth ───────────────────────────────────────────────────────────
   const handleApple = async () => {
-    const { Capacitor } = await import('@capacitor/core')
-    const redirectTo = Capacitor.isNativePlatform()
-      ? 'truecalorie://auth/callback'
-      : window.location.origin
-    await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo },
-    })
+    const isNative = window.Capacitor?.isNativePlatform?.()
+    if (isNative) {
+      setMessage('')
+      const { signInWithAppleNative } = await import('./lib/nativeAppleSignIn')
+      const res = await signInWithAppleNative()
+      if (res?.error) setMessage(res.error)
+      // cancelled or ok: no UI action; onAuthStateChange handles success.
+    } else {
+      await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo: window.location.origin },
+      })
+    }
   }
 
   // ── Send reset email ──────────────────────────────────────────────────────

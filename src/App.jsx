@@ -164,6 +164,13 @@ function App() {
         }
         const { data } = await supabase.auth.getSession()
         if (data?.session) setSession(data.session)
+        // Dismiss the SFSafariViewController that Google sign-in opened.
+        // Browser.close() throws when no in-app browser is open (email/password
+        // and native Apple never open one), so the catch is required.
+        try {
+          const { Browser } = await import('@capacitor/browser')
+          await Browser.close()
+        } catch {}
       })
     }
     setup()

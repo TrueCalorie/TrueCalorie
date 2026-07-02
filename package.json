@@ -10,6 +10,7 @@
     "generate-vapid": "node --input-type=module -e \"import webpush from 'web-push'; console.log(webpush.generateVAPIDKeys())\""
   },
   "dependencies": {
+    "@capacitor-community/apple-sign-in": "^7.1.0",
     "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",

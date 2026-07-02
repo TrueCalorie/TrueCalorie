@@ -41,6 +41,18 @@ export default function Onboarding({ session, onComplete }) {
 
   useEffect(() => { capture('onboarding_started') }, [])
 
+  // Pre-fill the first name from auth metadata (Apple gives display_name via
+  // native SIWA, Google gives full_name). The functional-update guard means a
+  // late-arriving USER_UPDATED event never overwrites anything the user typed.
+  useEffect(() => {
+    const meta = session?.user?.user_metadata || {}
+    const raw  = meta.display_name || meta.given_name || meta.full_name || meta.name || ''
+    const first = String(raw).trim().split(/\s+/)[0] || ''
+    if (first) {
+      setData(d => (d.display_name ? d : { ...d, display_name: first }))
+    }
+  }, [session?.user?.user_metadata])
+
   const update = (key, value) => setData(d => ({ ...d, [key]: value }))
 
   const next = () => setStep(s => s + 1)
