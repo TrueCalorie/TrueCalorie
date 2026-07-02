@@ -10,12 +10,12 @@
     "generate-vapid": "node --input-type=module -e \"import webpush from 'web-push'; console.log(webpush.generateVAPIDKeys())\""
   },
   "dependencies": {
-    "@capacitor-community/apple-sign-in": "^7.1.0",
     "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",
     "@capacitor/core": "^8.4.0",
     "@capacitor/inappbrowser": "^4.0.0",
+    "@capgo/capacitor-social-login": "^8.3.31",
     "@revenuecat/purchases-capacitor": "^13.2.0",
     "@sentry/node": "^10.59.0",
     "@supabase/supabase-js": "^2.105.4",
