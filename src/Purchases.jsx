@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { usePro } from './hooks/usePro'
 import { capture } from './analytics'
 import { openExternal } from './lib/openExternal'
+import { openLegal } from './lib/openLegal'
 import { apiFetch } from './lib/apiFetch'
 
 const PRO_FEATURES = [
@@ -13,6 +14,12 @@ const PRO_FEATURES = [
   { icon: 'ti-clipboard-list',  label: 'Meal templates',       desc: 'Save your go-to meals for one-tap logging' },
   { icon: 'ti-brand-strava',    label: 'Strava integration',   desc: 'Sync workouts and calories burned' },
 ]
+
+const legalLinkStyle = {
+  background: 'none', border: 'none', padding: 0,
+  color: 'var(--muted)', textDecoration: 'underline', textUnderlineOffset: 3,
+  fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+}
 
 // Reject if a RevenueCat call hangs (unconfigured / stuck SDK) so the UI shows
 // a clear error instead of silently doing nothing forever.
@@ -34,6 +41,8 @@ export default function Purchases({ session, onClose }) {
   const [restoreMsg, setRestoreMsg]               = useState(null)
 
   const isNative = window.Capacitor?.isNativePlatform?.()
+  const priceLine = billingPeriod === 'annual' ? '$59.99 per year' : '$9.99 per month'
+  const cancelWhere = isNative ? 'your device Settings' : 'your account settings'
 
   // Show athletic targets prompt only when landing from Stripe checkout
   const [showAthleticPrompt, setShowAthleticPrompt] = useState(
@@ -441,6 +450,22 @@ export default function Purchases({ session, onClose }) {
               No card charged until trial ends · Cancel anytime
             </p>
           )}
+
+          <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', margin: '8px 0 0', lineHeight: 1.5 }}>
+            {isTrialing
+              ? `Your 7-day free trial starts today. After it ends, TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`
+              : `TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`}
+          </p>
+
+          <p style={{ textAlign: 'center', margin: '8px 0 0' }}>
+            <button onClick={() => openLegal('/terms')} style={legalLinkStyle}>
+              Terms of Use
+            </button>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}> · </span>
+            <button onClick={() => openLegal('/privacy')} style={legalLinkStyle}>
+              Privacy Policy
+            </button>
+          </p>
 
           {/* ── Restore Purchases (native / IAP only) ── */}
           {isNative && (

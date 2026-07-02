@@ -3,6 +3,7 @@ import { usePro } from '../hooks/usePro'
 import { supabase } from '../supabase'
 import { capture } from '../analytics'
 import { openExternal } from '../lib/openExternal'
+import { openLegal } from '../lib/openLegal'
 import { apiFetch } from '../lib/apiFetch'
 
 const FEATURES = [
@@ -13,6 +14,12 @@ const FEATURES = [
   'Advanced trend analysis',
   'Strava integration',
 ]
+
+const legalLinkStyle = {
+  background: 'none', border: 'none', padding: 0,
+  color: 'var(--muted)', textDecoration: 'underline', textUnderlineOffset: 3,
+  fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+}
 
 export default function UpgradeModal({ open, onClose }) {
   const { isTrialing, trialDaysLeft, source } = usePro()
@@ -40,6 +47,10 @@ export default function UpgradeModal({ open, onClose }) {
 
   const trialExpired = source === 'trial' && !isTrialing
   const inTrial = isTrialing && trialDaysLeft > 0
+
+  const isNative = window.Capacitor?.isNativePlatform?.()
+  const priceLine = billingPeriod === 'annual' ? '$59.99 per year' : '$9.99 per month'
+  const cancelWhere = isNative ? 'your device Settings' : 'your account settings'
 
   const headline = trialExpired
     ? 'Your trial has ended'
@@ -257,8 +268,20 @@ export default function UpgradeModal({ open, onClose }) {
           <p style={{ fontSize: 12, color: '#ef4444', margin: '0 0 12px' }}>{error}</p>
         )}
 
-        <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
-          {inTrial ? "You won't be charged until your trial ends." : 'Cancel anytime. No hidden fees.'}
+        <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
+          {inTrial
+            ? `Your 7-day free trial starts today. After it ends, TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`
+            : `TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`}
+        </p>
+
+        <p style={{ margin: '0 0 16px' }}>
+          <button onClick={() => openLegal('/terms')} style={legalLinkStyle}>
+            Terms of Use
+          </button>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}> · </span>
+          <button onClick={() => openLegal('/privacy')} style={legalLinkStyle}>
+            Privacy Policy
+          </button>
         </p>
 
         <button
