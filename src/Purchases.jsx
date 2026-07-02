@@ -443,18 +443,11 @@ export default function Purchases({ session, onClose }) {
               ? 'Loading...'
               : isTrialing
                 ? 'Upgrade now to keep Pro access'
-                : 'Start 7-day free trial'}
+                : 'Upgrade to Pro'}
           </button>
-          {!isTrialing && (
-            <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', marginTop: 8 }}>
-              No card charged until trial ends · Cancel anytime
-            </p>
-          )}
 
           <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', margin: '8px 0 0', lineHeight: 1.5 }}>
-            {isTrialing
-              ? `Your 7-day free trial starts today. After it ends, TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`
-              : `TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`}
+            {`TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`}
           </p>
 
           <p style={{ textAlign: 'center', margin: '8px 0 0' }}>

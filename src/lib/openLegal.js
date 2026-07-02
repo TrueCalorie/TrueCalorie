@@ -5,9 +5,13 @@
 export async function openLegal(path) {
   const url = `https://www.truecalorie.net${path}`
   if (window.Capacitor?.isNativePlatform?.()) {
-    const { Browser } = await import('@capacitor/browser')
-    await Browser.open({ url })
-  } else {
-    window.open(url, '_blank', 'noopener')
+    try {
+      const { Browser } = await import('@capacitor/browser')
+      await Browser.open({ url })
+      return
+    } catch {
+      // Plugin failed to load or open — fall through to standard web behavior.
+    }
   }
+  window.open(url, '_blank', 'noopener')
 }

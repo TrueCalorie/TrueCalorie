@@ -269,9 +269,7 @@ export default function UpgradeModal({ open, onClose }) {
         )}
 
         <p style={{ fontSize: 11, color: 'var(--muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
-          {inTrial
-            ? `Your 7-day free trial starts today. After it ends, TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`
-            : `TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`}
+          {`TrueCalorie Pro renews automatically at ${priceLine} until you cancel. Cancel anytime in ${cancelWhere}.`}
         </p>
 
         <p style={{ margin: '0 0 16px' }}>
