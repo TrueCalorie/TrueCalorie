@@ -6,7 +6,6 @@ import Auth from './Auth'
 import Onboarding from './Onboarding'
 import Settings from './Settings'
 import Stats from './Stats'
-import Trends from './components/Trends'
 import Privacy from './Privacy'
 import Terms from './Terms'
 import AchievementToast from './AchievementToast'
@@ -616,7 +615,6 @@ function App() {
   const handleTabChange = (tab) => {
     if (tab === 'history')       navigateTo('stats')
     else if (tab === 'settings') navigateTo('settings')
-    else if (tab === 'trends')   navigateTo('trends')
   }
 
   // ── Derived values ─────────────────────────────────────────────────────────
@@ -706,9 +704,7 @@ function App() {
       case 'settings':
         return <Settings session={session} settings={settings} onUpdate={fetchSettings} onClose={navigateBack} onNavigate={navigateTo} />
       case 'stats':
-        return <Stats session={session} settings={settings} onClose={navigateBack} />
-      case 'trends':
-        return <Trends session={session} settings={settings} isPro={isPro} onUpgrade={() => navigateTo('subscription')} onClose={navigateBack} />
+        return <Stats session={session} settings={settings} isPro={isPro} onUpgrade={() => navigateTo('subscription')} onClose={navigateBack} />
       case 'body-fitness':
         return <BodyFitnessPage session={session} settings={settings} onUpdate={fetchSettings} onClose={navigateBack} isPro={isPro} isTrialing={isTrialing} />
       case 'subscription':
