@@ -138,7 +138,7 @@ export default function Privacy({ onBack }) {
             <li><strong style={{ color: '#fff' }}>Stripe</strong>: payment processing</li>
             <li><strong style={{ color: '#fff' }}>Google</strong>: sign-in (if you choose to use Google authentication)</li>
             <li><strong style={{ color: '#fff' }}>Apple</strong>: sign-in (if you choose to use Apple authentication)</li>
-            <li><strong style={{ color: '#fff' }}>Open Food Facts and Nutritionix</strong>: nutrition data lookup (we send your search queries; they do not receive your account information)</li>
+            <li><strong style={{ color: '#fff' }}>Open Food Facts and USDA FoodData Central</strong>: nutrition data lookup (we send your search queries; they do not receive your account information)</li>
             <li><strong style={{ color: '#fff' }}>PostHog</strong>: product analytics. We use PostHog to understand how users interact with the app (for example, which features are used and where users encounter errors). PostHog does not receive your food log data or health information.</li>
           </ul>
           <p>

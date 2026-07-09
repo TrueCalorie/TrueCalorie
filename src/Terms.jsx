@@ -138,8 +138,8 @@ export default function Terms({ onBack }) {
         <Section title="Nutritional Information Disclaimer">
           <p>
             TrueCalorie provides nutrition tracking tools and information
-            sourced from third-party databases (Open Food Facts, Nutritionix,
-            and others). Nutritional values are estimates and may not be
+            sourced from third-party databases (Open Food Facts, USDA
+            FoodData Central, and others). Nutritional values are estimates and may not be
             exact. The Service is not a substitute for professional medical
             advice, diagnosis, or treatment. Always consult a qualified
             healthcare provider before making significant changes to your
