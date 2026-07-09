@@ -749,8 +749,8 @@ function App() {
 
               <div key={meals.length}>
                 {!hasMeals ? (
-                  <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: 48, fontSize: 14 }}>
-                    no meals logged today
+                  <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: 48, fontSize: 14, lineHeight: 1.6 }}>
+                    Nothing logged today. The brief does the heavy lifting. Log here when you want the precision.
                   </p>
                 ) : (
                   (() => {

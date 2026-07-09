@@ -7,12 +7,12 @@ import { openLegal } from '../lib/openLegal'
 import { apiFetch } from '../lib/apiFetch'
 
 const FEATURES = [
-  'Full macros for 200,000+ restaurant menu items',
-  '858+ restaurant chains covered',
-  'AI voice logging: speak your meal to log it',
-  'Meal templates for your go-to foods',
-  'Advanced trend analysis',
-  'Strava integration',
+  'Daily fuel briefs: how to eat before and after the work',
+  'Fuel Guard: under-fueling warnings across your week',
+  'Ask: quick fueling answers, voice or text',
+  'Athletic targets built from your training load',
+  'Voice logging when you want the precision',
+  'Strava integration: your training triggers your briefs',
 ]
 
 const legalLinkStyle = {
@@ -59,10 +59,10 @@ export default function UpgradeModal({ open, onClose }) {
     : 'Unlock TrueCalorie Pro'
 
   const subtext = trialExpired
-    ? 'Upgrade to keep restaurant search and all Pro features.'
+    ? 'Upgrade to keep your briefs, Fuel Guard, and the rest of Pro.'
     : inTrial
     ? 'Upgrade now to keep access when your trial ends.'
-    : 'Get accurate macros for every restaurant meal, voice logging, and more.'
+    : 'Fuel briefs, Fuel Guard, athletic targets. Eating is training.'
 
   const handleCheckout = async () => {
     setLoading(true)

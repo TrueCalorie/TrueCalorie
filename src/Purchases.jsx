@@ -7,12 +7,12 @@ import { openLegal } from './lib/openLegal'
 import { apiFetch } from './lib/apiFetch'
 
 const PRO_FEATURES = [
-  { icon: 'ti-tools-kitchen-2', label: 'Restaurant search',   desc: '200k+ menu items across 858 chains (via Nutritionix)' },
-  { icon: 'ti-microphone',      label: 'Voice logging',        desc: 'Speak your meal and the app logs it in seconds' },
+  { icon: 'ti-bolt',            label: 'Fuel briefs',          desc: 'Morning and post-run fueling orders, timed to your training' },
+  { icon: 'ti-shield',          label: 'Fuel Guard',           desc: 'Week view that catches under-fueling before it costs you' },
+  { icon: 'ti-microphone',      label: 'Voice and Ask',        desc: 'Speak a meal to log it, or ask what to eat right now' },
   { icon: 'ti-run',             label: 'Athletic targets',     desc: 'Sport-specific calorie & macro goals built for your training load' },
   { icon: 'ti-chart-line',      label: 'Advanced trends',      desc: 'Full nutrition history and weekly insights' },
-  { icon: 'ti-clipboard-list',  label: 'Meal templates',       desc: 'Save your go-to meals for one-tap logging' },
-  { icon: 'ti-brand-strava',    label: 'Strava integration',   desc: 'Sync workouts and calories burned' },
+  { icon: 'ti-brand-strava',    label: 'Strava integration',   desc: 'Your training syncs in and triggers your briefs' },
 ]
 
 const legalLinkStyle = {
