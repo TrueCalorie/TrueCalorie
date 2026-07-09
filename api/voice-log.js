@@ -1,6 +1,13 @@
 // api/voice-log.js
 // ─────────────────────────────────────────────────────────────────────────────
 // Edge Runtime — zero cold start
+//
+// Two modes, one route family:
+//   (default)      { transcript }           -> { foods }   parse-and-log
+//   mode: 'ask'    { mode: 'ask', question } -> { answer }  fueling Q&A
+//
+// The parse mode is UNCHANGED (shipped build-49 binaries call it); ask is
+// additive for the v2 Today screen.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from '@supabase/supabase-js'
@@ -23,28 +30,28 @@ function utcDateStr() {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
 }
 
+function json(status, body) {
+  return new Response(JSON.stringify(body), {
+    status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  })
+}
+
 export default async function handler(req) {
   // CORS preflight — Edge runtime has no res object, so we mirror lib/cors.js by hand.
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: CORS_HEADERS })
   }
   if (String(req.method).toUpperCase() !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+    return json(405, { error: 'Method not allowed' })
   }
 
   // Verify JWT — reject spoofed or missing tokens
   const userId = await verifyUser(req)
-  if (!userId) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
-  }
+  if (!userId) return json(401, { error: 'Unauthorized' })
 
-  // Look up Pro status server-side — never trust the client. This endpoint can route
-  // to the PAID Nutritionix path, so a non-Pro caller must be rejected here, not just
-  // in the UI. Deny on uncertainty (cost-bearing endpoint).
+  // Look up Pro status server-side — never trust the client. Both modes are
+  // cost-bearing (NLP / Claude), so a non-Pro caller must be rejected here,
+  // not just in the UI. Deny on uncertainty.
   let isPro = false
   let isTrialing = false
   try {
@@ -60,12 +67,20 @@ export default async function handler(req) {
   }
 
   if (!isPro) {
-    return new Response(JSON.stringify({ error: 'Pro subscription required' }), {
-      status: 403, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+    return json(403, { error: 'Pro subscription required' })
   }
 
-  // Per-user daily cap — guards against runaway loops and abuse driving Nutritionix
+  let body
+  try {
+    body = await req.json()
+  } catch {
+    return json(400, { error: 'Invalid JSON' })
+  }
+
+  const isAsk = body?.mode === 'ask'
+  const rateLimitEndpoint = isAsk ? 'ask' : 'voice-log'
+
+  // Per-user daily cap — guards against runaway loops and abuse driving API
   // cost. SELECT then UPDATE/INSERT (Supabase upsert cannot atomically increment).
   // If the rate-limit DB ops fail for any reason, log and continue: never block a
   // paying user on a rate-limit failure.
@@ -76,14 +91,12 @@ export default async function handler(req) {
       .select('call_count')
       .eq('user_id', userId)
       .eq('date', today)
-      .eq('endpoint', 'voice-log')
+      .eq('endpoint', rateLimitEndpoint)
       .maybeSingle()
 
     const current = rl?.call_count || 0
     if (current >= 25) {
-      return new Response(JSON.stringify({ error: 'Daily voice log limit reached' }), {
-        status: 429, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
+      return json(429, { error: isAsk ? 'Daily ask limit reached' : 'Daily voice log limit reached' })
     }
 
     if (rl) {
@@ -92,30 +105,35 @@ export default async function handler(req) {
         .update({ call_count: current + 1 })
         .eq('user_id', userId)
         .eq('date', today)
-        .eq('endpoint', 'voice-log')
+        .eq('endpoint', rateLimitEndpoint)
     } else {
       await supabaseAdmin
         .from('api_rate_limits')
-        .insert({ user_id: userId, date: today, endpoint: 'voice-log', call_count: 1 })
+        .insert({ user_id: userId, date: today, endpoint: rateLimitEndpoint, call_count: 1 })
     }
   } catch (err) {
-    console.error('[voice-log] rate limit check failed:', err)
+    console.error(`[voice-log] rate limit check failed:`, err)
   }
 
-  let transcript
-  try {
-    const body = await req.json()
-    transcript = body?.transcript
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+  // ── Ask mode ───────────────────────────────────────────────────────────────
+  if (isAsk) {
+    const question = body?.question
+    if (!question || typeof question !== 'string' || !question.trim()) {
+      return json(400, { error: 'question is required' })
+    }
+    try {
+      const answer = await answerWithClaude(userId, question.trim())
+      return json(200, { answer })
+    } catch (err) {
+      console.error('[voice-log] ask error:', err)
+      return json(500, { error: 'Failed to answer' })
+    }
   }
 
+  // ── Parse mode (unchanged) ────────────────────────────────────────────────
+  const transcript = body?.transcript
   if (!transcript || typeof transcript !== 'string' || !transcript.trim()) {
-    return new Response(JSON.stringify({ error: 'transcript is required' }), {
-      status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+    return json(400, { error: 'transcript is required' })
   }
 
   try {
@@ -127,15 +145,78 @@ export default async function handler(req) {
       ? await parseWithNutritionix(transcript)
       : await parseWithClaude(transcript)
 
-    return new Response(JSON.stringify({ foods }), {
-      status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+    return json(200, { foods })
   } catch (err) {
     console.error('[voice-log] NLP error:', err)
-    return new Response(JSON.stringify({ error: 'Failed to parse meal' }), {
-      status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+    return json(500, { error: 'Failed to parse meal' })
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ASK: fueling Q&A grounded in the user's profile and today's brief
+// ─────────────────────────────────────────────────────────────────────────────
+async function answerWithClaude(userId, question) {
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
+  if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not set')
+
+  // Context: settings (sport, targets), fuel profile, the latest brief (24h).
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const [settingsRes, profileRes, briefRes] = await Promise.all([
+    supabaseAdmin.from('user_settings')
+      .select('sport, calorie_goal, protein_goal, carbs_goal, weight_kg, goal')
+      .eq('user_id', userId).maybeSingle(),
+    supabaseAdmin.from('fuel_profiles')
+      .select('dining_situation').eq('user_id', userId).maybeSingle(),
+    supabaseAdmin.from('fuel_briefs')
+      .select('kind, body, macros, window_ends_at')
+      .eq('user_id', userId).gte('created_at', since)
+      .order('created_at', { ascending: false }).limit(1),
+  ])
+
+  const s = settingsRes?.data || {}
+  const dining = profileRes?.data?.dining_situation || 'unknown'
+  const brief = briefRes?.data?.[0] || null
+
+  const systemPrompt = `You are the fueling coach inside TrueCalorie, answering a quick question from a competitive athlete.
+
+Voice rules (non-negotiable):
+- Direct, informal, human. Second person. No AI-sounding language.
+- NEVER use an em dash or en dash. Periods and commas only.
+- Answer in food terms first, numbers second. 1 to 3 short sentences. No lists, no headers, no emoji.
+- If the question is outside fueling and training nutrition (medical, injuries, medication, disordered eating), say it's outside what you cover and point them to a professional, in one sentence, warmly.
+
+Athlete context:
+- Sport: ${s.sport || 'not set'}
+- Daily targets: about ${s.calorie_goal || 'unknown'} kcal, ${s.protein_goal || '?'}g protein, ${s.carbs_goal || '?'}g carbs
+- Goal: ${s.goal || 'not set'}
+- Food access: ${dining}
+- Latest brief${brief ? ` (${brief.kind})` : ''}: ${brief ? brief.body : 'none today'}`
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':      'application/json',
+      'x-api-key':         ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model:       'claude-haiku-4-5-20251001',
+      max_tokens:  300,
+      temperature: 0.7,
+      system:      systemPrompt,
+      messages:    [{ role: 'user', content: question }],
+    }),
+  })
+
+  if (!response.ok) {
+    const err = await response.text()
+    throw new Error(`Claude API error ${response.status}: ${err}`)
+  }
+
+  const data = await response.json()
+  const text = data?.content?.[0]?.text || ''
+  // Belt and braces on the no-dashes rule
+  return text.replace(/\s*[—–]\s*/g, ', ').trim()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

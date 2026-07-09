@@ -45,6 +45,130 @@ const CHECKIN_CONFIRM = {
   short:  "Fell short today. Happens. Tomorrow's brief adjusts up.",
 }
 
+// ── Ask: quick fueling Q&A (text or voice) against /api/voice-log ask mode ──
+function AskBar() {
+  const [question, setQuestion]   = useState('')
+  const [answer, setAnswer]       = useState(null)
+  const [asking, setAsking]       = useState(false)
+  const [askError, setAskError]   = useState(null)
+  const [listening, setListening] = useState(false)
+  const recognitionRef            = useRef(null)
+
+  const micSupported = typeof window !== 'undefined' &&
+    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+
+  const ask = async (q) => {
+    const text = (q ?? question).trim()
+    if (!text || asking) return
+    setAsking(true)
+    setAskError(null)
+    setAnswer(null)
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession()
+      const res = await apiFetch('/api/voice-log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authSession?.access_token}`,
+        },
+        body: JSON.stringify({ mode: 'ask', question: text }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'ask failed')
+      setAnswer(data.answer)
+      capture('ask_used')
+    } catch {
+      setAskError("Couldn't get an answer right now. Try again in a minute.")
+    }
+    setAsking(false)
+  }
+
+  // Single-shot voice capture into the input, then ask immediately.
+  const startMic = () => {
+    if (!micSupported || listening) return
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    const recognition = new SR()
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.lang = 'en-US'
+    recognition.onresult = (e) => {
+      const text = e.results?.[0]?.[0]?.transcript || ''
+      setListening(false)
+      if (text) {
+        setQuestion(text)
+        ask(text)
+      }
+    }
+    recognition.onerror = () => setListening(false)
+    recognition.onend = () => setListening(false)
+    recognitionRef.current = recognition
+    recognition.start()
+    setListening(true)
+  }
+
+  useEffect(() => () => { try { recognitionRef.current?.stop() } catch {} }, [])
+
+  return (
+    <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          value={question}
+          onChange={e => setQuestion(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') ask() }}
+          placeholder={listening ? 'Listening...' : 'Ask anything. "Will a burrito work?"'}
+          style={{
+            flex: 1, padding: '10px 14px', borderRadius: 10,
+            border: '1px solid var(--border)', outline: 'none',
+            background: 'var(--surface2)', color: 'var(--text)',
+            fontSize: 16, fontFamily: 'inherit', boxSizing: 'border-box',
+            minWidth: 0,
+          }}
+        />
+        {micSupported && (
+          <button
+            onClick={startMic}
+            aria-label="Ask by voice"
+            style={{
+              width: 42, borderRadius: 10, border: '1px solid var(--border)',
+              background: listening ? 'var(--accent)' : 'var(--surface2)',
+              color: listening ? '#fff' : 'var(--text)',
+              fontSize: 16, cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            🎙
+          </button>
+        )}
+        <button
+          onClick={() => ask()}
+          disabled={asking || !question.trim()}
+          style={{
+            padding: '0 16px', borderRadius: 10, border: 'none',
+            background: asking || !question.trim() ? 'var(--surface2)' : 'var(--text)',
+            color: asking || !question.trim() ? 'var(--muted)' : 'var(--bg)',
+            fontSize: 13, fontWeight: 600, cursor: asking ? 'default' : 'pointer',
+            fontFamily: 'inherit', flexShrink: 0,
+          }}
+        >
+          {asking ? '...' : 'Ask'}
+        </button>
+      </div>
+      {answer && (
+        <p style={{
+          fontSize: 14, color: 'var(--text)', lineHeight: 1.55,
+          margin: '12px 0 0', padding: '10px 12px',
+          background: 'var(--surface2)', borderRadius: 10,
+          animation: 'slideInUp 0.25s ease both',
+        }}>
+          {answer}
+        </p>
+      )}
+      {askError && (
+        <p style={{ fontSize: 12, color: 'var(--muted)', margin: '10px 0 0' }}>{askError}</p>
+      )}
+    </div>
+  )
+}
+
 export default function Today({ session }) {
   const [data, setData]             = useState(null)   // { state, brief, checkin }
   const [profile, setProfile]       = useState(null)   // fuel_profiles row
@@ -241,6 +365,8 @@ export default function Today({ session }) {
             </div>
           ))}
         </div>
+
+        <AskBar />
       </div>
     )
   }
