@@ -20,6 +20,7 @@
     "@sentry/node": "^10.59.0",
     "@supabase/supabase-js": "^2.105.4",
     "@tabler/icons-webfont": "^3.44.0",
+    "@vercel/functions": "^3.7.5",
     "@zxing/browser": "^0.2.0",
     "posthog-js": "^1.386.1",
     "posthog-node": "^5.36.15",
