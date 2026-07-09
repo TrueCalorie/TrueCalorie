@@ -26,6 +26,7 @@ import WeightCard from './components/WeightCard'
 import WaterCard from './components/WaterCard'
 import StravaCard from './components/StravaCard'
 import BodyFitnessPage from './components/BodyFitnessPage'
+import Today from './components/Today'
 
 function toLocalDateStr(date) {
   const d = new Date(date)
@@ -784,6 +785,9 @@ function App() {
 
         {(
           <>
+            {/* Fuel brief state machine — the v2 front door */}
+            <Today session={session} />
+
             {/* Calorie ring */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 40 }}>
               <div style={{ position: 'relative', width: 160, height: 160 }}>
