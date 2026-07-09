@@ -27,6 +27,7 @@ import WaterCard from './components/WaterCard'
 import StravaCard from './components/StravaCard'
 import BodyFitnessPage from './components/BodyFitnessPage'
 import Today from './components/Today'
+import FuelGuard from './components/FuelGuard'
 
 function toLocalDateStr(date) {
   const d = new Date(date)
@@ -615,6 +616,7 @@ function App() {
 
   const handleTabChange = (tab) => {
     if (tab === 'history')       navigateTo('stats')
+    else if (tab === 'guard')    navigateTo('guard')
     else if (tab === 'settings') navigateTo('settings')
   }
 
@@ -706,6 +708,8 @@ function App() {
         return <Settings session={session} settings={settings} onUpdate={fetchSettings} onClose={navigateBack} onNavigate={navigateTo} />
       case 'stats':
         return <Stats session={session} settings={settings} isPro={isPro} onUpgrade={() => navigateTo('subscription')} onClose={navigateBack} />
+      case 'guard':
+        return <FuelGuard session={session} onClose={navigateBack} />
       case 'body-fitness':
         return <BodyFitnessPage session={session} settings={settings} onUpdate={fetchSettings} onClose={navigateBack} isPro={isPro} isTrialing={isTrialing} />
       case 'subscription':

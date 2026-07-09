@@ -1,8 +1,9 @@
 export default function TabBar({ activeTab, onChange }) {
   const tabs = [
-    { id: 'today',    label: 'Today',    icon: TodayIcon },
-    { id: 'history',  label: 'Stats',    icon: StatsIcon },   // renamed from History
-    { id: 'settings', label: 'Settings', icon: SettingsIcon },
+    { id: 'today',    label: 'Today',      icon: TodayIcon },
+    { id: 'guard',    label: 'Fuel Guard', icon: GuardIcon },
+    { id: 'history',  label: 'Stats',      icon: StatsIcon },   // renamed from History
+    { id: 'settings', label: 'Settings',   icon: SettingsIcon },
   ]
 
   return (
@@ -57,6 +58,17 @@ function TodayIcon({ size, active }) {
       strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9" />
       <polyline points="12 7 12 12 15 15" />
+    </svg>
+  )
+}
+
+// Shield icon — Fuel Guard is protection, not optimization
+function GuardIcon({ size, active }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={active ? 2.2 : 1.8}
+      strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z" />
     </svg>
   )
 }
