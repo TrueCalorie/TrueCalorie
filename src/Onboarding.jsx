@@ -24,7 +24,14 @@ const SPORTS = [
   { key: 'team',     label: 'Team Sports' },
 ]
 
-const TOTAL_STEPS = 7
+// Dining situation frames the brief's food suggestions (saved to fuel_profiles).
+const DINING = [
+  { key: 'dining_hall', label: 'Dining hall',    desc: 'Campus or team dining, cafeteria style' },
+  { key: 'apartment',   label: 'My own kitchen', desc: 'You buy and cook your own food' },
+  { key: 'mixed',       label: 'A mix of both',  desc: 'Some dining hall, some cooking' },
+]
+
+const TOTAL_STEPS = 8
 
 export default function Onboarding({ session, onComplete }) {
   const [step, setStep]             = useState(0)
@@ -33,6 +40,7 @@ export default function Onboarding({ session, onComplete }) {
     height_ft: '', height_in: '', weight_lbs: '',
     activity_level: '', goal: '',
     sport: '', weekly_mileage: '', training_hours_week: '',
+    dining_situation: '',
   })
   const [athleteChoice, setAthleteChoice] = useState(null)
   const [calculated, setCalculated]       = useState(null)
@@ -74,7 +82,7 @@ export default function Onboarding({ session, onComplete }) {
         })
       : calculateGoals(base)
     setCalculated(goals)
-    setStep(8)
+    setStep(8) // dining situation, then results
   }
 
   const save = async () => {
@@ -110,6 +118,17 @@ export default function Onboarding({ session, onComplete }) {
       setError('Something went wrong. Please try again.')
       setSaving(false)
       return
+    }
+    // v2: dining situation lives in fuel_profiles (user_settings gains no
+    // columns on this branch). Best-effort; never blocks onboarding.
+    if (data.dining_situation) {
+      try {
+        await supabase.from('fuel_profiles').upsert({
+          user_id:          session.user.id,
+          dining_situation: data.dining_situation,
+          updated_at:       new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+      } catch {}
     }
     setSaving(false)
     capture('onboarding_completed')
@@ -308,7 +327,7 @@ export default function Onboarding({ session, onComplete }) {
       <div style={page} key={step}>
         {progress(7)}
         <div style={heading}>Are you a competitive athlete?</div>
-        <div style={sub}>We'll calculate targets built around your training load, not a generic activity multiplier.</div>
+        <div style={sub}>Your targets and daily fuel briefs get built around your sport and your typical training week.</div>
 
         <button style={option(athleteChoice === 'yes')} onClick={() => setAthleteChoice('yes')}>
           <div style={optionLabel(athleteChoice === 'yes')}>Yes, I train seriously</div>
@@ -363,7 +382,22 @@ export default function Onboarding({ session, onComplete }) {
     )
   }
 
-  if (step === 8 && calculated) return (
+  if (step === 8) return (
+    <div style={page} key={step}>
+      {progress(8)}
+      <div style={heading}>Where do you eat most days?</div>
+      <div style={sub}>Your briefs suggest food you can actually get your hands on.</div>
+      {DINING.map(d => (
+        <button key={d.key} style={option(data.dining_situation === d.key)} onClick={() => update('dining_situation', d.key)}>
+          <div style={optionLabel(data.dining_situation === d.key)}>{d.label}</div>
+          <div style={optionDesc(data.dining_situation === d.key)}>{d.desc}</div>
+        </button>
+      ))}
+      <button style={btn(!data.dining_situation)} disabled={!data.dining_situation} onClick={() => setStep(9)}>Continue</button>
+    </div>
+  )
+
+  if (step === 9 && calculated) return (
     <div style={{ ...page, justifyContent: 'center' }} key={step}>
       <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12 }}>
         You're all set

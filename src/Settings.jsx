@@ -373,6 +373,26 @@ export default function Settings({ session, settings, onUpdate, onClose, onNavig
           </p>
         </div>
 
+        {/* ── LOGGING ─────────────────────────────────────────────────────── */}
+        {/* Manual meal logging survives as an optional precision layer; the
+            front door is the fuel brief, not the food log. */}
+        <div>
+          <SectionLabel>Logging</SectionLabel>
+          <Card>
+            <button onClick={() => onNavigate?.('log-food')} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%', padding: '14px 16px', background: 'none', border: 'none',
+              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+            }}>
+              <div>
+                <div style={{ fontSize: 15, color: 'var(--text)', marginBottom: 2 }}>Log food manually</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Search, barcode, voice, recipes</div>
+              </div>
+              <span style={{ color: 'var(--muted)', fontSize: 16, opacity: 0.4 }}>›</span>
+            </button>
+          </Card>
+        </div>
+
         {/* ── BODY & FITNESS ──────────────────────────────────────────────── */}
         <div>
           <SectionLabel>Body & Fitness</SectionLabel>

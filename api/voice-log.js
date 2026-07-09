@@ -50,18 +50,16 @@ export default async function handler(req) {
   if (!userId) return json(401, { error: 'Unauthorized' })
 
   // Look up Pro status server-side — never trust the client. Both modes are
-  // cost-bearing (NLP / Claude), so a non-Pro caller must be rejected here,
+  // cost-bearing (Claude), so a non-Pro caller must be rejected here,
   // not just in the UI. Deny on uncertainty.
   let isPro = false
-  let isTrialing = false
   try {
     const { data } = await supabaseAdmin
       .from('user_settings')
-      .select('is_pro, pro_source')
+      .select('is_pro')
       .eq('user_id', userId)
       .maybeSingle()
     isPro = !!(data?.is_pro)
-    isTrialing = isPro && data?.pro_source === 'trial'
   } catch {
     isPro = false
   }
@@ -137,14 +135,7 @@ export default async function handler(req) {
   }
 
   try {
-    const hasNutritionixKeys = !!(
-      process.env.NUTRITIONIX_APP_ID && process.env.NUTRITIONIX_APP_KEY
-    )
-    console.log(`[voice-log] Using ${isTrialing ? 'Claude Haiku (trial)' : 'Nutritionix (paid)'}`)
-    const foods = (!isTrialing && hasNutritionixKeys)
-      ? await parseWithNutritionix(transcript)
-      : await parseWithClaude(transcript)
-
+    const foods = await parseWithClaude(transcript)
     return json(200, { foods })
   } catch (err) {
     console.error('[voice-log] NLP error:', err)
@@ -220,60 +211,7 @@ Athlete context:
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NUTRITIONIX NLP PARSER
-// Uses Nutritionix's natural language endpoint — purpose-built for food phrases.
-// More accurate than Claude for food quantities and restaurant items.
-// Falls back to Claude automatically if keys not set.
-// ─────────────────────────────────────────────────────────────────────────────
-async function parseWithNutritionix(transcript) {
-  const APP_ID  = process.env.NUTRITIONIX_APP_ID
-  const APP_KEY = process.env.NUTRITIONIX_APP_KEY
-
-  if (!APP_ID || !APP_KEY) throw new Error('Nutritionix keys not configured')
-
-  const res = await fetch('https://trackapi.nutritionix.com/v2/natural/nutrients', {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'x-app-id':      APP_ID,
-      'x-app-key':     APP_KEY,
-      'x-remote-user-id': '0', // required by Nutritionix — 0 = anonymous
-    },
-    body: JSON.stringify({ query: transcript }),
-  })
-
-  if (!res.ok) {
-    const errText = await res.text()
-    console.error('[voice-log] Nutritionix NLP error:', res.status, errText)
-    // Fall back to Claude on Nutritionix failure
-    return parseWithClaude(transcript)
-  }
-
-  const data = await res.json()
-  const foods = (data.foods || []).map(item => ({
-    food_name:             item.food_name,
-    brand_name:            item.brand_name || null,
-    nf_calories:           Math.round(item.nf_calories           || 0),
-    nf_protein:            Math.round(item.nf_protein            || 0),
-    nf_total_carbohydrate: Math.round(item.nf_total_carbohydrate || 0),
-    nf_total_fat:          Math.round(item.nf_total_fat          || 0),
-    serving_qty:           item.serving_qty  || 1,
-    serving_unit:          item.serving_unit || 'serving',
-    // Nutritionix handles its own disambiguation — no clarifying questions needed
-    clarifying_question: null,
-    clarifying_options:  [],
-  }))
-
-  if (!foods.length) {
-    // Nutritionix returned nothing — fall back to Claude
-    return parseWithClaude(transcript)
-  }
-
-  return foods
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CLAUDE PARSER (fallback)
+// CLAUDE PARSER
 // ─────────────────────────────────────────────────────────────────────────────
 async function parseWithClaude(transcript) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY

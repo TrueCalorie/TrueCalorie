@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { usePro } from '../hooks/usePro'
 import { searchUSDA } from '../services/usda'
 import BarcodeScanner    from './BarcodeScanner'
-import RestaurantSearch  from './RestaurantSearch'
 import VoiceLogger       from './VoiceLogger'
 import UpgradeModal      from './UpgradeModal'
 
@@ -305,7 +304,7 @@ export default function LogFoodSheet({
     setRecipeIngHasSearched(false)
   }
 
-  // ── Single-item selection (barcode, grocery, restaurant, saved) ──────────
+  // ── Single-item selection (barcode, grocery, saved) ──────────────────────
   const handleSelect = (food, method = 'search') => {
     onSelect(food, mealTime, method)
     handleClose()
@@ -427,12 +426,11 @@ export default function LogFoodSheet({
   const totalPages = Math.ceil(results.length / RESULTS_PER_PAGE)
 
   const modeTitle = {
-    barcode:    'Scan Barcode',
-    grocery:    'Grocery Search',
-    restaurant: 'Restaurant',
-    voice:      'Voice Log',
-    recipe:     'Recipe Builder',
-    saved:      'Saved',
+    barcode: 'Scan Barcode',
+    grocery: 'Grocery Search',
+    voice:   'Voice Log',
+    recipe:  'Recipe Builder',
+    saved:   'Saved',
   }
 
   // ── Saved tab: per-serving helper ─────────────────────────────────────────
@@ -552,15 +550,7 @@ export default function LogFoodSheet({
                 onClick={() => setMode('grocery')}
               />
               <ModeTile
-                icon="🍽️" label="Restaurant" animDelay={0.1}
-                badge={!isPro && !isTrialing ? 'PRO' : undefined}
-                onClick={() => {
-                  if (!isPro && !isTrialing) { setShowUpgrade(true); return }
-                  setMode('restaurant')
-                }}
-              />
-              <ModeTile
-                icon="🎙️" label="Voice Log" animDelay={0.15}
+                icon="🎙️" label="Voice Log" animDelay={0.1}
                 badge={!isPro && !isTrialing ? 'PRO' : undefined}
                 onClick={() => {
                   if (!isPro && !isTrialing) { setShowUpgrade(true); return }
@@ -568,11 +558,11 @@ export default function LogFoodSheet({
                 }}
               />
               <ModeTile
-                icon="🥣" label="Recipe" animDelay={0.2}
+                icon="🥣" label="Recipe" animDelay={0.15}
                 onClick={() => setMode('recipe')}
               />
               <ModeTile
-                icon="🔖" label="Saved" animDelay={0.25}
+                icon="🔖" label="Saved" animDelay={0.2}
                 onClick={() => setMode('saved')}
               />
             </div>
@@ -714,11 +704,6 @@ export default function LogFoodSheet({
                 </p>
               )}
             </>
-          )}
-
-          {/* ── Restaurant ── */}
-          {mode === 'restaurant' && (
-            <RestaurantSearch onSelect={(food) => handleSelect(food, 'restaurant')} />
           )}
 
           {/* ── Voice ── */}

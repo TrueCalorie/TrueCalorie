@@ -68,7 +68,6 @@ function App() {
   const [toastQueue, setToastQueue]         = useState([])
   const [currentToast, setCurrentToast]     = useState(null)
   const [ringFlash, setRingFlash]           = useState(false)
-  const [logBtnPressed, setLogBtnPressed]   = useState(false)
   const [selectedMethod, setSelectedMethod] = useState('search')
   const ringFlashTimer                      = useRef(null)
   const appOpenedRef                        = useRef(false)
@@ -714,10 +713,169 @@ function App() {
         return <BodyFitnessPage session={session} settings={settings} onUpdate={fetchSettings} onClose={navigateBack} isPro={isPro} isTrialing={isTrialing} />
       case 'subscription':
         return <Purchases session={session} onClose={navigateBack} />
+      case 'log-food':
+        // Manual logging, demoted from the front door to a pushed page.
+        // Reached from Settings ("Log food manually"). Optional precision layer.
+        return (
+          <div style={{ maxWidth: 480, margin: '0 auto', background: 'var(--bg)', minHeight: '100vh', fontFamily: 'inherit' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              paddingTop: 'calc(16px + env(safe-area-inset-top))',
+              paddingRight: 16, paddingBottom: 14, paddingLeft: 16,
+              borderBottom: '1px solid var(--border)', position: 'sticky', top: 0,
+              background: 'var(--bg)', zIndex: 1,
+            }}>
+              <button onClick={navigateBack} style={{
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                color: 'var(--text)', fontSize: 20, lineHeight: 1, marginRight: 12,
+              }}>←</button>
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em', flex: 1 }}>
+                Log food
+              </span>
+            </div>
+
+            <div style={{ padding: '20px 16px 48px' }}>
+              <button
+                onClick={() => setShowLogFood(true)}
+                style={{
+                  width: '100%', padding: '15px 0', borderRadius: 14, border: 'none',
+                  background: 'var(--text)', color: 'var(--bg)',
+                  fontSize: 15, fontWeight: 600, cursor: 'pointer',
+                  letterSpacing: '0.01em', marginBottom: 28,
+                }}
+              >
+                + Log Food
+              </button>
+
+              <div key={meals.length}>
+                {!hasMeals ? (
+                  <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: 48, fontSize: 14 }}>
+                    no meals logged today
+                  </p>
+                ) : (
+                  (() => {
+                    let itemIndex = 0
+                    return Object.entries(groupedMeals).map(([time, items]) => (
+                      <div key={time} style={{ marginBottom: 28 }}>
+                        <div style={{
+                          fontSize: 11, fontWeight: 600, color: 'var(--muted)',
+                          letterSpacing: '0.08em', marginBottom: 4,
+                          paddingBottom: 6, borderBottom: '1px solid var(--border)',
+                        }}>
+                          {time.toUpperCase()}
+                        </div>
+                        {items.map(meal => {
+                          const delay = (itemIndex++) * 0.045
+                          return (
+                            <div
+                              key={meal.id}
+                              onClick={(e) => { e.stopPropagation(); setEditingMeal(meal) }}
+                              style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                padding: '12px 0', borderBottom: '1px solid var(--border)',
+                                cursor: 'pointer', borderRadius: 6,
+                                animation: `slideInUp 0.35s ease both`,
+                                animationDelay: `${delay}s`,
+                                transition: 'background 0.15s, padding-left 0.15s',
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.background = 'var(--surface)'
+                                e.currentTarget.style.paddingLeft = '8px'
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.background = 'transparent'
+                                e.currentTarget.style.paddingLeft = '0px'
+                              }}
+                            >
+                              <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                                <div style={{
+                                  fontSize: 14, color: 'var(--text)',
+                                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                }}>
+                                  {meal.name}
+                                </div>
+                                {meal.restaurant && (
+                                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                                    {meal.restaurant}
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
+                                  {Math.round(meal.calories)} cal
+                                </span>
+                                <span style={{ fontSize: 12, color: 'var(--muted)' }}>›</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))
+                  })()
+                )}
+              </div>
+            </div>
+          </div>
+        )
       default:
         return null
     }
   }
+
+  // ── Logging overlays ────────────────────────────────────────────────────────
+  // Rendered on both the home screen and pushed pages so the demoted log-food
+  // page can open the sheet and modals.
+  const loggingOverlays = (
+    <>
+      <LogFoodSheet
+        open={showLogFood}
+        onClose={() => setShowLogFood(false)}
+        onSelect={handleFoodSelect}
+        onBatchLog={handleBatchLog}
+        savedFoods={savedFoods}
+        onToggleSave={toggleSaveFood}
+        recipes={recipes}
+        onSaveRecipe={saveRecipe}
+        onDeleteRecipe={deleteRecipe}
+      />
+
+      {selectedItem && (
+        <FoodDetailModal
+          item={selectedItem}
+          mealTime={selectedMealTime}
+          onClose={() => setSelectedItem(null)}
+          onLog={logItem}
+          userId={session.user.id}
+          isSaved={isFoodSaved(selectedItem)}
+          onToggleSave={toggleSaveFood}
+        />
+      )}
+
+      {editingMeal && (
+        <MealEditModal
+          meal={editingMeal}
+          allMeals={meals}
+          onClose={() => setEditingMeal(null)}
+          onUpdate={updateMeal}
+          onDelete={deleteItem}
+          onMove={moveMealTime}
+          onCombine={combineMeals}
+          isSaved={isFoodSaved({
+            food_name:  editingMeal.name,
+            brand_name: editingMeal.restaurant,
+          })}
+          onToggleSave={() => toggleSaveFood({
+            food_name:             editingMeal.name,
+            brand_name:            editingMeal.restaurant,
+            nf_calories:           editingMeal.calories,
+            nf_protein:            editingMeal.protein,
+            nf_total_carbohydrate: editingMeal.carbs,
+            nf_total_fat:          editingMeal.fat,
+          })}
+        />
+      )}
+    </>
+  )
 
   if (currentPage) {
     return (
@@ -727,6 +885,7 @@ function App() {
           <AchievementToast achievement={currentToast} onDone={() => setCurrentToast(null)} />
         )}
         {renderPage()}
+        {loggingOverlays}
       </div>
     )
   }
@@ -888,96 +1047,6 @@ function App() {
               </div>
             </div>
 
-            {/* Log Food button */}
-            <button
-              onClick={() => setShowLogFood(true)}
-              onMouseDown={() => setLogBtnPressed(true)}
-              onMouseUp={() => setLogBtnPressed(false)}
-              onMouseLeave={() => setLogBtnPressed(false)}
-              onTouchStart={() => setLogBtnPressed(true)}
-              onTouchEnd={() => setLogBtnPressed(false)}
-              style={{
-                width: '100%', padding: '15px 0', borderRadius: 14, border: 'none',
-                background: 'var(--text)', color: 'var(--bg)',
-                fontSize: 15, fontWeight: 600, cursor: 'pointer',
-                letterSpacing: '0.01em', marginBottom: 36,
-                animation: !hasMeals ? 'logBtnPulse 2.5s ease-in-out infinite' : 'none',
-                transform: logBtnPressed ? 'scale(0.97)' : 'scale(1)',
-                transition: 'transform 0.1s ease',
-                boxShadow: isPro || isFounder ? 'var(--pro-btn-shadow)' : 'none',
-              }}
-            >
-              + Log Food
-            </button>
-
-            {/* Meal log */}
-            <div key={meals.length}>
-              {!hasMeals ? (
-                <p style={{ color: 'var(--muted)', textAlign: 'center', marginTop: 48, fontSize: 14 }}>
-                  no meals logged today
-                </p>
-              ) : (
-                (() => {
-                  let itemIndex = 0
-                  return Object.entries(groupedMeals).map(([time, items]) => (
-                    <div key={time} style={{ marginBottom: 28 }}>
-                      <div style={{
-                        fontSize: 11, fontWeight: 600, color: 'var(--muted)',
-                        letterSpacing: '0.08em', marginBottom: 4,
-                        paddingBottom: 6, borderBottom: '1px solid var(--border)',
-                      }}>
-                        {time.toUpperCase()}
-                      </div>
-                      {items.map(meal => {
-                        const delay = (itemIndex++) * 0.045
-                        return (
-                          <div
-                            key={meal.id}
-                              onClick={(e) => { e.stopPropagation(); setEditingMeal(meal) }}                            style={{
-                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                              padding: '12px 0', borderBottom: '1px solid var(--border)',
-                              cursor: 'pointer', borderRadius: 6,
-                              animation: `slideInUp 0.35s ease both`,
-                              animationDelay: `${delay}s`,
-                              transition: 'background 0.15s, padding-left 0.15s',
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.background = 'var(--surface)'
-                              e.currentTarget.style.paddingLeft = '8px'
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.background = 'transparent'
-                              e.currentTarget.style.paddingLeft = '0px'
-                            }}
-                          >
-                            <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
-                              <div style={{
-                                fontSize: 14, color: 'var(--text)',
-                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                              }}>
-                                {meal.name}
-                              </div>
-                              {meal.restaurant && (
-                                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                                  {meal.restaurant}
-                                </div>
-                              )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                              <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
-                                {Math.round(meal.calories)} cal
-                              </span>
-                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>›</span>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ))
-                })()
-              )}
-            </div>
-
             {/* TRAINING section */}
             <div style={{ marginBottom: 24 }}>
               <div style={{
@@ -1015,56 +1084,7 @@ function App() {
         )}
       </div>
 
-      {/* ── Log Food sheet ── */}
-      <LogFoodSheet
-        open={showLogFood}
-        onClose={() => setShowLogFood(false)}
-        onSelect={handleFoodSelect}
-        onBatchLog={handleBatchLog}
-        savedFoods={savedFoods}
-        onToggleSave={toggleSaveFood}
-        recipes={recipes}
-        onSaveRecipe={saveRecipe}
-        onDeleteRecipe={deleteRecipe}
-      />
-
-      {/* ── Food detail modal ── */}
-      {selectedItem && (
-        <FoodDetailModal
-          item={selectedItem}
-          mealTime={selectedMealTime}
-          onClose={() => setSelectedItem(null)}
-          onLog={logItem}
-          userId={session.user.id}
-          isSaved={isFoodSaved(selectedItem)}
-          onToggleSave={toggleSaveFood}
-        />
-      )}
-
-      {/* ── Meal edit modal ── */}
-      {editingMeal && (
-        <MealEditModal
-          meal={editingMeal}
-          allMeals={meals}
-          onClose={() => setEditingMeal(null)}
-          onUpdate={updateMeal}
-          onDelete={deleteItem}
-          onMove={moveMealTime}
-          onCombine={combineMeals}
-          isSaved={isFoodSaved({
-            food_name:  editingMeal.name,
-            brand_name: editingMeal.restaurant,
-          })}
-          onToggleSave={() => toggleSaveFood({
-            food_name:             editingMeal.name,
-            brand_name:            editingMeal.restaurant,
-            nf_calories:           editingMeal.calories,
-            nf_protein:            editingMeal.protein,
-            nf_total_carbohydrate: editingMeal.carbs,
-            nf_total_fat:          editingMeal.fat,
-          })}
-        />
-      )}
+      {loggingOverlays}
 
     </div>
   )
