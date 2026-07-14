@@ -8,6 +8,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
 import { apiFetch } from '../lib/apiFetch'
 import { capture } from '../analytics'
+import { ensurePushRegistration } from '../lib/pushTokens'
 
 function toLocalDateStr(date) {
   const d = new Date(date)
@@ -235,6 +236,14 @@ export default function Today({ session }) {
     const t = setInterval(() => setNowMs(Date.now()), 1000)
     return () => clearInterval(t)
   }, [windowOpen])
+
+  // ── Device push registration ──────────────────────────────────────────────
+  // Ask for notification permission only once a brief exists — the user can
+  // see what pushes are for. Native only; degrades silently (Phase 1 stores
+  // tokens, Phase 2 delivers via APNs).
+  useEffect(() => {
+    if (data?.brief && session?.user?.id) ensurePushRegistration(session.user.id)
+  }, [data?.brief, session?.user?.id])
 
   // ── Mark the visible brief opened (once per brief) ────────────────────────
   useEffect(() => {
